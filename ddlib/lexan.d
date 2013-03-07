@@ -4,33 +4,25 @@ import std.regex;
 import std.ascii;
 // TODO: make sure LexicalAnalyser works with UTF-8 Unicode
 
-enum MatchType {bracketed, literal, regularExpression};
+enum MatchType {literal, regularExpression};
 
 class TokenSpec {
     immutable string name;
     immutable MatchType matchType;
     union {
         immutable string pattern;
-        immutable string[2] bracket;
         Regex!char re;
     }
 
-    this(string nm, string[] defs...)
-    in {
-        assert(defs.length == 1 || defs.length == 2);
-    }
+    this(string nm, string specdef)
     body {
         name = nm;
-        if (defs.length > 1) {
-            matchType = MatchType.bracketed;
-            bracket[0] = defs[0];
-            bracket[1] = defs[1];
-        } else if (defs[0][0] == '"' && defs[0][$ - 1] == '"') {
+        if (specdef[0] == '"' && specdef[$ - 1] == '"') {
             matchType = MatchType.literal;
-            pattern = defs[0][1 .. $ - 1];
+            pattern = specdef[1 .. $ - 1];
         } else {
             matchType = MatchType.regularExpression;
-            re =  regex("^" ~ defs[0]);
+            re =  regex("^" ~ specdef);
         }
     }
 }
@@ -44,10 +36,6 @@ unittest {
     assert(ts.name == "TESTRE");
     assert(ts.matchType == MatchType.regularExpression);
     assert(!ts.re.empty);
-    ts = new TokenSpec("BRACKET", "%{", "%}");
-    assert(ts.name == "BRACKET");
-    assert(ts.matchType == MatchType.bracketed);
-    assert(ts.bracket[0] == "%{" && ts.bracket[1] == "%}");
 }
 
 class LiteralMatchNode {
@@ -212,14 +200,10 @@ class LexicalAnalyser {
 
     this(TokenSpec[] tokenSpecs) {
         literalMatcher = new LiteralMatcher;
-        auto bcnt = 0;
         auto lcnt = 0;
         auto recnt = 0;
         foreach (ts; tokenSpecs) {
-            if (ts.matchType == MatchType.bracketed) {
-                bracketedTokenSpecs ~= ts;
-                bcnt++;
-            } else if (ts.matchType == MatchType.literal) {
+            if (ts.matchType == MatchType.literal) {
                 literalTokenSpecs[ts.pattern] = ts;
                 literalMatcher.add_literal(ts.pattern);
                 lcnt++;
@@ -228,7 +212,6 @@ class LexicalAnalyser {
                 recnt++;
             }
         }
-        assert(bcnt == bracketedTokenSpecs.length);
         assert(lcnt == literalTokenSpecs.length);
         assert(recnt == regexTokenSpecs.length);
     }
@@ -244,19 +227,6 @@ class LexicalAnalyser {
         while (index < inputText.length) {
             // The reported location is for the first character of the match
             auto location = charLocationData.get_char_location(index);
-
-            // bracketed text takes precedence
-            foreach (ts; bracketedTokenSpecs) {
-                if (inputText[index .. index + ts.bracket[0].length] == ts.bracket[0]) {
-                    for (auto j = index + ts.bracket[0].length; j < inputText.length - ts.bracket[1].length + 1; j++) {
-                        if (inputText[j .. j + ts.bracket[1].length] == ts.bracket[1]) {
-                            auto mt = inputText[index .. j + ts.bracket[1].length];
-                            index += mt.length;
-                            return new MatchResult(ts, mt, location);
-                        }
-                    }
-                }
-            }
 
             // Find longest match found by literal match or regex
             auto llm = literalMatcher.get_longest_match(inputText, index);
@@ -300,8 +270,8 @@ unittest {
     TokenSpec[] tslist = [
         new TokenSpec("IF", "\"if\""),
         new TokenSpec("IDENT", "[a-zA-Z]+[\\w_]*"),
-        new TokenSpec("BTEXTL", "&{", "&}"),
-        new TokenSpec("PRED", "?{", "?}"),
+        new TokenSpec("BTEXTL", r"&\{(.|[\n\r])*&\}"),
+        new TokenSpec("PRED", r"\?\{(.|[\n\r])*\?\}"),
         new TokenSpec("COMMENT", r"(/\*(.|[\n\r])*?\*/)"),
         new TokenSpec("EOLCOMMENT", "(//[^\n\r]*)"),
         new TokenSpec("LITERAL", "(\"\\S+\")"),
