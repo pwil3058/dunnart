@@ -200,6 +200,7 @@ class MatchResult {
     }
 }
 
+// TODO: add a mechanism for enabling/disabling TokenSpecs at runtime
 class LexicalAnalyser {
     private LiteralMatcher literalMatcher;
     private TokenSpec[] bracketedTokenSpecs;
@@ -299,9 +300,14 @@ unittest {
     TokenSpec[] tslist = [
         new TokenSpec("IF", "\"if\""),
         new TokenSpec("IDENT", "[a-zA-Z]+[\\w_]*"),
-        new TokenSpec("LITERAL", "(\"[a-zA-Z]+[\\w_]*\")"),
         new TokenSpec("BTEXTL", "&{", "&}"),
         new TokenSpec("PRED", "?{", "?}"),
+        new TokenSpec("COMMENT", r"(/\*(.|[\n\r])*?\*/)"),
+        new TokenSpec("EOLCOMMENT", "(//[^\n\r]*)"),
+        new TokenSpec("LITERAL", "(\"\\S+\")"),
+        new TokenSpec("ACTION", r"(!\{(.|[\n\r])*?!\})"),
+        new TokenSpec("PREDICATE", r"(\?\((.|[\n\r])*?\?\))"),
+        new TokenSpec("CODE", r"(%\{(.|[\n\r])*?%\})"),
     ];
     auto la = new LexicalAnalyser(tslist);
     la.set_input_text("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
@@ -328,4 +334,44 @@ unittest {
     m = la.advance();
     assert(m.tokenSpec.name == "PRED" && m.matchedText == "?{on?}" && m.location.lineNumber == 4);
     assert(la.advance() is null);
+    la.set_input_text("
+    some identifiers
+// a single line comment with \"quote\"
+some more identifiers.
+/* a
+multi line
+comment */
+
+\"+=\" and more ids.
+\"\"\"
+and an action !{ some D code !} and a predicate ?( a boolean expression ?)
+and some included code %{
+    kllkkkl
+    hl;ll
+%}
+");
+    m = la.advance();
+    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "some" && m.location.lineNumber == 2);
+    m = la.advance();
+    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "identifiers" && m.location.lineNumber == 2);
+    m = la.advance();
+    assert(m.tokenSpec.name == "EOLCOMMENT" && m.matchedText == "// a single line comment with \"quote\"" && m.location.lineNumber == 3);
+    m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
+    assert(m.tokenSpec is null);
+    m = la.advance();
+    assert(m.tokenSpec.name == "COMMENT" && m.matchedText == "/* a\nmulti line\ncomment */" && m.location.lineNumber == 5);
+    m = la.advance();
+    assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"+=\"" && m.location.lineNumber == 9);
+    m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
+    m = la.advance();
+    assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"\"\"" && m.location.lineNumber == 10);
+    m = la.advance(); m = la.advance(); m = la.advance();
+    m = la.advance();
+    assert(m.tokenSpec.name == "ACTION" && m.matchedText == "!{ some D code !}" && m.location.lineNumber == 11);
+    m = la.advance(); m = la.advance(); m = la.advance();
+    m = la.advance();
+    assert(m.tokenSpec.name == "PREDICATE" && m.matchedText == "?( a boolean expression ?)" && m.location.lineNumber == 11);
+    m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
+    m = la.advance();
+    assert(m.tokenSpec.name == "CODE" && m.matchedText == "%{\n    kllkkkl\n    hl;ll\n%}" && m.location.lineNumber == 12);
 }
