@@ -1,0 +1,48 @@
+// dunnart specification for dunnart grammar specification language
+
+%field  string nnString
+
+%token  <nnString>  REGEX           (\(\S+\))
+%token  <nnString>  LITERAL         ("\S+")
+%token              COMMENT         (/\*(.|[\n\r])*?\*/)
+%token              EOLCOMMENT      (//[^\n\r]*)
+%token              TOKEN           "%token"
+%token              FIELD           "%field"
+%token              LEFT            "%left"
+%token              RIGHT           "%right"
+%token              NONASSOC        "%nonassoc"
+%token              PRECEDENCE      "%prec"
+%token              IGNORE          "%ignore"
+%token              NEWSECTION      "%%"
+%token  <nnString>  IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
+%token  <nnString>  FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
+%token  <nnString>  ACTION          (!\{(.|[\n\r])*?!\})
+
+%%
+specification: declarations "%%" production_rules.
+
+declarations : declaration
+    | declarations declaration.
+
+declaration: token_declaration
+    | precedence_declaration
+    | field_declaration
+    | ignore_declaration.
+
+token_declaration: "%token" token_name pattern !{ set symbol's pattern !} 
+    | "%token" FIELDNAME token_name pattern !{ set symbol's pattern and field name !}.
+
+token_name: IDENT ?( $1 in token symbol database ?) !{ ABORT !}
+    | IDENT !{ add to token symbol database !}.
+
+pattern: REGEX | LITERAL.
+
+precedent_declaration: "%left" tag_list !{ set associativity and precedence of tags an bump precedence !}
+    | "%right" tag_list !{ set associativity and precedence of tags an bump precedence !}
+    | "%nonassoc" tag_list !{ set associativity and precedence of tags an bump precedence !}.
+
+tag_list: tag !{ $$ = [tag] !}
+    | tag_list tag !{ $1 ~= tag !}.
+
+tag: IDENT ?( $1 in token symbol database ?)
+    | IDENT !{ add to miscellaneous symbol database !}.
