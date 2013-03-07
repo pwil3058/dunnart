@@ -15,7 +15,7 @@ class TokenSpec {
     }
 
     this(string nm, string specdef)
-    body {
+    {
         name = nm;
         if (specdef[0] == '"' && specdef[$ - 1] == '"') {
             matchType = MatchType.literal;
@@ -42,7 +42,8 @@ class LiteralMatchNode {
     bool validMatch;
     LiteralMatchNode[char] tails;
 
-    this(string str) {
+    this(string str)
+    {
         validMatch = str.length == 0;
         if (!validMatch) {
             tails[str[0]] = new LiteralMatchNode(str[1 .. $]);
@@ -50,7 +51,8 @@ class LiteralMatchNode {
     }
 
     void
-    add_tail(string new_tail) {
+    add_tail(string new_tail)
+    {
         if (new_tail.length == 0) {
             validMatch = true;
         } else if (new_tail[0] in tails) {
@@ -183,7 +185,8 @@ class MatchResult {
     }
 
     @property bool
-    is_valid_token() {
+    is_valid_token()
+    {
         return tokenSpec !is null;
     }
 }
@@ -198,7 +201,8 @@ class LexicalAnalyser {
     private size_t index;
     private CharLocationData charLocationData;
 
-    this(TokenSpec[] tokenSpecs) {
+    this(TokenSpec[] tokenSpecs)
+    {
         literalMatcher = new LiteralMatcher;
         auto lcnt = 0;
         auto recnt = 0;
@@ -217,13 +221,16 @@ class LexicalAnalyser {
     }
 
     void
-    set_input_text(string text) {
+    set_input_text(string text)
+    {
         inputText = text;
         index = 0;
         charLocationData = new CharLocationData(text);
     }
 
-    MatchResult advance() {
+    MatchResult
+    advance()
+    {
         while (index < inputText.length) {
             // The reported location is for the first character of the match
             auto location = charLocationData.get_char_location(index);
