@@ -11,7 +11,7 @@ class TokenSpec {
     immutable MatchType matchType;
     union {
         immutable string pattern;
-        Regex!char re;
+        Regex!(char) re;
     }
 
     this(string nm, string specdef)
@@ -200,8 +200,9 @@ class LexicalAnalyser {
     private string inputText;
     private size_t index;
     private CharLocationData charLocationData;
+    private Regex!(char)[] skipReList;
 
-    this(TokenSpec[] tokenSpecs)
+    this(TokenSpec[] tokenSpecs, string[] skipPatterns = [])
     {
         literalMatcher = new LiteralMatcher;
         auto lcnt = 0;
@@ -215,6 +216,9 @@ class LexicalAnalyser {
                 regexTokenSpecs ~= ts;
                 recnt++;
             }
+        }
+        foreach (skipPat; skipPatterns) {
+            skipReList ~= regex("^" ~ skipPat);
         }
         assert(lcnt == literalTokenSpecs.length);
         assert(recnt == regexTokenSpecs.length);
@@ -231,7 +235,16 @@ class LexicalAnalyser {
     MatchResult
     advance()
     {
-        while (index < inputText.length) {
+        mainloop: while (index < inputText.length) {
+            // skips have highest priority
+            foreach (skipRe; skipReList) {
+                auto m = match(inputText[index .. $], skipRe);
+                if (!m.empty) {
+                    index += m.hit.length;
+                    continue mainloop;
+                }
+            }
+
             // The reported location is for the first character of the match
             auto location = charLocationData.get_char_location(index);
 
@@ -255,15 +268,8 @@ class LexicalAnalyser {
             } else if (lrem.length) {
                 index += lrem.length;
                 return new MatchResult(lremts, lrem, location);
-            } else if (newline == inputText[index .. index + newline.length]) {
-                // We do white space and new line skipping last so that
-                // rules can catch them if required
-                index += newline.length;
-                continue;
-            } else if (isWhite(inputText[index])) {
-                index += 1;
-                continue;
             } else {
+                // Failure: send back the offending character and its location
                 index += 1;
                 return new MatchResult(inputText[index - 1 .. index], location);
             }
@@ -279,14 +285,17 @@ unittest {
         new TokenSpec("IDENT", "[a-zA-Z]+[\\w_]*"),
         new TokenSpec("BTEXTL", r"&\{(.|[\n\r])*&\}"),
         new TokenSpec("PRED", r"\?\{(.|[\n\r])*\?\}"),
-        new TokenSpec("COMMENT", r"(/\*(.|[\n\r])*?\*/)"),
-        new TokenSpec("EOLCOMMENT", "(//[^\n\r]*)"),
         new TokenSpec("LITERAL", "(\"\\S+\")"),
         new TokenSpec("ACTION", r"(!\{(.|[\n\r])*?!\})"),
         new TokenSpec("PREDICATE", r"(\?\((.|[\n\r])*?\?\))"),
         new TokenSpec("CODE", r"(%\{(.|[\n\r])*?%\})"),
     ];
-    auto la = new LexicalAnalyser(tslist);
+    string[] skiplist = [
+        r"(/\*(.|[\n\r])*?\*/)", // D multi line comment
+        r"(//[^\n\r]*)", // D EOL comment
+        r"(\s+)", // White space
+    ];
+    auto la = new LexicalAnalyser(tslist, skiplist);
     la.set_input_text("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
     MatchResult m = la.advance();
     assert(m.tokenSpec.name == "IF" && m.matchedText == "if" && m.location.lineNumber == 1);
@@ -331,12 +340,8 @@ and some included code %{
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "some" && m.location.lineNumber == 2);
     m = la.advance();
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "identifiers" && m.location.lineNumber == 2);
-    m = la.advance();
-    assert(m.tokenSpec.name == "EOLCOMMENT" && m.matchedText == "// a single line comment with \"quote\"" && m.location.lineNumber == 3);
     m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
     assert(m.tokenSpec is null);
-    m = la.advance();
-    assert(m.tokenSpec.name == "COMMENT" && m.matchedText == "/* a\nmulti line\ncomment */" && m.location.lineNumber == 5);
     m = la.advance();
     assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"+=\"" && m.location.lineNumber == 9);
     m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
