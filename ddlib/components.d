@@ -1,6 +1,10 @@
 module ddlib.components;
 
+alias uint ParserState;
+ParserState startState = 0;
+
 alias uint SymbolId;
+enum SpecialSymbols : SymbolId { start, end, lexError, parseError };
 
 alias uint ProductionId;
 
@@ -10,13 +14,16 @@ struct ParseAction {
     ParseActionType action;
     union {
         ProductionId productionId;
-        uint next_state;
+        ParserState next_state;
     }
 }
 
-class ProductionData(A) {
-    uint id;
+struct ProductionData {
     SymbolId leftHandSide;
     size_t length;
-    abstract void do_semantic_action(ref A ddLhsAttr, const A[] ddArgs);
+} 
+
+struct TokenData {
+    SymbolId symbolId;
+    string fieldId;
 }

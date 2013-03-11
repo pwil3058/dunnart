@@ -5,7 +5,7 @@ import ddlib.lexan;
 
 struct StackElement {
     SymbolId symbolId;
-    uint state;
+    ParserState state;
 }
 
 class LALRParser(A) {
@@ -24,20 +24,21 @@ class LALRParser(A) {
         return stackLength - 1;
     }
 
-    private @property uint
+    private @property ParserState
     currentState()
     {
         return stateStack[stackIndex].state;
     }
 
     private void
-    incr_stack_index()
+    push(SymbolId symbolId, ParserState state)
     {
         stackLength += 1;
         if (stackLength >= stateStack.length) {
             stateStack ~= new StackElement[STACK_LENGTH_INCR];
             attrStack ~= new A[STACK_LENGTH_INCR];
         }
+        stateStack[stackIndex] = StackElement(symbolId, state);
     }
 
     private A[]
@@ -48,10 +49,9 @@ class LALRParser(A) {
     }
 
     void
-    do_shift(uint to_state)
+    do_shift(ParserState to_state)
     {
-        incr_stack_index();
-        stateStack[stackIndex] = StackElement(currentToken, to_state);
+        push(currentToken, to_state);
         shifted = true;
         attrStack[stackIndex] = currentTokenAttributes;
         get_next_token();
@@ -63,9 +63,8 @@ class LALRParser(A) {
         auto productionData = get_production_data(productionId);
         auto attrs = pop(productionData.length);
         auto nextState = get_goto_state(productionData.leftHandSide, currentState);
-        incr_stack_index();
-        stateStack[stackIndex] = StackElement(productionData.leftHandSide, nextState);
-        productionData.do_semantic_action(&attrStack[stackIndex], attrs);
+        push(productionData.leftHandSide, nextState);
+        do_semantic_action(productionId, attrs);
     }
 
     bool
@@ -73,7 +72,7 @@ class LALRParser(A) {
     {
         stackLength = 0;
         lexicalAnalyser.set_input_text(text);
-        do_shift(SpecialSymbols.start, 0);
+        push(SpecialSymbols.start, startState);
         while (true) {
             auto next_action = get_next_action(currentState, currentToken);
             final switch (next_action.action) {
@@ -105,7 +104,7 @@ class LALRParser(A) {
     {
         auto mr = lexicalAnalyser.advance();
         if (mr.tokenSpec is null) {
-            // throw a wobbly
+            // TODO: throw a wobbly
         } else {
             auto tokenData = get_token_data(mr.tokenSpec.name);
             currentToken = tokenData.symbolId;
@@ -119,10 +118,32 @@ class LALRParser(A) {
     }
 
     abstract void set_attribute_value(ref A attrs, string fieldId, string text);
-    abstract ProductionData get_production_data(uint productionId);
+    abstract ProductionData get_production_data(ProductionId productionId);
+    abstract ParserState get_goto_state(SymbolId symbolId, ParserState state) { return 10; };
+    abstract void do_semantic_action(ProductionId productionId, const A[] attrs);
+    abstract ParseAction get_next_action(ParserState state, SymbolId symbolId);
+    abstract TokenData get_token_data(string tokenName);
 }
 
 unittest {
-    auto parser = new LALRParser!int;
+    struct Attr {
+        CharLocation ddLocation;
+        string ddString;
+        union {
+            int _int;
+            bool _bool;
+        }
+    }
+
+    class TestParser: LALRParser!Attr {
+        override void set_attribute_value(ref Attr attrs, string fieldId, string text) {}
+        override ProductionData get_production_data(ProductionId productionId) { return ProductionData(2, 3); }
+        override ParserState get_goto_state(SymbolId symbolId, ParserState state) { return 10; }
+        override void do_semantic_action(ProductionId productionId, const Attr[] attrs) {}
+        override ParseAction get_next_action(ParserState state, SymbolId symbolId) { return ParseAction(ParseActionType.shift, 3); }
+        override TokenData get_token_data(string tokenName) { return TokenData(12, ""); }
+    }
+
+    auto parser = new TestParser;
     //parser.parse_text("text");
 }
