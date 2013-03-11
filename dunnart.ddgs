@@ -1,48 +1,156 @@
 // dunnart specification for dunnart grammar specification language
 
-%field  string nnString
+%{
+import ddlib.components;
 
-%token  <nnString>  REGEX           (\(\S+\))
-%token  <nnString>  LITERAL         ("\S+")
-%token              COMMENT         (/\*(.|[\n\r])*?\*/)
-%token              EOLCOMMENT      (//[^\n\r]*)
+string preamble;
+
+TokenSymbol[string] tokens; // indexed by token name
+TokenSymbol[string] literalTokens; // indexed by literal string
+TokenSymbol[string] skippedTokens; // indexed by name
+AttributedSymbol[string] miscellaneousTags; // indexed by name
+FieldDefinition[string] fieldDefinitions; // indexed by name
+string[] skipList;
+
+auto currentPrecedence = uint.max;
+alias string[] TagList;
+%}
+
+%field  string stringFld
+%field  TagList tagList;
+
+%token  <stringFld> REGEX           (\(\S+\))
+%token  <stringFld> LITERAL         ("\S+")
 %token              TOKEN           "%token"
 %token              FIELD           "%field"
 %token              LEFT            "%left"
 %token              RIGHT           "%right"
 %token              NONASSOC        "%nonassoc"
 %token              PRECEDENCE      "%prec"
-%token              IGNORE          "%ignore"
+%token              SKIP            "%skip"
+%token              ddERROR         "%error"
 %token              NEWSECTION      "%%"
-%token  <nnString>  IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
-%token  <nnString>  FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
-%token  <nnString>  ACTION          (!\{(.|[\n\r])*?!\})
+%token  <stringFld> IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
+%token  <stringFld> FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
+%token  <stringFld> ACTION          (!\{(.|[\n\r])*?!\})
+%token  <stringFld> DCODE           (%\{(.|[\n\r])*?%\})
+
+%skip (/\*(.|[\n\r])*?\*/)
+%skip (//[^\n\r]*)
+%skip (\s+)
 
 %%
-specification: declarations "%%" production_rules.
+specification: preamble definitions "%%" production_rules.
 
-declarations : declaration
-    | declarations declaration.
+preamble: !{ \\ do nothing !}
+    | DCODE !{ preamble = $1.stringFld[2 .. $ - 2]. !}
+    .
 
-declaration: token_declaration
-    | precedence_declaration
-    | field_declaration
-    | ignore_declaration.
+definitions : definition
+    | definitions definition
+    .
 
-token_declaration: "%token" token_name pattern !{ set symbol's pattern !} 
-    | "%token" FIELDNAME token_name pattern !{ set symbol's pattern and field name !}.
+definition: token_definition
+    | precedence_definition
+    | field_definition
+    | skip_definition
+    .
 
-token_name: IDENT ?( $1 in token symbol database ?) !{ ABORT !}
-    | IDENT !{ add to token symbol database !}.
+token_definition: "%token" token_name pattern !{ tokens[$2.stringFld].pattern = $3.stringFld; !} 
+    | "%token" FIELDNAME token_name pattern
+        !{
+            tokens[$3.stringFld].pattern = $4.stringFld;
+            tokens[$3.stringFld].valueField = $2.stringFld[1 .. $ - 1];
+        !}
+    .
+
+token_name: IDENT ?( $1.stringFld in tokens || $1.stringFld in tokens in miscellaneousTags ?)
+        !{
+            auto previous = ($1.stringFld in tokens) ? tokens[$1.stringFld].declaredAt : miscellaneousTags[$1.stringFld].declaredAt;
+            abort("already declared.", previous);
+        !}
+    | IDENT !{ tokens[$1.stringFld] = new TokenSymbol($1.stringFld); !}
+    .
 
 pattern: REGEX | LITERAL.
 
-precedent_declaration: "%left" tag_list !{ set associativity and precedence of tags an bump precedence !}
-    | "%right" tag_list !{ set associativity and precedence of tags an bump precedence !}
-    | "%nonassoc" tag_list !{ set associativity and precedence of tags an bump precedence !}.
+precedent_definition: "%left" tag_list
+        !{
+            foreach (tag; $2.tagList) {
+                auto symbol = (tag.stringFld in tokens) ? tokens[tag.stringFld] : miscellaneousTags[tag.stringFld];
+                symbol.associativity = Associativity.left;
+                symbol.precedence = currentPrecedence;
+            }
+            currentPrecedence--;
+        !}
+    | "%right" tag_list
+        !{
+            foreach (tag; $2.tagList) {
+                auto symbol = (tag.stringFld in tokens) ? tokens[tag.stringFld] : miscellaneousTags[tag.stringFld];
+                symbol.associativity = Associativity.right;
+                symbol.precedence = currentPrecedence;
+            }
+            currentPrecedence--;
+        !}
+    | "%nonassoc" tag_list
+        !{
+            foreach (tag; $2.tagList) {
+                auto symbol = (tag.stringFld in tokens) ? tokens[tag.stringFld] : miscellaneousTags[tag.stringFld];
+                symbol.associativity = Associativity.nonassoc;
+                symbol.precedence = currentPrecedence;
+            }
+            currentPrecedence--;
+        !}
+    .
 
-tag_list: tag !{ $$ = [tag] !}
-    | tag_list tag !{ $1 ~= tag !}.
+tag_list: tag !{ $$.tagList = [tag.stringFld] !}
+    | tag_list tag !{ $1.tagList ~= tag.stringFld !}
+    .
 
-tag: IDENT ?( $1 in token symbol database ?)
-    | IDENT !{ add to miscellaneous symbol database !}.
+tag: IDENT ?( $1.stringFld in tokens || $1.stringFld in tokens in miscellaneousTags ?) // Nothing to do
+    | IDENT !{ miscellaneousTags[$1.stringFld] = new AttributedSymbol($1.stringFld); !}
+    .
+
+field_definition: "$field" fieldType fieldName
+        !{
+            if ($3.stringFld in fieldDefinitions) {
+                auto previous = fieldDefinitions[$3.stringFld].declaredAt;
+                abort("already declared.", previous);
+            }
+            fieldDefinitions[$3.stringFld] = new FieldDefinition($3.stringFld, $2.stringFld);
+        !}
+    | "$field" fieldType fieldName fieldConversionFunction
+        !{
+            if ($3.stringFld in fieldDefinitions) {
+                auto previous = fieldDefinitions[$3.stringFld].declaredAt;
+                abort("already declared.", previous);
+            }
+            fieldDefinitions[$3.stringFld] = new FieldDefinition($3.stringFld, $2.stringFld, $4.stringFld);
+        !}
+    .
+
+skip_definition: "$skip" REGEX !{ skipList ~= $1.stringFld; !}.
+
+production_rules: production_list
+    | production_rules production_list
+    .
+
+production_list: left_hand_side ":" right_hand_side_list "."
+
+right_hand_sides_list: right_hand_side !{ $$.rhsList = [$1.rhs]; !}
+    | right_hand_sides_list "|" right_hand_side !{ $$.rhsList = [$1].rhsList ~ [$3.rhs]; !}
+    .
+
+right_hand_side: ACTION
+    | symbol_list ACTION
+    | symbol_list PREDICATE ACTION
+    | symbol_list PREDICATE
+    .
+
+symbol_list: symbol
+    | symbol_list symbol
+    .
+
+symbol: IDENT | LITERAL | "%error" .
+
+left_hand_side: IDENT.
