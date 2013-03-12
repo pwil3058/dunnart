@@ -103,9 +103,7 @@ class LALRParser(A) {
     get_next_token()
     {
         auto mr = lexicalAnalyser.advance();
-        if (mr.tokenSpec is null) {
-            // TODO: throw a wobbly
-        } else {
+        if (mr.is_valid_token) {
             auto tokenData = get_token_data(mr.tokenSpec.name);
             currentToken = tokenData.symbolId;
             currentTokenAttributes.ddLocation = mr.location;
@@ -114,6 +112,10 @@ class LALRParser(A) {
             } else {
                 currentTokenAttributes.ddString = mr.matchedText;
             }
+        } else {
+            currentToken = SpecialSymbols.lexError;
+            currentTokenAttributes.ddLocation = mr.location;
+            currentTokenAttributes.ddString = mr.matchedText;
         }
     }
 
