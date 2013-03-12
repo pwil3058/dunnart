@@ -2,38 +2,34 @@
 
 %{
 import ddlib.components;
+import symbols; // This is only because we're bootstrapping
 
 string preamble;
 
-TokenSymbol[string] tokens; // indexed by token name
-TokenSymbol[string] literalTokens; // indexed by literal string
-TokenSymbol[string] skippedTokens; // indexed by name
-AttributedSymbol[string] miscellaneousTags; // indexed by name
-FieldDefinition[string] fieldDefinitions; // indexed by name
-string[] skipList;
+SymbolManager sm;
 
-auto currentPrecedence = uint.max;
 alias string[] TagList;
 %}
 
-%field  string stringFld
+%field  Symbol symbol
 %field  TagList tagList;
 
-%token  <stringFld> REGEX           (\(\S+\))
-%token  <stringFld> LITERAL         ("\S+")
-%token              TOKEN           "%token"
-%token              FIELD           "%field"
-%token              LEFT            "%left"
-%token              RIGHT           "%right"
-%token              NONASSOC        "%nonassoc"
-%token              PRECEDENCE      "%prec"
-%token              SKIP            "%skip"
-%token              ddERROR         "%error"
-%token              NEWSECTION      "%%"
-%token  <stringFld> IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
-%token  <stringFld> FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
-%token  <stringFld> ACTION          (!\{(.|[\n\r])*?!\})
-%token  <stringFld> DCODE           (%\{(.|[\n\r])*?%\})
+%token  REGEX           (\(\S+\))
+%token  LITERAL         ("\S+")
+%token  TOKEN           "%token"
+%token  FIELD           "%field"
+%token  LEFT            "%left"
+%token  RIGHT           "%right"
+%token  NONASSOC        "%nonassoc"
+%token  PRECEDENCE      "%prec"
+%token  SKIP            "%skip"
+%token  ERROR           "%error"
+%token  LEXERROR        "%lexerror"
+%token  NEWSECTION      "%%"
+%token  IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
+%token  FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
+%token  ACTION          (!\{(.|[\n\r])*?!\})
+%token  DCODE           (%\{(.|[\n\r])*?%\})
 
 %skip (/\*(.|[\n\r])*?\*/)
 %skip (//[^\n\r]*)
@@ -43,7 +39,7 @@ alias string[] TagList;
 specification: preamble definitions "%%" production_rules.
 
 preamble: !{ \\ do nothing !}
-    | DCODE !{ preamble = $1.stringFld[2 .. $ - 2]. !}
+    | DCODE !{ preamble = $1.ddString[2 .. $ - 2]. !}
     .
 
 definitions : definition
@@ -56,20 +52,21 @@ definition: token_definition
     | skip_definition
     .
 
-token_definition: "%token" token_name pattern !{ tokens[$2.stringFld].pattern = $3.stringFld; !} 
-    | "%token" FIELDNAME token_name pattern
+token_definition: "%token" new_token_name pattern
         !{
-            tokens[$3.stringFld].pattern = $4.stringFld;
-            tokens[$3.stringFld].valueField = $2.stringFld[1 .. $ - 1];
+            $$.symbol = sm.new_token($2.ddString, $3.ddString, $2.ddLocation);
+        !} 
+    | "%token" FIELDNAME new_token_name pattern
+        !{
+            $$.symbol = sm.new_token($3.ddString, $4.ddString, $3.ddLocation, $2.ddString[1 .. $ - 1]);
         !}
     .
 
-token_name: IDENT ?( $1.stringFld in tokens || $1.stringFld in tokens in miscellaneousTags ?)
+new_token_name: IDENT ?( sm.is_known_symbol($1.ddString) ?)
         !{
-            auto previous = ($1.stringFld in tokens) ? tokens[$1.stringFld].declaredAt : miscellaneousTags[$1.stringFld].declaredAt;
-            abort("already declared.", previous);
+            abort("already declared.", sm.get_declaration_point($1.ddString));
         !}
-    | IDENT !{ tokens[$1.stringFld] = new TokenSymbol($1.stringFld); !}
+    | IDENT
     .
 
 pattern: REGEX | LITERAL.
@@ -77,7 +74,7 @@ pattern: REGEX | LITERAL.
 precedent_definition: "%left" tag_list
         !{
             foreach (tag; $2.tagList) {
-                auto symbol = (tag.stringFld in tokens) ? tokens[tag.stringFld] : miscellaneousTags[tag.stringFld];
+                auto symbol = (tag.ddString in tokens) ? tokens[tag.ddString] : miscellaneousTags[tag.ddString];
                 symbol.associativity = Associativity.left;
                 symbol.precedence = currentPrecedence;
             }
@@ -86,7 +83,7 @@ precedent_definition: "%left" tag_list
     | "%right" tag_list
         !{
             foreach (tag; $2.tagList) {
-                auto symbol = (tag.stringFld in tokens) ? tokens[tag.stringFld] : miscellaneousTags[tag.stringFld];
+                auto symbol = (tag.ddString in tokens) ? tokens[tag.ddString] : miscellaneousTags[tag.ddString];
                 symbol.associativity = Associativity.right;
                 symbol.precedence = currentPrecedence;
             }
@@ -95,7 +92,7 @@ precedent_definition: "%left" tag_list
     | "%nonassoc" tag_list
         !{
             foreach (tag; $2.tagList) {
-                auto symbol = (tag.stringFld in tokens) ? tokens[tag.stringFld] : miscellaneousTags[tag.stringFld];
+                auto symbol = (tag.ddString in tokens) ? tokens[tag.ddString] : miscellaneousTags[tag.ddString];
                 symbol.associativity = Associativity.nonassoc;
                 symbol.precedence = currentPrecedence;
             }
@@ -103,33 +100,29 @@ precedent_definition: "%left" tag_list
         !}
     .
 
-tag_list: tag !{ $$.tagList = [tag.stringFld] !}
-    | tag_list tag !{ $1.tagList ~= tag.stringFld !}
-    .
-
-tag: IDENT ?( $1.stringFld in tokens || $1.stringFld in tokens in miscellaneousTags ?) // Nothing to do
-    | IDENT !{ miscellaneousTags[$1.stringFld] = new AttributedSymbol($1.stringFld); !}
+tag_list: IDENT !{ $$.tagList = [$1.ddString] !}
+    | tag_list IDENT !{ $1.tagList ~= $1.ddString !}
     .
 
 field_definition: "$field" fieldType fieldName
         !{
-            if ($3.stringFld in fieldDefinitions) {
-                auto previous = fieldDefinitions[$3.stringFld].declaredAt;
+            if ($3.ddString in fieldDefinitions) {
+                auto previous = fieldDefinitions[$3.ddString].declaredAt;
                 abort("already declared.", previous);
             }
-            fieldDefinitions[$3.stringFld] = new FieldDefinition($3.stringFld, $2.stringFld);
+            fieldDefinitions[$3.ddString] = new FieldDefinition($3.ddString, $2.ddString);
         !}
     | "$field" fieldType fieldName fieldConversionFunction
         !{
-            if ($3.stringFld in fieldDefinitions) {
-                auto previous = fieldDefinitions[$3.stringFld].declaredAt;
+            if ($3.ddString in fieldDefinitions) {
+                auto previous = fieldDefinitions[$3.ddString].declaredAt;
                 abort("already declared.", previous);
             }
-            fieldDefinitions[$3.stringFld] = new FieldDefinition($3.stringFld, $2.stringFld, $4.stringFld);
+            fieldDefinitions[$3.ddString] = new FieldDefinition($3.ddString, $2.ddString, $4.ddString);
         !}
     .
 
-skip_definition: "$skip" REGEX !{ skipList ~= $1.stringFld; !}.
+skip_definition: "$skip" REGEX !{ skipList ~= $1.ddString; !}.
 
 production_rules: production_list
     | production_rules production_list
