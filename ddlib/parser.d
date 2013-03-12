@@ -120,7 +120,7 @@ class LALRParser(A) {
     abstract void set_attribute_value(ref A attrs, string fieldId, string text);
     abstract ProductionData get_production_data(ProductionId productionId);
     abstract ParserState get_goto_state(SymbolId symbolId, ParserState state) { return 10; };
-    abstract void do_semantic_action(ProductionId productionId, const A[] attrs);
+    abstract void do_semantic_action(ProductionId productionId, in A[] attrs);
     abstract ParseAction get_next_action(ParserState state, SymbolId symbolId);
     abstract TokenData get_token_data(string tokenName);
 }
@@ -135,11 +135,34 @@ unittest {
         }
     }
 
+    void dd_do_semantic_action(ref Attr lhs, ProductionId pid, in Attr[] args) {
+        // we need to do semantic actions outside the parsers context
+        // but in the module context
+        // this will be a giant switch
+    }
+
     class TestParser: LALRParser!Attr {
         override void set_attribute_value(ref Attr attrs, string fieldId, string text) {}
-        override ProductionData get_production_data(ProductionId productionId) { return ProductionData(2, 3); }
-        override ParserState get_goto_state(SymbolId symbolId, ParserState state) { return 10; }
-        override void do_semantic_action(ProductionId productionId, const Attr[] attrs) {}
+        override ProductionData get_production_data(ProductionId productionId) {
+            // Use giant switch statement here as can't create static
+            // as the following are not considered to be constant
+            // expressions
+            //static ProductionData[ProductionId] productionData = [
+                //0: ProductionData(2,3),
+            //];
+
+            return ProductionData(2,3);
+        }
+        override ParserState get_goto_state(SymbolId symbolId, ParserState state)
+        {
+            // Use giant switch statement here as can't create static
+            // 2 dimensional associative arrays
+            return 10;
+        }
+        override void do_semantic_action(ProductionId productionId, in Attr[] attrs)
+        {
+            dd_do_semantic_action(attrStack[stackIndex], productionId, attrs);
+        }
         override ParseAction get_next_action(ParserState state, SymbolId symbolId) { return ParseAction(ParseActionType.shift, 3); }
         override TokenData get_token_data(string tokenName) { return TokenData(12, ""); }
     }
