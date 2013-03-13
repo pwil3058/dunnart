@@ -103,23 +103,20 @@ class LALRParser(A) {
     get_next_token()
     {
         auto mr = lexicalAnalyser.advance();
+        currentTokenAttributes.ddLocation = mr.location;
+        currentTokenAttributes.ddString = mr.matchedText;
         if (mr.is_valid_token) {
             auto tokenData = get_token_data(mr.tokenSpec.name);
             currentToken = tokenData.symbolId;
-            currentTokenAttributes.ddLocation = mr.location;
-            if (tokenData.fieldId.length > 0) {
-                set_attribute_value(currentTokenAttributes, tokenData.fieldId, mr.matchedText);
-            } else {
-                currentTokenAttributes.ddString = mr.matchedText;
+            if (tokenData.fieldName.length > 0) {
+                set_attribute_value(currentTokenAttributes, tokenData.fieldName, mr.matchedText);
             }
         } else {
             currentToken = SpecialSymbols.lexError;
-            currentTokenAttributes.ddLocation = mr.location;
-            currentTokenAttributes.ddString = mr.matchedText;
         }
     }
 
-    abstract void set_attribute_value(ref A attrs, string fieldId, string text);
+    abstract void set_attribute_value(ref A attrs, string fieldName, string text);
     abstract ProductionData get_production_data(ProductionId productionId);
     abstract ParserState get_goto_state(SymbolId symbolId, ParserState state) { return 10; };
     abstract void do_semantic_action(ProductionId productionId, in A[] attrs);
@@ -137,14 +134,25 @@ unittest {
         }
     }
 
-    void dd_do_semantic_action(ref Attr lhs, ProductionId pid, in Attr[] args) {
+    void dd_do_semantic_action(ref Attr lhs, ProductionId pid, in Attr[] args)
+    {
         // we need to do semantic actions outside the parsers context
         // but in the module context
         // this will be a giant switch
     }
 
+    void dd_set_attribute_value(ref Attr attrs, string fieldName, string text)
+    {
+        // we need to do this outside the parsers context to avoid name
+        // clashes with parser internals
+    }
+
     class TestParser: LALRParser!Attr {
-        override void set_attribute_value(ref Attr attrs, string fieldId, string text) {}
+        override void set_attribute_value(ref Attr attrs, string fieldName, string text)
+        {
+            dd_set_attribute_value(attrs, fieldName, text);
+        }
+
         override ProductionData get_production_data(ProductionId productionId) {
             // Use giant switch statement here as can't create static
             // as the following are not considered to be constant

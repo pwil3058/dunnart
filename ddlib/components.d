@@ -25,5 +25,11 @@ struct ProductionData {
 
 struct TokenData {
     SymbolId symbolId;
-    string fieldId;
+    string fieldName;
+}
+
+struct FieldDefinition {
+    string fieldName;
+    string fieldType;
+    string conversionFunctionName;
 }
