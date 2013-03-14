@@ -5,16 +5,35 @@ import std.string;
 
 import ddlib.components;
 import symbols; // This is only because we're bootstrapping
+import grammar; // This is only because we're bootstrapping
 
 string preamble;
 
 SymbolTable symbolTable;
 
-alias string[] TagList;
+alias string Tag;
+alias Tag[] TagList;
+alias SymbolId[] SymbolIdList;
+alias Production[] ProductionList;
+
+struct ApPair {
+    Associativity assoc;
+    Precedence prec;
+}
+
+this {
+    symbolTable = new SymbolTable;
+    grammar = new GrammarSpecification(symbolTable);
+}
 %}
 
 %field  Symbol symbol
-%field  TagList tagList;
+%field  SymbolId symbolId
+%field  SymbolIdList symbolIdList
+%field  TagList tagList
+%field  ApPair apPair
+%field  Production production
+%field  ProductionList productionList;
 
 %token  REGEX           (\(\S+\))
 %token  LITERAL         ("\S+")
@@ -28,6 +47,8 @@ alias string[] TagList;
 %token  ERROR           "%error"
 %token  LEXERROR        "%lexerror"
 %token  NEWSECTION      "%%"
+%token  COLON           ":"
+%token  DOT             "."
 %token  IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
 %token  FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
 %token  ACTION          (!\{(.|[\n\r])*?!\})
@@ -79,7 +100,9 @@ new_token_name: allowable_ident ?( symbolTable.is_known_symbol($1.ddMatchString)
     | allowable_ident
     .
 
-pattern: REGEX | LITERAL.
+pattern: REGEX
+    | LITERAL
+    .
 
 precedent_definition: "%left" tag_list
         !{
@@ -99,7 +122,7 @@ tag_list: allowable_ident ?( symbolTable.is_known_tag($1.ddMatchString) ?)
         !{
             abort("already declared.", symbolTable.get_declaration_point($1.ddMatchString));
         !}
-    | allowable_ident !{ $$.tagList = new [$1.ddMatchString] !}
+    | allowable_ident !{ $$.tagList = new Tag[$1.ddMatchString] !}
     | tag_list allowable_ident !{ $1.tagList ~= $1.ddMatchString !}
     .
 
@@ -138,7 +161,14 @@ production_rules: production_list
     | production_rules production_list
     .
 
-production_list: production_list_head right_hand_side_list ".".
+production_list: production_list_head right_hand_side_list "."
+        !{
+            foreach (production; $2.productionList) {
+                production.leftHandSide = $1.symbol.id;
+                grammar.add_production(production);
+            }
+        !}
+    .
 
 production_list_head: allowable_ident ":" ?( symbolTable.is_known_token($1.ddMatchString) ?)
         !{
@@ -164,23 +194,74 @@ production_list_head: allowable_ident ":" ?( symbolTable.is_known_token($1.ddMat
         !}
     .
 
-right_hand_sides_list: right_hand_side !{ $$.rhsList = new [$1.rhs]; !}
-    | right_hand_sides_list "|" right_hand_side !{ $$.rhsList = [$1].rhsList ~ [$3.rhs]; !}
+right_hand_sides_list: right_hand_side !{ $$.productionList = new Production[$1.production]; !}
+    | right_hand_sides_list "|" right_hand_side !{ $$.productionList = [$1].productionList ~ [$3.production]; !}
     .
 
 right_hand_side: ACTION
+        !{
+            $$.production = Production(0, 0, new SymbolId[], Associativity.nonassoc, 0, "", $1.ddMatchString);
+        !}
     | symbol_list ACTION
+        !{
+            $$.production = Production(0, 0, $1.symbolIdList, Associativity.nonassoc, 0, "", $2.ddMatchString);
+        !}
     | symbol_list PREDICATE ACTION
+        !{
+            $$.production = Production(0, 0, $1.symbolIdList, Associativity.nonassoc, 0, $2.ddMatchString, $3.ddMatchString);
+        !}
     | symbol_list PREDICATE
-    | symbol_list PRECEDENCE ACTION
-    | symbol_list PREDICATE PRECEDENCE ACTION
-    | symbol_list PREDICATE PRECEDENCE
+        !{
+            $$.production = Production(0, 0, $1.symbolIdList, Associativity.nonassoc, 0, $2.ddMatchString, "");
+        !}
+    | symbol_list tagged_precedence ACTION
+        !{
+            $$.production = Production(0, 0, $1.symbolIdList, $2.assoc, $2.prec, "", $3.ddMatchString);
+        !}
+    | symbol_list PREDICATE tagged_precedence ACTION
+        !{
+            $$.production = Production(0, 0, $1.symbolIdList, $3.assoc, $3.prec, $2.ddMatchString, $4.ddMatchString);
+        !}
+    | symbol_list PREDICATE tagged_precedence
+        !{
+            $$.production = Production(0, 0, $1.symbolIdList, $3.assoc, $3.prec, $2.ddMatchString, "");
+        !}
     .
 
-symbol_list: symbol
-    | symbol_list symbol
+tagged_precedence: PRECEDENCE IDENT
+        !{
+            if (symbolTable.is_known_tag($2.ddMatchSring)) {
+                auto tag = get_symbol($2.ddMatchSring, $2.ddLocation);
+                $$.apPair = ApPair(tag.associativity, tag.precedence);
+            } else if (symbolTable.is_known_token($2.ddMatchSring)) {
+                // This doesn't count as a reference for tokens
+                auto token = get_symbol($2.ddMatchSring);
+                $$.apPair = ApPair(tag.associativity, tag.precedence);
+            } else {
+                auto msg = format("%s: unknown precedence tag", $2.ddMatchString);
+                abort(msg, $2.ddLocation);
+            }
+        !}
     .
 
-symbol: allowable_ident | LITERAL | "%error" .
+symbol_list: symbol !{ $$.symbolIdList = new SymbolId[$1.symbolId]; !}
+    | symbol_list symbol !{ $$.symbolIdList = $1.symbolIdList ~ $2.symbolId; !}
+    .
 
-left_hand_side: allowable_ident.
+symbol: allowable_ident
+        !{
+            auto symbol = symbolTable.get_symbol($1.ddMatchText, $1.ddLocation, true);
+            $$.symbolId = symbol.id;
+        !}
+    | LITERAL
+        !{
+            auto symbol = symbolTable.get_literal_token($1.ddMatchText, $1.ddLocation);
+            if (symbol is null) {
+                auto msg = format("%s: unknown literal token", $1.ddMatchString);
+                abort(msg, $1.ddLocation);
+            }
+            $$.symbolId = symbol.id;
+        !}
+    | "%error" !{ $$.symbolId = SpecialSymbols.parseError; !}
+    | "%lexerror" !{ $$.symbolId = SpecialSymbols.lexError; !}
+    .

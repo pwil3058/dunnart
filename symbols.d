@@ -9,6 +9,8 @@ enum SymbolType {token, tag, nonTerminal};
 
 enum Associativity {nonassoc, left, right};
 
+alias uint Precedence;
+
 bool
 is_allowable_name(string name)
 {
@@ -21,7 +23,7 @@ class Symbol {
     SymbolType type;
     string name;
     Associativity associativity;
-    uint precedence;
+    Precedence precedence;
     CharLocation definedAt;
     CharLocation[] usedAt;
     string fieldName;
@@ -87,7 +89,7 @@ class SymbolTable {
     private Symbol[SymbolId] allSymbols; // indexed by id
     private FieldDefinition[string] fieldDefinitions; // indexed by name
     private string[] skipRuleList;
-    private auto currentPrecedence = uint.max;
+    private auto currentPrecedence = Precedence.max;
 
     TokenSymbol
     new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
@@ -170,6 +172,16 @@ class SymbolTable {
     get_symbol(SymbolId symbolId)
     {
         return allSymbols.get(symbolId, null);
+    }
+
+    TokenSymbol
+    get_literal_token(string literal, CharLocation location)
+    {
+        auto tokenSymbol = literalTokens.get(literal, null);
+        if (tokenSymbol !is null) {
+            tokenSymbol.usedAt ~= location;
+        }
+        return tokenSymbol;
     }
 
     CharLocation
