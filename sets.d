@@ -3,8 +3,12 @@ module sets;
 class Set(T) {
     protected T[] _elements;
     invariant () {
-        // Cast needed when T is a class because of opCmp signature
-        assert(strictly_ordered(cast(T[])_elements));
+        static if (is(T == class)) {
+            // WORKAROUND: Cast needed because of opCmp signature
+            assert(strictly_ordered(cast(T[])_elements));
+        } else {
+            assert(strictly_ordered(_elements));
+        }
     }
 
     this(T[] initialElements...) {
@@ -185,6 +189,7 @@ unittest {
     auto dummyset = new Set!Dummy(dlist);
 }
 
+// TODO: fix this so const can be used for parameters when T not a class
 private bool
 strictly_ordered(T)(T[] list) {
     for (auto j = 1; j < list.length; j++) {
@@ -208,6 +213,7 @@ struct BinarySearchResult {
     size_t index; // location of item if found else "insert before" point
 }
 
+// TODO: fix this so const can be used for parameters when T not a class
 BinarySearchResult
 binary_search(T)(T[] list, T item)
 in {
