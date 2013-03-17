@@ -3,7 +3,8 @@ module sets;
 class Set(T) {
     protected T[] _elements;
     invariant () {
-        assert(strictly_ordered(_elements));
+        // Cast needed when T is a class because of opCmp signature
+        assert(strictly_ordered(cast(T[])_elements));
     }
 
     this(T[] initialElements...) {
@@ -65,9 +66,13 @@ class Set(T) {
     }
 
     bool
-    contains(T targetElement)
+    contains(T[] targetElements ...)
     {
-        return binary_search(_elements, targetElement).found;
+        foreach (targetElement; targetElements) {
+            if (!binary_search(_elements, targetElement).found)
+                return false;
+        }
+        return true;
     }
 
     bool
@@ -111,11 +116,7 @@ class Set(T) {
         assert(typeof(object) == typeof(this));
     }
     body {
-        auto otherSet = cast(typeof(this)) object;
-        auto equal = _elements.length == otherSet._elements.length;
-        for (auto i = 0; equal && i < _elements.length; i++)
-            equal = _elements[i] == otherSet._elements[i];
-        return equal;
+        return _elements == (cast(typeof(this)) object)._elements;
     }
 }
 
@@ -146,6 +147,7 @@ Set!T set_intersection(T)(Set!T a, Set!T b) {
 }
 
 unittest {
+    // TODO: write a more thorough Sets unittest
     auto iset = new Set!int;
     iset.add(1, 4, 2, 4, 2);
     assert(iset.cardinality == 3);
@@ -166,10 +168,25 @@ unittest {
     uset.add(9);
     assert(!iset.contains(9));
     assert(!xset.contains(9));
+    assert(xset.contains(5));
+}
+
+unittest {
+    class Dummy {
+        int val;
+        this(int ival) { val = ival; };
+        override int
+        opCmp(Object o)
+        {
+            return val - (cast(Dummy) o).val;
+        }
+    }
+    Dummy[] dlist = [new Dummy(1), new Dummy(4), new Dummy(2), new Dummy(3)];
+    auto dummyset = new Set!Dummy(dlist);
 }
 
 private bool
-strictly_ordered(T)(const T[] list) {
+strictly_ordered(T)(T[] list) {
     for (auto j = 1; j < list.length; j++) {
         if (list[j - 1] >= list[j])
             return false;
@@ -192,7 +209,7 @@ struct BinarySearchResult {
 }
 
 BinarySearchResult
-binary_search(T)(const T[] list, T item)
+binary_search(T)(T[] list, T item)
 in {
     assert(strictly_ordered(list));
 }
