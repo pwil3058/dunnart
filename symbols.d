@@ -2,12 +2,25 @@ module symbols;
 
 import std.string;
 
+import sets;
+
 import ddlib.lexan;
 import ddlib.components;
 
 enum SymbolType {token, tag, nonTerminal};
 
 enum Associativity {nonassoc, left, right};
+
+class FirstsData {
+    Set!TokenSymbol tokenset;
+    bool transparent;
+
+    this(Set!TokenSymbol tokenset, bool transparent)
+    {
+        this.tokenset = tokenset;
+        this.transparent = transparent;
+    }
+}
 
 alias uint Precedence;
 
@@ -18,7 +31,7 @@ is_allowable_name(string name)
 }
 
 class Symbol {
-    static SymbolId next_id = SpecialSymbols.max + 1;
+    static SymbolId next_id;
     SymbolId id;
     SymbolType type;
     string name;
@@ -28,15 +41,22 @@ class Symbol {
     CharLocation[] usedAt;
     string fieldName;
     string pattern;
+    FirstsData firstsData;
 
     this(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
     in {
-        assert(is_allowable_name(sname));
+        assert(next_id <= SpecialSymbols.max || is_allowable_name(sname));
     }
     body {
         id = next_id++;
         name = sname;
         type = stype;
+        if (type == SymbolType.token) {
+            // FIRST() for a token is trivial
+            firstsData = new FirstsData(new Set!TokenSymbol(this), false);
+        } else {
+            firstsData = null;
+        }
         if (isDefinition) {
             definedAt = location;
         } else {
@@ -90,6 +110,20 @@ class SymbolTable {
     private FieldDefinition[string] fieldDefinitions; // indexed by name
     private string[] skipRuleList;
     private auto currentPrecedence = Precedence.max;
+
+    this() {
+        allSymbols[SpecialSymbols.start] = new Symbol("ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
+        allSymbols[SpecialSymbols.end] = new Symbol("ddEND", SymbolType.token, CharLocation(0, 0));
+        allSymbols[SpecialSymbols.lexError] = new Symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
+        allSymbols[SpecialSymbols.parseError] = new Symbol("ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
+        // TODO: think about whether this is the correct FirstsData for ddERROR
+        // It's definitely transparent but should the tokenSet be all tokens or none?
+        allSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(new Set!Symbol, true);
+        for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
+            assert(allSymbols[i].id == i);
+        }
+        assert(Symbol.next_id == SpecialSymbols.max + 1);
+    }
 
     TokenSymbol
     new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
@@ -265,4 +299,8 @@ class SymbolTable {
         }
         return symbol;
     }
+}
+
+unittest {
+    auto st = new SymbolTable;
 }
