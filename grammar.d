@@ -23,6 +23,110 @@ class Production {
     }
 }
 
+class GrammarItem {
+    Production production;
+    uint dot;
+    Set!TokenSymbol lookAheadSet;
+    invariant () {
+        assert(dot <= production.rightHandSide.length);
+    }
+
+    this(Production production)
+    {
+        this.production = production;
+    }
+
+    GrammarItem
+    clone()
+    {
+        auto cloned = new GrammarItem(production);
+        cloned.dot = dot;
+        cloned.lookAheadSet = lookAheadSet.clone();
+        return cloned;
+    }
+
+    GrammarItem
+    clone_shifted()
+    {
+        if (dot > production.rightHandSide.length) {
+            return null;
+        }
+        auto cloned = clone();
+        cloned.dot++;
+        return cloned;
+    }
+
+    @property bool
+    is_kernel_item()
+    {
+        return dot > 0 || production.leftHandSide.id == SpecialSymbols.start;
+    }
+
+    bool
+    is_next_symbol(Symbol symbol)
+    {
+        return dot < production.rightHandSide.length && production.rightHandSide[dot] == symbol;
+    }
+
+    override hash_t
+    toHash()
+    {
+        return production.id * (dot + 1);
+    }
+
+    override bool
+    opEquals(Object o)
+    {
+        GrammarItem other = cast(GrammarItem) o;
+        return production.id == other.production.id && dot == other.dot;
+    }
+
+    override int
+    opCmp(Object o)
+    {
+        GrammarItem other = cast(GrammarItem) o;
+        if (production.id == other.production.id) {
+            return dot - other.dot;
+        }
+        return production.id - other.production.id;
+    }
+}
+
+Set!GrammarItem
+extract_kernel(Set!GrammarItem itemset)
+{
+    auto kernel = new Set!GrammarItem;
+    foreach (grammarItem; itemset.elements) {
+        if (grammarItem.is_kernel_item) {
+            kernel.add(grammarItem.clone());
+        }
+    }
+    return kernel;
+}
+
+Set!GrammarItem
+generate_goto_kernel(Set!GrammarItem itemset, Symbol symbol)
+{
+    auto goto_kernel = new Set!GrammarItem;
+    foreach (grammarItem; itemset.elements) {
+        if (grammarItem.is_next_symbol(symbol)) {
+            goto_kernel.add(grammarItem.clone_shifted());
+        }
+    }
+    return goto_kernel;
+}
+
+enum ProcessedState { unProcessed, needsReprocessing, processed };
+
+class ParserState {
+    Set!GrammarItem grammarItems;
+    ProcessedState state;
+
+    this(Set!GrammarItem kernel) {
+        grammarItems = kernel;
+    }
+}
+
 class GrammarSpecification {
     SymbolTable symbolTable;
     Production[] productionList;
@@ -92,7 +196,7 @@ class GrammarSpecification {
                     }
                 }
             }
-            symbol.firstsData = FirstsData(tokenSet, transparent);
+            symbol.firstsData = new FirstsData(tokenSet, transparent);
         }
         return symbol.firstsData;
     }

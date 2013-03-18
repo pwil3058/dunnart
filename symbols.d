@@ -73,15 +73,13 @@ class Symbol {
     override bool
     opEquals(Object o)
     {
-        Symbol other = cast(Symbol) o;
-        return other && id == other.id;
+        return id == (cast(Symbol) o).id;
     }
 
     override int
     opCmp(Object o)
     {
-        Symbol other = cast(Symbol) o;
-        return other ? id - other.id : -1;
+        return id - (cast(Symbol) o).id;
     }
 
     @property bool
