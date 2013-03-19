@@ -139,12 +139,36 @@ generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
 
 enum ProcessedState { unProcessed, needsReprocessing, processed };
 
+struct ShiftReduceConflict {
+    TokenSymbol shiftSymbol;
+    ParserState gotoState;
+    GrammarItemKey reducibleItem;
+    Set!(TokenSymbol) lookAheadSet;
+}
+
 class ParserState {
     GrammarItemSet grammarItems;
+    ParserState[TokenSymbol] shiftList;
+    ParserState errorRecoveryState;
     ProcessedState state;
 
     this(GrammarItemSet kernel) {
         grammarItems = kernel;
+    }
+
+    ShiftReduceConflict[]
+    get_shift_reduce_conflicts()
+    {
+        ShiftReduceConflict[] conflicts;
+        // TODO: possibly change loop nesting order for efficiency
+        foreach(shiftSymbol, gotoState; shiftList) {
+            foreach (item, lookAheadSet; grammarItems) {
+                if (!item.is_shiftable && lookAheadSet.contains(shiftSymbol)) {
+                    conflicts ~= ShiftReduceConflict(shiftSymbol, gotoState, item, lookAheadSet);
+                }
+            }
+        }
+        return conflicts;
     }
 }
 
