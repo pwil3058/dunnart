@@ -3,6 +3,7 @@ module symbols;
 import std.string;
 
 import sets;
+import idnumber;
 
 import ddlib.lexan;
 import ddlib.components;
@@ -31,8 +32,7 @@ is_allowable_name(string name)
 }
 
 class Symbol {
-    static SymbolId next_id;
-    SymbolId id;
+    mixin UniqueId!(SymbolId);
     SymbolType type;
     string name;
     Associativity associativity;
@@ -48,7 +48,7 @@ class Symbol {
         assert(next_id <= SpecialSymbols.max || is_allowable_name(sname));
     }
     body {
-        id = next_id++;
+        mixin(set_unique_id);
         name = sname;
         type = stype;
         if (type == SymbolType.token) {
@@ -62,24 +62,6 @@ class Symbol {
         } else {
             usedAt ~= location;
         }
-    }
-
-    override hash_t
-    toHash()
-    {
-        return id;
-    }
-
-    override bool
-    opEquals(Object o)
-    {
-        return id == (cast(Symbol) o).id;
-    }
-
-    override int
-    opCmp(Object o)
-    {
-        return id - (cast(Symbol) o).id;
     }
 
     @property bool
