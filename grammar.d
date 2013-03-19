@@ -57,10 +57,34 @@ class GrammarItemKey {
         return dot > 0 || production.leftHandSide.id == SpecialSymbols.start;
     }
 
+    @property bool
+    is_shiftable()
+    {
+        return dot < production.length;
+    }
+
+    @property Symbol
+    nextSymbol()
+    in {
+        assert(is_shiftable);
+    }
+    body {
+        return production.rightHandSide[dot];
+    }
+
+    @property Symbol[]
+    tail()
+    in {
+        assert(is_shiftable);
+    }
+    body {
+        return production.rightHandSide[dot + 1 .. $];
+    }
+
     bool
     is_next_symbol(Symbol symbol)
     {
-        return dot < production.length && production.rightHandSide[dot] == symbol;
+        return is_shiftable && nextSymbol == symbol;
     }
 
     override hash_t
@@ -190,5 +214,35 @@ class GrammarSpecification {
             symbol.firstsData = new FirstsData(tokenSet, transparent);
         }
         return symbol.firstsData;
+    }
+
+    GrammarItemSet
+    closure(ref GrammarItemSet itemSet)
+    {
+        bool additions_made;
+        do {
+            additions_made = false;
+            foreach (grammarItemKey, lookAheadSet; itemSet) {
+                if (!grammarItemKey.is_shiftable || grammarItemKey.nextSymbol.type != SymbolType.nonTerminal) continue;
+                auto prospectiveLhs = grammarItemKey.nextSymbol;
+                foreach (lookAheadSymbol; lookAheadSet.elements) {
+                    auto firsts = FIRST(grammarItemKey.tail, lookAheadSymbol);
+                    foreach (production; productionList) {
+                        if (prospectiveLhs != production.leftHandSide) continue;
+                        auto prospectiveKey = new GrammarItemKey(production);
+                        if (prospectiveKey in itemSet) {
+                            if (!itemSet[prospectiveKey].contains(firsts)) {
+                                itemSet[prospectiveKey].add(firsts);
+                                additions_made = true;
+                            }
+                        } else {
+                            itemSet[prospectiveKey] = firsts.clone();
+                            additions_made = true;
+                        }
+                    }
+                }
+            }
+        } while (additions_made);
+        return itemSet;
     }
 }
