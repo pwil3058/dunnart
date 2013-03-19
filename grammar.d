@@ -3,12 +3,13 @@ module grammar.d;
 import ddlib.components;
 import symbols;
 import sets;
+import idnumber;
 
 alias string Predicate;
 alias string SemanticAction;
 
 class Production {
-    ProductionId id;
+    mixin UniqueId!(ProductionId);
     NonTerminalSymbol leftHandSide;
     Symbol[] rightHandSide;
     Associativity associativity;
@@ -16,19 +17,22 @@ class Production {
     Predicate predicate;
     SemanticAction action;
 
-    @property size_t
+    this() {
+        mixin(set_unique_id);
+    }
+
+    @property const size_t
     length()
     {
         return rightHandSide.length;
     }
 }
 
-class GrammarItem {
+class GrammarItemKey {
     Production production;
     uint dot;
-    Set!TokenSymbol lookAheadSet;
     invariant () {
-        assert(dot <= production.rightHandSide.length);
+        assert(dot <= production.length);
     }
 
     this(Production production)
@@ -36,22 +40,13 @@ class GrammarItem {
         this.production = production;
     }
 
-    GrammarItem
-    clone()
-    {
-        auto cloned = new GrammarItem(production);
-        cloned.dot = dot;
-        cloned.lookAheadSet = lookAheadSet.clone();
-        return cloned;
-    }
-
-    GrammarItem
+    GrammarItemKey
     clone_shifted()
     {
-        if (dot > production.rightHandSide.length) {
+        if (dot > production.length) {
             return null;
         }
-        auto cloned = clone();
+        auto cloned = new GrammarItemKey(production);
         cloned.dot++;
         return cloned;
     }
@@ -65,7 +60,7 @@ class GrammarItem {
     bool
     is_next_symbol(Symbol symbol)
     {
-        return dot < production.rightHandSide.length && production.rightHandSide[dot] == symbol;
+        return dot < production.length && production.rightHandSide[dot] == symbol;
     }
 
     override hash_t
@@ -77,14 +72,14 @@ class GrammarItem {
     override bool
     opEquals(Object o)
     {
-        GrammarItem other = cast(GrammarItem) o;
+        GrammarItemKey other = cast(GrammarItemKey) o;
         return production.id == other.production.id && dot == other.dot;
     }
 
     override int
     opCmp(Object o)
     {
-        GrammarItem other = cast(GrammarItem) o;
+        GrammarItemKey other = cast(GrammarItemKey) o;
         if (production.id == other.production.id) {
             return dot - other.dot;
         }
@@ -92,25 +87,27 @@ class GrammarItem {
     }
 }
 
-Set!GrammarItem
-extract_kernel(Set!GrammarItem itemset)
+alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
+
+GrammarItemSet
+extract_kernel(GrammarItemSet itemset)
 {
-    auto kernel = new Set!GrammarItem;
-    foreach (grammarItem; itemset.elements) {
-        if (grammarItem.is_kernel_item) {
-            kernel.add(grammarItem.clone());
+    GrammarItemSet kernel;
+    foreach (grammarItemKey, lookAheadSet; itemset) {
+        if (grammarItemKey.is_kernel_item) {
+            kernel[grammarItemKey] = lookAheadSet.clone();
         }
     }
     return kernel;
 }
 
-Set!GrammarItem
-generate_goto_kernel(Set!GrammarItem itemset, Symbol symbol)
+GrammarItemSet
+generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
 {
-    auto goto_kernel = new Set!GrammarItem;
-    foreach (grammarItem; itemset.elements) {
-        if (grammarItem.is_next_symbol(symbol)) {
-            goto_kernel.add(grammarItem.clone_shifted());
+    GrammarItemSet goto_kernel;
+    foreach (grammarItemKey, lookAheadSet; itemset) {
+        if (grammarItemKey.is_next_symbol(symbol)) {
+            goto_kernel[grammarItemKey.clone_shifted()] = lookAheadSet.clone();
         }
     }
     return goto_kernel;
@@ -119,44 +116,38 @@ generate_goto_kernel(Set!GrammarItem itemset, Symbol symbol)
 enum ProcessedState { unProcessed, needsReprocessing, processed };
 
 class ParserState {
-    Set!GrammarItem grammarItems;
+    GrammarItemSet grammarItems;
     ProcessedState state;
 
-    this(Set!GrammarItem kernel) {
+    this(GrammarItemSet kernel) {
         grammarItems = kernel;
     }
 }
 
 class GrammarSpecification {
     SymbolTable symbolTable;
-    Production[] productionList;
+    Production[ProductionId] productionList;
 
     this() {
-        symbolTable = new SymbolTable;
-        auto dummyProd = new Production;
-        dummyProd.id = 0;
-        dummyProd.leftHandSide = symbolTable.get_symbol(SpecialSymbols.start);
-        // Set the right hand side when start symbol is known.
-        productionList = [dummyProd];
+        this(new SymbolTable);
     }
 
     this(SymbolTable symbolTable) {
-        Production dummyProd;
-        dummyProd.id = 0;
+        auto dummyProd = new Production;
+        assert(dummyProd.id == 0);
         dummyProd.leftHandSide = symbolTable.get_symbol(SpecialSymbols.start);
         // Set the right hand side when start symbol is known.
-        productionList = [dummyProd];
+        productionList[dummyProd.id] = dummyProd;
         this.symbolTable = symbolTable;
     }
 
     void
     add_production(Production newProdn)
     {
-        if (productionList.length == 1) {
+        if (newProdn.id == 1) {
             productionList[0].rightHandSide = [newProdn.leftHandSide];
         }
-        newProdn.id = cast(ProductionId) productionList.length;
-        productionList ~= newProdn;
+        productionList[newProdn.id] = newProdn;
     }
 
     Set!TokenSymbol
@@ -186,7 +177,7 @@ class GrammarSpecification {
                 foreach (production; productionList) {
                     if (production.leftHandSide != symbol) continue;
 
-                    transparent = transparent || (production.rightHandSide.length == 0);
+                    transparent = transparent || (production.length == 0);
                     foreach (rhsSymbol; production.rightHandSide) {
                         auto firstsData = get_firsts_data(rhsSymbol);
                         tokenSet.add(firstsData.tokenset);
