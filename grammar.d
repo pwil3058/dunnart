@@ -146,6 +146,11 @@ struct ShiftReduceConflict {
     Set!(TokenSymbol) lookAheadSet;
 }
 
+struct ReduceReduceConflict {
+    GrammarItemKey[2] reducibleItem;
+    Set!(TokenSymbol) lookAheadSetIntersection;
+}
+
 class ParserState {
     GrammarItemSet grammarItems;
     ParserState[TokenSymbol] shiftList;
@@ -160,11 +165,35 @@ class ParserState {
     get_shift_reduce_conflicts()
     {
         ShiftReduceConflict[] conflicts;
-        // TODO: possibly change loop nesting order for efficiency
         foreach(shiftSymbol, gotoState; shiftList) {
             foreach (item, lookAheadSet; grammarItems) {
                 if (!item.is_shiftable && lookAheadSet.contains(shiftSymbol)) {
                     conflicts ~= ShiftReduceConflict(shiftSymbol, gotoState, item, lookAheadSet);
+                }
+            }
+        }
+        return conflicts;
+    }
+
+    ReduceReduceConflict[]
+    get_reduce_reduce_conflicts()
+    {
+        ReduceReduceConflict[] conflicts;
+        auto keys = new GrammarItemKey[grammarItems.length];
+        auto i = 0;
+        foreach (key; grammarItems.byKey()) {
+            if (!key.is_shiftable) {
+                keys[i] = key;
+                i++;
+            }
+        }
+        keys.length = i;
+        for (i = 0; i < keys.length - 1; i++) {
+            auto key1 = keys[i];
+            foreach (key2; keys[i + 1 .. $]) {
+                auto intersection = set_intersection(grammarItems[key1], grammarItems[key2]);
+                if (intersection.cardinality > 0) {
+                    conflicts ~= ReduceReduceConflict([key1, key2], intersection);
                 }
             }
         }
