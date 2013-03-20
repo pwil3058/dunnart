@@ -113,6 +113,18 @@ class GrammarItemKey {
 
 alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
 
+Set!GrammarItemKey
+get_kernel_keys(GrammarItemSet itemset)
+{
+    auto keySet = new Set!GrammarItemKey;
+    foreach (grammarItemKey, lookAheadSet; itemset) {
+        if (grammarItemKey.is_kernel_item) {
+            keySet.add(grammarItemKey);
+        }
+    }
+    return keySet;
+}
+
 GrammarItemSet
 extract_kernel(GrammarItemSet itemset)
 {
@@ -152,12 +164,14 @@ struct ReduceReduceConflict {
 }
 
 class ParserState {
+    mixin UniqueId!(ParserStateId);
     GrammarItemSet grammarItems;
     ParserState[TokenSymbol] shiftList;
     ParserState errorRecoveryState;
     ProcessedState state;
 
     this(GrammarItemSet kernel) {
+        mixin(set_unique_id);
         grammarItems = kernel;
     }
 
@@ -270,7 +284,7 @@ class GrammarSpecification {
     }
 
     GrammarItemSet
-    closure(ref GrammarItemSet itemSet)
+    closure(GrammarItemSet itemSet)
     {
         bool additions_made;
         do {
@@ -297,5 +311,85 @@ class GrammarSpecification {
             }
         } while (additions_made);
         return itemSet;
+    }
+}
+
+class Grammar {
+    GrammarSpecification spec;
+    ParserState[ParserStateId] parserStates;
+    Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;
+
+    this(GrammarSpecification specification)
+    {
+        spec = specification;
+        auto startItemKey = new GrammarItemKey(spec.productionList[0]);
+        auto startLookAheadSet = new Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
+        GrammarItemSet startKernel = [ startItemKey : startLookAheadSet];
+        parserStates[0] = new ParserState(startKernel);
+        assert(parserStates[0].id == 0);
+        while (true) {
+            // Find a state that needs processing or quit
+            ParserState unprocessedState = null;
+            foreach (candidateState; parserStates.byValue()) {
+                if (candidateState.state != ProcessedState.processed) {
+                    unprocessedState = candidateState;
+                    break;
+                }
+            }
+            if (unprocessedState is null) break;
+
+            auto firstTime = unprocessedState.state == ProcessedState.unProcessed;
+            unprocessedState.state = ProcessedState.processed;
+            auto fullItemSet = spec.closure(extract_kernel(unprocessedState.grammarItems));
+            foreach (itemKey; fullItemSet.byKey()){
+                if (!itemKey.is_shiftable) continue;
+                ParserState gotoState;
+                auto symbolX = itemKey.nextSymbol;
+                auto kernelX = generate_goto_kernel(fullItemSet, symbolX);
+                auto equivalentState = find_equivalent_state(kernelX);
+                if (equivalentState is null) {
+                    gotoState = new ParserState(kernelX);
+                    parserStates[gotoState.id] = gotoState;
+                } else {
+                    foreach (itemKey, lookAheadSet; kernelX) {
+                        if (!equivalentState.grammarItems[itemKey].contains(lookAheadSet)) {
+                            equivalentState.grammarItems[itemKey].add(lookAheadSet);
+                            if (equivalentState.state == ProcessedState.processed) {
+                                equivalentState.state = ProcessedState.needsReprocessing;
+                            }
+                        }
+                    }
+                    gotoState = equivalentState;
+                }
+                if (firstTime) {
+                    if (symbolX.type == SymbolType.token) {
+                        unprocessedState.shiftList[symbolX] = gotoState;
+                    } else {
+                        if (symbolX !in gotoTable || gotoState !in gotoTable[symbolX]) {
+                            gotoTable[symbolX] = [gotoState: new Set!(ParserState)(unprocessedState)];
+                        } else {
+                            gotoTable[symbolX][gotoState].add(unprocessedState);
+                        }
+                    }
+                    if (symbolX.id == SpecialSymbols.parseError) {
+                        unprocessedState.errorRecoveryState = gotoState;
+                    }
+                }
+            }
+            
+        }
+    }
+
+    ParserState
+    find_equivalent_state(GrammarItemSet kernel)
+    {
+        // TODO: check if this needs to be this complex
+        auto targetKeySet = get_kernel_keys(kernel);
+        foreach (parserState; parserStates.byValue()) {
+            if (targetKeySet == get_kernel_keys(parserState.grammarItems)) {
+                return parserState;
+            }
+        }
+        return null;
     }
 }

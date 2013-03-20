@@ -1,7 +1,7 @@
 module ddlib.components;
 
-alias uint ParserState;
-ParserState startState = 0;
+alias uint ParserStateId;
+ParserStateId startState = 0;
 
 alias uint SymbolId;
 enum SpecialSymbols : SymbolId { start, end, lexError, parseError };
@@ -14,7 +14,7 @@ struct ParseAction {
     ParseActionType action;
     union {
         ProductionId productionId;
-        ParserState next_state;
+        ParserStateId next_state;
     }
 }
 
