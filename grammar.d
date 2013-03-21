@@ -1,4 +1,4 @@
-module grammar.d;
+module grammar;
 
 import std.string;
 
@@ -19,8 +19,22 @@ class Production {
     Predicate predicate;
     SemanticAction action;
 
-    this() {
+    this()
+    {
         mixin(set_unique_id);
+    }
+
+    this(NonTerminalSymbol lhs, Symbol[] rhs)
+    {
+        this();
+        leftHandSide = lhs;
+        rightHandSide = rhs;
+    }
+
+    this(NonTerminalSymbol lhs, Symbol[] rhs, SemanticAction action)
+    {
+        this(lhs, rhs);
+        this.action = action;
     }
 
     @property const size_t

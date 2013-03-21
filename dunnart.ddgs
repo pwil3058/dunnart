@@ -62,7 +62,7 @@ this {
 specification: preamble definitions "%%" production_rules.
 
 allowable_ident: IDENT ?( symbolTable.is_allowable_name($1.ddMatchString) ?)
-    | allowable_ident
+    | IDENT
         !{
             auto msg = format("%s: illegal name", $1.ddMatchString);
             abort(msg, symbolTable.get_declaration_point($1.ddMatchString));

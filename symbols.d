@@ -289,6 +289,16 @@ class SymbolTable {
         }
         return symbol;
     }
+
+    TokenSpec[]
+    generate_lexan_token_specs()
+    {
+        TokenSpec[] tokenSpecs;
+        foreach (token; tokens) {
+            tokenSpecs ~= new TokenSpec(token.name, token.pattern);
+        }
+        return tokenSpecs;
+    }
 }
 
 unittest {
