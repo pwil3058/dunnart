@@ -31,6 +31,9 @@ is_allowable_name(string name)
     return name.length < 2 || toLower(name[0 .. 2]) != "dd";
 }
 
+// TODO: reimplement Symbol generation with a factory so that each
+// TODO: SymbolTable's symbols can be sequential from zero
+// TODO: Or maybe not -- only needed for bootstrapping ??
 class Symbol {
     mixin UniqueId!(SymbolId);
     SymbolType type;
@@ -82,6 +85,7 @@ alias Symbol TagSymbol;
 alias Symbol NonTerminalSymbol;
 
 class SymbolTable {
+    private static TokenSymbol[SpecialSymbols.max + 1] specialSymbols;
     private TokenSymbol[string] tokens; // indexed by token name
     private TokenSymbol[string] literalTokens; // indexed by literal string
     private TagSymbol[string] tags; // indexed by name
@@ -91,18 +95,24 @@ class SymbolTable {
     private string[] skipRuleList;
     private auto currentPrecedence = Precedence.max;
 
-    this() {
-        allSymbols[SpecialSymbols.start] = new Symbol("ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
-        allSymbols[SpecialSymbols.end] = new Symbol("ddEND", SymbolType.token, CharLocation(0, 0));
-        allSymbols[SpecialSymbols.lexError] = new Symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
-        allSymbols[SpecialSymbols.parseError] = new Symbol("ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
+    static this() {
+        specialSymbols[SpecialSymbols.start] = new Symbol("ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.end] = new Symbol("ddEND", SymbolType.token, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.lexError] = new Symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.parseError] = new Symbol("ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
         // TODO: think about whether this is the correct FirstsData for ddERROR
         // It's definitely transparent but should the tokenSet be all tokens or none?
-        allSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(new Set!Symbol, true);
+        specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(new Set!Symbol, true);
         for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
-            assert(allSymbols[i].id == i);
+            assert(specialSymbols[i].id == i);
         }
         assert(Symbol.next_id == SpecialSymbols.max + 1);
+    }
+
+    this() {
+        foreach (symbol; specialSymbols) {
+            allSymbols[symbol.id] = symbol;
+        }
     }
 
     TokenSymbol
