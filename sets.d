@@ -54,17 +54,53 @@ class Set(T) {
         size_t ne_i, this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
             if (_elements[this_i] < otherSet._elements[os_i]) {
-                newElements[ne_i] = _elements[this_i];
-                this_i++;
+                newElements[ne_i++] = _elements[this_i++];
             } else if (otherSet._elements[os_i] < _elements[this_i]) {
-                newElements[ne_i] = otherSet._elements[os_i];
+                newElements[ne_i++] = otherSet._elements[os_i++];
+            } else {
+                newElements[ne_i++] = _elements[this_i++];
+                os_i++;
+            }
+        }
+        // Add the (one or less) tail if any
+        while (this_i < _elements.length) {
+            newElements[ne_i++] = _elements[this_i++];
+        }
+        while (os_i < otherSet._elements.length) {
+            newElements[ne_i++] = otherSet._elements[os_i++];
+        }
+        _elements = newElements[0 .. ne_i].dup;
+    }
+
+    void
+    remove(T[] delElements...)
+    {
+        foreach(delElement; delElements) {
+            auto result = binary_search(_elements, delElement);
+            if (result.found) {
+                _elements = _elements[0 .. result.index] ~ _elements[result.index + 1 .. $];
+            }
+        }
+    }
+
+    void
+    remove(Set!T otherSet)
+    {
+        // The fact otherSet._elements is sorted enables more efficiency
+        auto newElements = new T[_elements.length];
+        size_t ne_i, this_i, os_i;
+        while (this_i < _elements.length && os_i < otherSet._elements.length) {
+            if (_elements[this_i] < otherSet._elements[os_i]) {
+                newElements[ne_i++] = _elements[this_i++];
+            } else if (otherSet._elements[os_i] < _elements[this_i]) {
                 os_i++;
             } else {
-                newElements[ne_i] = _elements[this_i];
                 this_i++;
                 os_i++;
             }
-            ne_i++;
+        }
+        while (this_i < _elements.length) {
+            newElements[ne_i++] = _elements[this_i++];
         }
         _elements = newElements[0 .. ne_i].dup;
     }

@@ -1,5 +1,7 @@
 module grammar.d;
 
+import std.string;
+
 import ddlib.components;
 import symbols;
 import sets;
@@ -163,6 +165,12 @@ struct ReduceReduceConflict {
     Set!(TokenSymbol) lookAheadSetIntersection;
 }
 
+bool
+trivially_true(Predicate predicate)
+{
+    return strip(predicate).length == 0;
+}
+
 class ParserState {
     mixin UniqueId!(ParserStateId);
     GrammarItemSet grammarItems;
@@ -176,9 +184,10 @@ class ParserState {
     }
 
     ShiftReduceConflict[]
-    get_shift_reduce_conflicts()
+    resolve_shift_reduce_conflicts()
     {
-        ShiftReduceConflict[] conflicts;
+        // Do this in two stages to obviate problems modifyin shiftList
+        ShiftReduceConflict[] conflicts, unresolvedConflicts;
         foreach(shiftSymbol, gotoState; shiftList) {
             foreach (item, lookAheadSet; grammarItems) {
                 if (!item.is_shiftable && lookAheadSet.contains(shiftSymbol)) {
@@ -186,11 +195,30 @@ class ParserState {
                 }
             }
         }
-        return conflicts;
+        foreach (conflict; conflicts) {
+            with (conflict) {
+                if (reducibleItem.production.length == 0) {
+                    grammarItems[reducibleItem].remove(shiftSymbol);
+                } else if (shiftSymbol.precedence < reducibleItem.production.precedence) {
+                    shiftList.remove(shiftSymbol);
+                } else if (shiftSymbol.precedence > reducibleItem.production.precedence) {
+                    grammarItems[reducibleItem].remove(shiftSymbol);
+                } else if (shiftSymbol.associativity == Associativity.left) {
+                    shiftList.remove(shiftSymbol);
+                } else if (shiftSymbol.associativity == Associativity.right) {
+                    grammarItems[reducibleItem].remove(shiftSymbol);
+                } else if (reducibleItem.production.length && reducibleItem.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
+                    grammarItems[reducibleItem].remove(shiftSymbol);
+                } else {
+                    unresolvedConflicts ~= conflict;
+                }
+            }
+        }
+        return unresolvedConflicts;
     }
 
     ReduceReduceConflict[]
-    get_reduce_reduce_conflicts()
+    resolve_reduce_reduce_conflicts()
     {
         ReduceReduceConflict[] conflicts;
         auto keys = new GrammarItemKey[grammarItems.length];
@@ -207,7 +235,21 @@ class ParserState {
             foreach (key2; keys[i + 1 .. $]) {
                 auto intersection = set_intersection(grammarItems[key1], grammarItems[key2]);
                 if (intersection.cardinality > 0) {
-                    conflicts ~= ReduceReduceConflict([key1, key2], intersection);
+                    if (key1.production.precedence < key2.production.precedence) {
+                        grammarItems[key1].remove(intersection);
+                    } else if (key1.production.precedence > key2.production.precedence) {
+                        grammarItems[key2].remove(intersection);
+                    } else if (key1.production.id < key2.production.id && !trivially_true(key1.production.predicate)) {
+                        // do nothing: resolved at runtime by evaluating predicate
+                    } else if (key2.production.id < key1.production.id && !trivially_true(key2.production.predicate)) {
+                        // do nothing: resolved at runtime by evaluating predicate
+                    } else if (key1.production.length && key1.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
+                        grammarItems[key1].remove(intersection);
+                    } else if (key2.production.length && key2.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
+                        grammarItems[key2].remove(intersection);
+                    } else {
+                        conflicts ~= ReduceReduceConflict([key1, key2], intersection);
+                    }
                 }
             }
         }
