@@ -177,17 +177,19 @@ class ParserState {
     ParserState[TokenSymbol] shiftList;
     ParserState errorRecoveryState;
     ProcessedState state;
+    ShiftReduceConflict[] shiftReduceConflicts;
+    ReduceReduceConflict[] reduceReduceConflicts;
 
     this(GrammarItemSet kernel) {
         mixin(set_unique_id);
         grammarItems = kernel;
     }
 
-    ShiftReduceConflict[]
+    size_t
     resolve_shift_reduce_conflicts()
     {
         // Do this in two stages to obviate problems modifyin shiftList
-        ShiftReduceConflict[] conflicts, unresolvedConflicts;
+        ShiftReduceConflict[] conflicts;
         foreach(shiftSymbol, gotoState; shiftList) {
             foreach (item, lookAheadSet; grammarItems) {
                 if (!item.is_shiftable && lookAheadSet.contains(shiftSymbol)) {
@@ -195,6 +197,7 @@ class ParserState {
                 }
             }
         }
+        shiftReduceConflicts = [];
         foreach (conflict; conflicts) {
             with (conflict) {
                 if (reducibleItem.production.length == 0) {
@@ -210,17 +213,17 @@ class ParserState {
                 } else if (reducibleItem.production.length && reducibleItem.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
                     grammarItems[reducibleItem].remove(shiftSymbol);
                 } else {
-                    unresolvedConflicts ~= conflict;
+                    shiftReduceConflicts ~= conflict;
                 }
             }
         }
-        return unresolvedConflicts;
+        return shiftReduceConflicts.length;
     }
 
-    ReduceReduceConflict[]
+    size_t
     resolve_reduce_reduce_conflicts()
     {
-        ReduceReduceConflict[] conflicts;
+        reduceReduceConflicts = [];
         auto keys = new GrammarItemKey[grammarItems.length];
         auto i = 0;
         foreach (key; grammarItems.byKey()) {
@@ -248,12 +251,12 @@ class ParserState {
                     } else if (key2.production.length && key2.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
                         grammarItems[key2].remove(intersection);
                     } else {
-                        conflicts ~= ReduceReduceConflict([key1, key2], intersection);
+                        reduceReduceConflicts ~= ReduceReduceConflict([key1, key2], intersection);
                     }
                 }
             }
         }
-        return conflicts;
+        return reduceReduceConflicts.length;
     }
 }
 
@@ -360,6 +363,14 @@ class Grammar {
     GrammarSpecification spec;
     ParserState[ParserStateId] parserStates;
     Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;
+    size_t unresolvedSRConflicts;
+    size_t unresolvedRRConflicts;
+
+    @property bool
+    valid()
+    {
+        return unresolvedRRConflicts == 0 && unresolvedSRConflicts == 0;
+    }
 
     this(GrammarSpecification specification)
     {
@@ -419,6 +430,10 @@ class Grammar {
                 }
             }
             
+        }
+        foreach (parserState; parserStates) {
+            unresolvedSRConflicts += parserState.resolve_shift_reduce_conflicts();
+            unresolvedRRConflicts += parserState.resolve_reduce_reduce_conflicts();
         }
     }
 
