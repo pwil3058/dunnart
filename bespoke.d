@@ -54,8 +54,10 @@ static this() {
         auto NEWSECTION = new_token("NEWSECTION", "\"%%\"", plf.next(true));
         auto COLON = new_token("COLON", "\":\"", plf.next(true));
         auto DOT = new_token("DOT", "\".\"", plf.next(true));
+        auto VBAR = new_token("VBAR", "\"|\"", plf.next(true));
         auto IDENT = new_token("IDENT", r"([a-zA-Z]+[a-zA-Z0-9_]*)", plf.next(true));
         auto FIELDNAME = new_token("FIELDNAME", r"(<[a-zA-Z]+[a-zA-Z0-9_]*>)", plf.next(true));
+        auto PREDICATE = new_token("PREDICATE", r"(\?\((.|[\n\r])*?\?\))", plf.next(true));
         auto ACTION = new_token("ACTION", r"(!\{(.|[\n\r])*?!\})", plf.next(true));
         auto DCODE = new_token("DCODE", r"(%\{(.|[\n\r])*?%\})", plf.next(true));
         bespokeLexAn = new LexicalAnalyser(generate_lexan_token_specs(), bespokeSkipPatterns);
@@ -144,5 +146,66 @@ static this() {
         SKIP = get_literal_token("\"%skip\"", plf.next());
         REGEX = get_symbol("REGEX", plf.next());
         add_production(new Production(skip_definition, [SKIP, REGEX], "// add regex to skip list"));
+
+        precedence_definition = define_non_terminal("precedence_definition", plf.next(true));
+        LEFT = get_literal_token("\"%left\"", plf.next());
+        RIGHT = get_literal_token("\"%gight\"", plf.next());
+        NONASSOC = get_literal_token("\"%nonassoc\"", plf.next());
+        auto tag_list = get_symbol("tag_list", plf.next(true), true);
+        add_production(new Production(precedence_definition, [LEFT, tag_list], "// set left associativity"));
+        add_production(new Production(precedence_definition, [RIGHT, tag_list], "// set right associativity"));
+        add_production(new Production(precedence_definition, [NONASSOC, tag_list], "// set non associativity"));
+
+        tag_list = define_non_terminal("tag_list", plf.next(true));
+        auto tag = get_symbol("tag", plf.next(true), true);
+        add_production(new Production(tag_list, [tag], "// initialize a dynamic array with [tag]"));
+        add_production(new Production(tag_list, [tag_list, tag], "// append to the tag list"));
+
+        tag = define_non_terminal("tag", plf.next(true));
+        allowable_ident = get_symbol("allowable_ident", plf.next(true));
+        add_production(new Production(tag, [allowable_ident], "// if not a defined token define it as a non token tag"));
+
+    // Rules defining rules
+        production_rules = define_non_terminal("production_rules", plf.next(true));
+        auto production_group = get_symbol("production_group", plf.next(true), true);
+        add_production(new Production(production_rules, [production_group], "// initialize a dynamic array with [production_group]"));
+        add_production(new Production(production_rules, [production_rules, production_group], "// append to the production_group list"));
+
+        production_group = define_non_terminal("production_group", plf.next(true));
+        auto production_group_head = get_symbol("production_group_head", plf.next(true), true);
+        auto production_tail_list = get_symbol("production_tail_list", plf.next(true), true);
+        DOT = get_literal_token("\".\"", plf.next());
+        add_production(new Production(production_group, [production_group_head, production_tail_list, DOT], "// add the productions to the grammar specification"));
+
+        production_group_head = define_non_terminal("production_group_head", plf.next(true));
+        COLON = get_literal_token("\":\"", plf.next());
+        auto left_hand_side = get_symbol("left_hand_side", plf.next(true), true);
+        add_production(new Production(production_group_head, [left_hand_side, COLON], "// define the non terminal symbol"));
+
+        production_tail_list = define_non_terminal("production_tail_list", plf.next(true));
+        auto production_tail = get_symbol("production_tail", plf.next(true), true);
+        VBAR = get_literal_token("\"|\"", plf.next());
+        add_production(new Production(production_tail_list, [production_tail], "// initialize a dynamic array with [production_tail]"));
+        add_production(new Production(production_tail_list, [production_tail_list, VBAR, production_tail], "// append to the production_tail list"));
+
+        production_tail = define_non_terminal("production_tail", plf.next(true));
+        auto symbol_list = get_symbol("symbol_list", plf.next(), true);
+        auto tagged_precedence = get_symbol("tagged_precedence", plf.next(), true);
+        PREDICATE = get_symbol("PREDICATE", plf.next());
+        ACTION = get_symbol("ACTION", plf.next());
+        add_production(new Production(production_tail, [ACTION], "// create empty production"));
+        add_production(new Production(production_tail, [symbol_list, PREDICATE, tagged_precedence, ACTION], "// create production"));
+        add_production(new Production(production_tail, [symbol_list, PREDICATE, tagged_precedence], "// create production"));
+        add_production(new Production(production_tail, [symbol_list, PREDICATE, ACTION], "// create production"));
+        add_production(new Production(production_tail, [symbol_list, PREDICATE], "// create production"));
+        add_production(new Production(production_tail, [symbol_list, tagged_precedence, ACTION], "// create production"));
+        add_production(new Production(production_tail, [symbol_list, tagged_precedence], "// create production"));
+        add_production(new Production(production_tail, [symbol_list, ACTION], "// create production"));
+        add_production(new Production(production_tail, [symbol_list], "// create production"));
+
+        tagged_precedence = define_non_terminal("tagged_precedence", plf.next(true));
+        PRECEDENCE = get_literal_token("\"%prec\"", plf.next());
+        allowable_ident = get_symbol("allowable_ident", plf.next(true));
+        add_production(new Production(tagged_precedence, [PRECEDENCE, allowable_ident], "// get the precedence for the tag"));
     }
 }
