@@ -84,6 +84,8 @@ alias Symbol TokenSymbol;
 alias Symbol TagSymbol;
 alias Symbol NonTerminalSymbol;
 
+import std.stdio;
+
 class SymbolTable {
     private static TokenSymbol[SpecialSymbols.max + 1] specialSymbols;
     private TokenSymbol[string] tokens; // indexed by token name
@@ -298,6 +300,30 @@ class SymbolTable {
             tokenSpecs ~= new TokenSpec(token.name, token.pattern);
         }
         return tokenSpecs;
+    }
+
+    size_t
+    count_undefined_symbols()
+    {
+        size_t count;
+        foreach (nts; nonTerminals) {
+            if (nts.definedAt == CharLocation(0,0)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    size_t
+    count_unused_symbols()
+    {
+        size_t count;
+        foreach (symbol; allSymbols) {
+            if (symbol.usedAt.length == 0 && symbol.id > SpecialSymbols.max) {
+                count++;
+            }
+        }
+        return count;
     }
 }
 

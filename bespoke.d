@@ -149,7 +149,7 @@ static this() {
 
         precedence_definition = define_non_terminal("precedence_definition", plf.next(true));
         LEFT = get_literal_token("\"%left\"", plf.next());
-        RIGHT = get_literal_token("\"%gight\"", plf.next());
+        RIGHT = get_literal_token("\"%right\"", plf.next());
         NONASSOC = get_literal_token("\"%nonassoc\"", plf.next());
         auto tag_list = get_symbol("tag_list", plf.next(true), true);
         add_production(new Production(precedence_definition, [LEFT, tag_list], "// set left associativity"));
@@ -207,5 +207,20 @@ static this() {
         PRECEDENCE = get_literal_token("\"%prec\"", plf.next());
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
         add_production(new Production(tagged_precedence, [PRECEDENCE, allowable_ident], "// get the precedence for the tag"));
+
+        symbol_list = define_non_terminal("symbol_list", plf.next(true));
+        auto symbol = get_symbol("symbol", plf.next(true), true);
+        add_production(new Production(symbol_list, [symbol], "// initialize a dynamic array with [symbol]"));
+        add_production(new Production(symbol_list, [symbol_list, symbol], "// append to the symbol list"));
+
+        symbol = define_non_terminal("symbol", plf.next(true));
+        allowable_ident = get_symbol("allowable_ident", plf.next(true));
+        ERROR = get_literal_token("\"%error\"", plf.next());
+        LEXERROR = get_literal_token("\"%lexerror\"", plf.next());
+        add_production(new Production(symbol, [allowable_ident], "// retrieve the named symbol"));
+        add_production(new Production(symbol, [ERROR], "// retrieve the named symbol"));
+        add_production(new Production(symbol, [LEXERROR], "// retrieve the named symbol"));
     }
+    assert(bespokeSymbolTable.count_undefined_symbols() == 0);
+    assert(bespokeSymbolTable.count_unused_symbols() == 0);
 }
