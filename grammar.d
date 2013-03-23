@@ -246,6 +246,7 @@ class ParserState {
                 i++;
             }
         }
+        if (i < 2) return 0;
         keys.length = i;
         for (i = 0; i < keys.length - 1; i++) {
             auto key1 = keys[i];

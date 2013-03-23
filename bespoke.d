@@ -9,6 +9,7 @@ SymbolTable bespokeSymbolTable;
 GrammarSpecification bespokeGrammarSpecification;
 auto bespokeSkipPatterns = [r"(/\*(.|[\n\r])*?\*/)", r"(//[^\n\r]*)", r"(\s+)"];
 LexicalAnalyser bespokeLexAn;
+Grammar bespokeGrammar;
 
 class PhonyLocationFactory {
     size_t lineNumber;
@@ -223,4 +224,5 @@ static this() {
     }
     assert(bespokeSymbolTable.count_undefined_symbols() == 0);
     assert(bespokeSymbolTable.count_unused_symbols() == 0);
+    bespokeGrammar = new Grammar(bespokeGrammarSpecification);
 }
