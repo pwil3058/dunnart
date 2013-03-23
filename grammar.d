@@ -141,6 +141,18 @@ get_kernel_keys(GrammarItemSet itemset)
     return keySet;
 }
 
+Set!GrammarItemKey
+get_reducible_keys(GrammarItemSet itemset)
+{
+    auto keySet = new Set!GrammarItemKey;
+    foreach (grammarItemKey, lookAheadSet; itemset) {
+        if (!grammarItemKey.is_shiftable) {
+            keySet.add(grammarItemKey);
+        }
+    }
+    return keySet;
+}
+
 GrammarItemSet
 extract_kernel(GrammarItemSet itemset)
 {
@@ -238,17 +250,11 @@ class ParserState {
     resolve_reduce_reduce_conflicts()
     {
         reduceReduceConflicts = [];
-        auto keys = new GrammarItemKey[grammarItems.length];
-        auto i = 0;
-        foreach (key; grammarItems.byKey()) {
-            if (!key.is_shiftable) {
-                keys[i] = key;
-                i++;
-            }
-        }
-        if (i < 2) return 0;
-        keys.length = i;
-        for (i = 0; i < keys.length - 1; i++) {
+        auto reducibleKeySet = get_reducible_keys(grammarItems);
+        if (reducibleKeySet.cardinality < 2) return 0;
+        
+        auto keys = reducibleKeySet.elements;
+        for (auto i = 0; i < keys.length - 1; i++) {
             auto key1 = keys[i];
             foreach (key2; keys[i + 1 .. $]) {
                 auto intersection = set_intersection(grammarItems[key1], grammarItems[key2]);
@@ -272,6 +278,65 @@ class ParserState {
             }
         }
         return reduceReduceConflicts.length;
+    }
+
+    string[]
+    generate_code_text()
+    {
+        string[] codeTextLines = ["switch (ddToken) {"];
+        foreach (token, parserState; shiftList) {
+            codeTextLines ~= format("    case %s: return ddShift(%s);", token.id, parserState.id);
+        }
+        auto itemKeys = get_reducible_keys(grammarItems);
+        if (itemKeys.cardinality > 0) {
+            struct Pair { Set!TokenSymbol lookAheadSet; Set!GrammarItemKey productionSet; };
+            Pair[] pairs;
+            Set!TokenSymbol combinedLookAhead;
+            foreach (itemKey; itemKeys.elements) {
+                combinedLookAhead.add(grammarItems[itemKey]);
+            }
+            foreach (token; combinedLookAhead.elements) {
+                auto productionSet = new Set!GrammarItemKey;
+                foreach (itemKey; itemKeys.elements) {
+                    if (grammarItems[itemKey].contains(token)) {
+                        productionSet.add(itemKey);
+                    }
+                }
+                auto i = 0;
+                for (i = 0; i < pairs.length; i++) {
+                    if (pairs[i].productionSet == productionSet) break;
+                }
+                if (i < pairs.length) {
+                    pairs[i].lookAheadSet.add(token);
+                } else {
+                    pairs ~= Pair(new Set!TokenSymbol(token), productionSet);
+                }
+            }
+            foreach (pair; pairs) {
+                auto tokens = pair.lookAheadSet.elements;
+                auto caseline = format("    case %s", tokens[0]);
+                foreach (token; tokens[1 .. $]) {
+                    caseline ~= format(", %s", token);
+                }
+                caseline ~= ":";
+                codeTextLines ~= caseline;
+                auto keys = pair.productionSet.elements;
+                assert(keys.length == 1 || !trivially_true(keys[0].production.predicate));
+                if (keys.length == 1) {
+                    if (trivially_true(keys[0].production.predicate)) {
+                        codeTextLines ~= format("        return ddReduce(%s);", keys[0].production.id);
+                    } else {
+                        // TODO: add if(predicate) reduce(id) else error
+                    }
+                } else {
+                    // TODO: add big if(predicate) reduce(id) else if reduce(id) else error
+                }
+            }
+        }
+        codeTextLines ~= "    default:";
+        codeTextLines ~= "        return ddError;";
+        codeTextLines ~= "}";
+        return codeTextLines;
     }
 }
 
