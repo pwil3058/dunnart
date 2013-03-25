@@ -78,6 +78,15 @@ class Symbol {
     {
         return usedAt.length > 0;
     }
+
+    override string
+    toString()
+    {
+        if (type == SymbolType.token && pattern.length > 0 && pattern[0] == '"') {
+            return pattern;
+        }
+        return name;
+    }
 }
 
 alias Symbol TokenSymbol;
@@ -135,6 +144,18 @@ class SymbolTable {
         return token;
     }
 
+    @property size_t
+    tokenCount()
+    {
+        return tokens.length;
+    }
+
+    @property size_t
+    nonTerminalCount()
+    {
+        return nonTerminals.length;
+    }
+
     bool
     is_known_token(string symbolName)
     {
@@ -190,6 +211,8 @@ class SymbolTable {
         } else if (autoCreate) {
             // if it's referenced without being defined it's a non terminal
             symbol = new NonTerminalSymbol(symbolName, SymbolType.nonTerminal, location, false);
+            nonTerminals[symbolName] = symbol;
+            allSymbols[symbol.id] = symbol;
         }
         return symbol;
     }
@@ -288,6 +311,8 @@ class SymbolTable {
             symbol.definedAt = location;
         } else {
             symbol = new NonTerminalSymbol(symbolName, SymbolType.nonTerminal, location, true);
+            nonTerminals[symbolName] = symbol;
+            allSymbols[symbol.id] = symbol;
         }
         return symbol;
     }
@@ -324,6 +349,30 @@ class SymbolTable {
             }
         }
         return count;
+    }
+
+    NonTerminalSymbol[]
+    get_undefined_symbols()
+    {
+        NonTerminalSymbol[] undefined_symbols;
+        foreach (nts; nonTerminals) {
+            if (nts.definedAt == CharLocation(0,0)) {
+                undefined_symbols ~= nts;
+            }
+        }
+        return undefined_symbols;
+    }
+
+    Symbol[]
+    get_unused_symbols()
+    {
+        Symbol[] unused_symbols;
+        foreach (symbol; allSymbols) {
+            if (symbol.usedAt.length == 0 && symbol.id > SpecialSymbols.max) {
+                unused_symbols ~= symbol;
+            }
+        }
+        return unused_symbols;
     }
 }
 

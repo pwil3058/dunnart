@@ -1,6 +1,8 @@
 module grammar;
 
 import std.string;
+import std.regex;
+import std.stdio;
 
 import ddlib.components;
 import symbols;
@@ -41,6 +43,28 @@ class Production {
     length()
     {
         return rightHandSide.length;
+    }
+
+    @property string
+    expanded_predicate()
+    {
+        static auto stackAttr_re = regex(r"\$(\d+)", "g");
+        auto replaceWith = format("ddAttributeStack[$$ - %s + $1]", rightHandSide.length + 1);
+        return replace(predicate, stackAttr_re, replaceWith);
+    }
+
+    override string
+    toString()
+    {
+        // This is just for use in generated code comments
+        if (rightHandSide.length == 0) {
+            return format("%s: <empty>", leftHandSide.name);
+        }
+        auto str = format("%s:", leftHandSide.name);
+        foreach (symbol; rightHandSide) {
+            str ~= format(" %s", symbol);
+        }
+        return str;
     }
 }
 
@@ -285,13 +309,13 @@ class ParserState {
     {
         string[] codeTextLines = ["switch (ddToken) {"];
         foreach (token, parserState; shiftList) {
-            codeTextLines ~= format("    case %s: return ddShift(%s);", token.id, parserState.id);
+            codeTextLines ~= format("    case %s: return ddShift(%s);", token.name, parserState.id);
         }
         auto itemKeys = get_reducible_keys(grammarItems);
         if (itemKeys.cardinality > 0) {
             struct Pair { Set!TokenSymbol lookAheadSet; Set!GrammarItemKey productionSet; };
             Pair[] pairs;
-            Set!TokenSymbol combinedLookAhead;
+            auto combinedLookAhead = new Set!TokenSymbol;
             foreach (itemKey; itemKeys.elements) {
                 combinedLookAhead.add(grammarItems[itemKey]);
             }
@@ -314,22 +338,54 @@ class ParserState {
             }
             foreach (pair; pairs) {
                 auto tokens = pair.lookAheadSet.elements;
-                auto caseline = format("    case %s", tokens[0]);
+                auto caseline = format("    case %s", tokens[0].name);
                 foreach (token; tokens[1 .. $]) {
-                    caseline ~= format(", %s", token);
+                    caseline ~= format(", %s", token.name);
                 }
                 caseline ~= ":";
                 codeTextLines ~= caseline;
                 auto keys = pair.productionSet.elements;
-                assert(keys.length == 1 || !trivially_true(keys[0].production.predicate));
-                if (keys.length == 1) {
-                    if (trivially_true(keys[0].production.predicate)) {
-                        codeTextLines ~= format("        return ddReduce(%s);", keys[0].production.id);
+                if (trivially_true(keys[0].production.predicate)) {
+                    assert(keys.length == 1);
+                    if (keys[0].production.id == 0) {
+                        codeTextLines ~= "        return ddAccept;";
                     } else {
-                        // TODO: add if(predicate) reduce(id) else error
+                        codeTextLines ~= format("        // %s", keys[0].production);
+                        codeTextLines ~= format("        return ddReduce(%s);", keys[0].production.id);
                     }
                 } else {
-                    // TODO: add big if(predicate) reduce(id) else if reduce(id) else error
+                    codeTextLines ~= format("        if (%s) {", keys[0].production.expanded_predicate);
+                    codeTextLines ~= format("            // %s", keys[0].production);
+                    codeTextLines ~= format("            return ddReduce(%s);", keys[0].production.id);
+                    if (keys.length == 1) {
+                        codeTextLines ~= "        } else {";
+                        codeTextLines ~= "            return ddError;";
+                        codeTextLines ~= "        }";
+                        continue;
+                    }
+                    for (auto i = 1; i < keys.length - 1; i++) {
+                        assert(!trivially_true(keys[i].production.predicate));
+                        codeTextLines ~= format("        } else if (%s) {", keys[i].production.expanded_predicate);
+                        codeTextLines ~= format("            // %s", keys[0].production);
+                        codeTextLines ~= format("            return ddReduce(%s);", keys[i].production.id);
+                    }
+                    if (trivially_true(keys[$ - 1].production.predicate)) {
+                        codeTextLines ~= "        } else {";
+                        if (keys[$ - 1].production.id == 0) {
+                            codeTextLines ~= "        return ddAccept;";
+                        } else {
+                            codeTextLines ~= format("            // %s", keys[0].production);
+                            codeTextLines ~= format("            return ddReduce(%s);", keys[$ - 1].production.id);
+                        }
+                        codeTextLines ~= "        }";
+                    } else {
+                        codeTextLines ~= format("        } else if (%s) {", keys[$ - 1].production.expanded_predicate);
+                        codeTextLines ~= format("            // %s", keys[0].production);
+                        codeTextLines ~= format("            return ddReduce(%s);", keys[$ - 1].production.id);
+                        codeTextLines ~= "        } else {";
+                        codeTextLines ~= "            return ddError;";
+                        codeTextLines ~= "        }";
+                    }
                 }
             }
         }
@@ -455,6 +511,7 @@ class Grammar {
     this(GrammarSpecification specification)
     {
         spec = specification;
+        debug(Grammar) writefln("Specification: %s Tokens; %s NonTerminals; %s Productions", spec.symbolTable.tokenCount, spec.symbolTable.nonTerminalCount, spec.productionList.length);
         auto startItemKey = new GrammarItemKey(spec.productionList[0]);
         auto startLookAheadSet = new Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
         GrammarItemSet startKernel = [ startItemKey : startLookAheadSet];
@@ -528,5 +585,62 @@ class Grammar {
             }
         }
         return null;
+    }
+
+    string[]
+    generate_action_table_code_text()
+    {
+        string[] codeTextLines = ["DDParserAction"];
+        codeTextLines ~= "dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, in DDAttributes[] ddAttributeStack)";
+        codeTextLines ~= "{";
+        codeTextLines ~= "    switch(ddCurrentState) {";
+        foreach (parserState; parserStates) {
+            codeTextLines ~= format("        case %s:", parserState.id);
+            auto indent = "            ";
+            foreach (line; parserState.generate_code_text()) {
+                auto indented_line = indent ~ line;
+                codeTextLines ~= indented_line;
+            }
+            codeTextLines ~= "            break;";
+        }
+        codeTextLines ~= "        default:";
+        codeTextLines ~= "            return ddError;";
+        codeTextLines ~= "    }";
+        codeTextLines ~= "    assert(false);";
+        codeTextLines ~= "}";
+        return codeTextLines;
+    }
+
+    string[]
+    generate_goto_table_code_text()
+    {
+        string[] codeTextLines = ["DDParserState"];
+        codeTextLines ~= "dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
+        codeTextLines ~= "{";
+        codeTextLines ~= "    switch(ddNonTerminal) {";
+        foreach (nonTerminal, stateGotoData; gotoTable) {
+            codeTextLines ~= format("        case DDNonTerminal.%s:", nonTerminal.name);
+            codeTextLines ~= "            switch(ddCurrentState) {";
+            foreach (gotoState, fromStateSet; stateGotoData) {
+                auto fromStates = fromStateSet.elements;
+                auto caseline = format("                case %s", fromStates[0].id);
+                foreach (token; fromStates[1 .. $]) {
+                    caseline ~= format(", %s", token.id);
+                }
+                caseline ~= ":";
+                codeTextLines ~= caseline;
+                codeTextLines ~= format("                    return %s;", gotoState.id);
+            }
+            codeTextLines ~= "                default:";
+            codeTextLines ~= "                    ddFatalError();";
+            codeTextLines ~= "            }";
+            codeTextLines ~= "            break;";
+        }
+        codeTextLines ~= "        default:";
+        codeTextLines ~= "            ddFatalError();";
+        codeTextLines ~= "    }";
+        codeTextLines ~= "    assert(false);";
+        codeTextLines ~= "}";
+        return codeTextLines;
     }
 }

@@ -1,5 +1,7 @@
 module bespoke;
 
+import std.stdio;
+
 import symbols;
 import grammar;
 
@@ -183,6 +185,10 @@ static this() {
         auto left_hand_side = get_symbol("left_hand_side", plf.next(true), true);
         add_production(new Production(production_group_head, [left_hand_side, COLON], "// define the non terminal symbol"));
 
+        left_hand_side = define_non_terminal("left_hand_side", plf.next(true));
+        allowable_ident = get_symbol("allowable_ident", plf.next(true));
+        add_production(new Production(left_hand_side, [allowable_ident], "// do nothing"));
+
         production_tail_list = define_non_terminal("production_tail_list", plf.next(true));
         auto production_tail = get_symbol("production_tail", plf.next(true), true);
         VBAR = get_literal_token("\"|\"", plf.next());
@@ -222,7 +228,29 @@ static this() {
         add_production(new Production(symbol, [ERROR], "// retrieve the named symbol"));
         add_production(new Production(symbol, [LEXERROR], "// retrieve the named symbol"));
     }
+    debug(Grammar) {
+        foreach (symbol; bespokeSymbolTable.get_undefined_symbols()) {
+            writefln("Non terminal: %s is not defined", symbol.name);
+        }
+    }
     assert(bespokeSymbolTable.count_undefined_symbols() == 0);
-    assert(bespokeSymbolTable.count_unused_symbols() == 0);
+    debug(Grammar) {
+        foreach (symbol; bespokeSymbolTable.get_unused_symbols()) {
+            writefln("Symbol: %s is not used", symbol.name);
+        }
+    }
+    // The start symbol will show up as unused
+    assert(bespokeSymbolTable.count_unused_symbols() == 1);
     bespokeGrammar = new Grammar(bespokeGrammarSpecification);
+}
+
+void
+main()
+{
+    foreach (line; bespokeGrammar.generate_goto_table_code_text()) {
+        writeln(line);
+    }
+    foreach (line; bespokeGrammar.generate_action_table_code_text()) {
+        writeln(line);
+    }
 }
