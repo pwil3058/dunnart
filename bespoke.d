@@ -98,7 +98,7 @@ static this() {
 
         token_definitions = define_non_terminal("token_definitions", plf.next(true));
         auto token_definition = get_symbol("token_definition", plf.next(true), true);
-        add_production(new Production(token_definitions, [], "// do nothing"));
+        add_production(new Production(token_definitions, [token_definition], "// do nothing"));
         add_production(new Production(token_definitions, [token_definitions, token_definition], "// do nothing"));
 
         skip_definitions = define_non_terminal("skip_definitions", plf.next(true));
@@ -228,13 +228,13 @@ static this() {
         add_production(new Production(symbol, [ERROR], "// retrieve the named symbol"));
         add_production(new Production(symbol, [LEXERROR], "// retrieve the named symbol"));
     }
-    debug(Grammar) {
+    debug(Bespoke) {
         foreach (symbol; bespokeSymbolTable.get_undefined_symbols()) {
             writefln("Non terminal: %s is not defined", symbol.name);
         }
     }
     assert(bespokeSymbolTable.count_undefined_symbols() == 0);
-    debug(Grammar) {
+    debug(Bespoke) {
         foreach (symbol; bespokeSymbolTable.get_unused_symbols()) {
             writefln("Symbol: %s is not used", symbol.name);
         }

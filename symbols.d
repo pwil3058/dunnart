@@ -21,6 +21,12 @@ class FirstsData {
         this.tokenset = tokenset;
         this.transparent = transparent;
     }
+
+    override string
+    toString()
+    {
+        return format("Firsts: %s; Transparent: %s", tokenset, transparent);
+    }
 }
 
 alias uint Precedence;

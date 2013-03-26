@@ -76,18 +76,18 @@ class LALRParser(A) {
         while (true) {
             auto next_action = get_next_action(currentState, currentToken);
             final switch (next_action.action) {
-                case ParseActionType.shift:
-                    do_shift(next_action.next_state);
-                    break;
-                case ParseActionType.reduce:
-                    do_reduce(next_action.productionId);
-                    break;
-                case ParseActionType.accept:
-                    return true;
-                case ParseActionType.error:
-                    auto successful = recover_from_error();
-                    if (!successful)
-                        return false;;
+            case ParseActionType.shift:
+                do_shift(next_action.next_state);
+                break;
+            case ParseActionType.reduce:
+                do_reduce(next_action.productionId);
+                break;
+            case ParseActionType.accept:
+                return true;
+            case ParseActionType.error:
+                auto successful = recover_from_error();
+                if (!successful)
+                    return false;;
             }
         }
     }

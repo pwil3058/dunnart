@@ -1,5 +1,7 @@
 module sets;
 
+import std.string;
+
 class Set(T) {
     protected T[] _elements;
     invariant () {
@@ -158,6 +160,18 @@ class Set(T) {
     body {
         return _elements == (cast(typeof(this)) object)._elements;
     }
+
+    override string
+    toString()
+    {
+        if (_elements.length == 0) return "Set{}";
+        auto str = format("Set{%s", _elements[0]);
+        foreach (element; _elements[1 .. $]) {
+            str ~= format(", %s", element);
+        }
+        str ~= "}";
+        return str; 
+    }
 }
 
 Set!T set_union(T)(Set!T a, Set!T b) {
@@ -287,4 +301,19 @@ unittest {
         assert(binary_search(testlist, testlist[i]) == BinarySearchResult(true, i));
         assert(binary_search(testlist, testlist[i] - 1) == BinarySearchResult(false, i));
     }
+}
+
+Set!T
+extract_key_set(T, G)(G[T] assocArray)
+{
+    auto keyset = new Set!T;
+    foreach(key; assocArray.byKey()) {
+        keyset.add(key);
+    }
+    return keyset;
+}
+
+unittest {
+    auto test = [1: 2, 7 : 8, 3 : 4];
+    assert(extract_key_set(test).cardinality == 3);
 }

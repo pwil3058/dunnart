@@ -87,7 +87,7 @@ class GrammarItemKey {
             return null;
         }
         auto cloned = new GrammarItemKey(production);
-        cloned.dot++;
+        cloned.dot = dot + 1;
         return cloned;
     }
 
@@ -149,6 +149,28 @@ class GrammarItemKey {
         }
         return production.id - other.production.id;
     }
+
+    override string
+    toString()
+    {
+        with (production) {
+            // This is just for use in debugging
+            if (rightHandSide.length == 0) {
+                return format("%s: . <empty>", leftHandSide.name);
+            }
+            auto str = format("%s:", leftHandSide.name);
+            for (auto i = 0; i < rightHandSide.length; i++) {
+                if (i == dot) {
+                    str ~= " .";
+                }
+                str ~= format(" %s", rightHandSide[i]);
+            }
+            if (dot == rightHandSide.length) {
+                str ~= " .";
+            }
+            return str;
+        }
+    }
 }
 
 alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
@@ -192,10 +214,24 @@ extract_kernel(GrammarItemSet itemset)
 GrammarItemSet
 generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
 {
+    debug(GoToKernel) {
+        writefln("generate_goto_kernel(%s)", symbol);
+        writefln("IN:");
+        foreach (item, lookAheadSet; itemset) {
+            writefln("\t[%s, %s]", item, lookAheadSet);
+        }
+    }
     GrammarItemSet goto_kernel;
     foreach (grammarItemKey, lookAheadSet; itemset) {
         if (grammarItemKey.is_next_symbol(symbol)) {
+            debug(GoToKernel1) writefln("%s >>> %s", grammarItemKey, grammarItemKey.clone_shifted());
             goto_kernel[grammarItemKey.clone_shifted()] = lookAheadSet.clone();
+        }
+    }
+    debug(GoToKernel) {
+        writefln("OUT:");
+        foreach (item, lookAheadSet; goto_kernel) {
+            writefln("\t[%s, %s]", item, lookAheadSet);
         }
     }
     return goto_kernel;
@@ -309,7 +345,7 @@ class ParserState {
     {
         string[] codeTextLines = ["switch (ddToken) {"];
         foreach (token, parserState; shiftList) {
-            codeTextLines ~= format("    case %s: return ddShift(%s);", token.name, parserState.id);
+            codeTextLines ~= format("case %s: return ddShift(%s);", token.name, parserState.id);
         }
         auto itemKeys = get_reducible_keys(grammarItems);
         if (itemKeys.cardinality > 0) {
@@ -338,7 +374,7 @@ class ParserState {
             }
             foreach (pair; pairs) {
                 auto tokens = pair.lookAheadSet.elements;
-                auto caseline = format("    case %s", tokens[0].name);
+                auto caseline = format("case %s", tokens[0].name);
                 foreach (token; tokens[1 .. $]) {
                     caseline ~= format(", %s", token.name);
                 }
@@ -348,51 +384,52 @@ class ParserState {
                 if (trivially_true(keys[0].production.predicate)) {
                     assert(keys.length == 1);
                     if (keys[0].production.id == 0) {
-                        codeTextLines ~= "        return ddAccept;";
+                        codeTextLines ~= "    return ddAccept;";
                     } else {
-                        codeTextLines ~= format("        // %s", keys[0].production);
-                        codeTextLines ~= format("        return ddReduce(%s);", keys[0].production.id);
+                        codeTextLines ~= format("    return ddReduce(%s); // %s", keys[0].production.id, keys[0].production);
                     }
                 } else {
-                    codeTextLines ~= format("        if (%s) {", keys[0].production.expanded_predicate);
-                    codeTextLines ~= format("            // %s", keys[0].production);
-                    codeTextLines ~= format("            return ddReduce(%s);", keys[0].production.id);
+                    codeTextLines ~= format("    if (%s) {", keys[0].production.expanded_predicate);
+                    codeTextLines ~= format("        return ddReduce(%s); // %s", keys[0].production.id, keys[0].production);
                     if (keys.length == 1) {
-                        codeTextLines ~= "        } else {";
-                        codeTextLines ~= "            return ddError;";
-                        codeTextLines ~= "        }";
+                        codeTextLines ~= "    } else {";
+                        codeTextLines ~= "        return ddError;";
+                        codeTextLines ~= "    }";
                         continue;
                     }
                     for (auto i = 1; i < keys.length - 1; i++) {
                         assert(!trivially_true(keys[i].production.predicate));
-                        codeTextLines ~= format("        } else if (%s) {", keys[i].production.expanded_predicate);
-                        codeTextLines ~= format("            // %s", keys[0].production);
-                        codeTextLines ~= format("            return ddReduce(%s);", keys[i].production.id);
+                        codeTextLines ~= format("    } else if (%s) {", keys[i].production.expanded_predicate);
+                        codeTextLines ~= format("        return ddReduce(%s); // %s", keys[i].production.id, keys[i].production);
                     }
                     if (trivially_true(keys[$ - 1].production.predicate)) {
-                        codeTextLines ~= "        } else {";
+                        codeTextLines ~= "    } else {";
                         if (keys[$ - 1].production.id == 0) {
-                            codeTextLines ~= "        return ddAccept;";
+                            codeTextLines ~= "    return ddAccept;";
                         } else {
-                            codeTextLines ~= format("            // %s", keys[0].production);
-                            codeTextLines ~= format("            return ddReduce(%s);", keys[$ - 1].production.id);
+                            codeTextLines ~= format("        return ddReduce(%s); // %s", keys[$ - 1].production.id, keys[$ - 1].production);
                         }
-                        codeTextLines ~= "        }";
+                        codeTextLines ~= "    }";
                     } else {
-                        codeTextLines ~= format("        } else if (%s) {", keys[$ - 1].production.expanded_predicate);
-                        codeTextLines ~= format("            // %s", keys[0].production);
-                        codeTextLines ~= format("            return ddReduce(%s);", keys[$ - 1].production.id);
-                        codeTextLines ~= "        } else {";
-                        codeTextLines ~= "            return ddError;";
-                        codeTextLines ~= "        }";
+                        codeTextLines ~= format("    } else if (%s) {", keys[$ - 1].production.expanded_predicate);
+                        codeTextLines ~= format("        return ddReduce(%s); // %s", keys[$ - 1].production.id, keys[$ - 1].production);
+                        codeTextLines ~= "    } else {";
+                        codeTextLines ~= "        return ddError;";
+                        codeTextLines ~= "    }";
                     }
                 }
             }
         }
-        codeTextLines ~= "    default:";
-        codeTextLines ~= "        return ddError;";
+        codeTextLines ~= "default:";
+        codeTextLines ~= "    return ddError;";
         codeTextLines ~= "}";
         return codeTextLines;
+    }
+
+    override string
+    toString()
+    {
+        return format("State<%s>", id);
     }
 }
 
@@ -425,6 +462,7 @@ class GrammarSpecification {
     Set!TokenSymbol
     FIRST(Symbol[] symbolString, TokenSymbol token)
     {
+        debug(FIRST2) writefln("FIRST(%s, %s)", symbolString, token);
         auto tokenSet = new Set!TokenSymbol;
         foreach (symbol; symbolString) {
             auto firstsData = get_firsts_data(symbol);
@@ -434,6 +472,7 @@ class GrammarSpecification {
             }
         }
         tokenSet.add(token);
+        debug(FIRST) writefln("FIRST(%s, %s): RETURN: %s", symbolString, token, tokenSet);
         return tokenSet;
     }
 
@@ -446,11 +485,22 @@ class GrammarSpecification {
             if (symbol.type == SymbolType.token) {
                 tokenSet.add(symbol);
             } else if (symbol.type == SymbolType.nonTerminal) {
+                // We need to establish transparency first
+                Production[] relevantProductions;
                 foreach (production; productionList) {
                     if (production.leftHandSide != symbol) continue;
-
                     transparent = transparent || (production.length == 0);
+                    relevantProductions ~= production;
+                }
+                foreach (production; relevantProductions) {
                     foreach (rhsSymbol; production.rightHandSide) {
+                        if (rhsSymbol == symbol) {
+                            if (transparent) {
+                                continue;
+                            } else {
+                                break;
+                            }
+                        }
                         auto firstsData = get_firsts_data(rhsSymbol);
                         tokenSet.add(firstsData.tokenset);
                         if (!firstsData.transparent) {
@@ -460,6 +510,7 @@ class GrammarSpecification {
                 }
             }
             symbol.firstsData = new FirstsData(tokenSet, transparent);
+            debug(FIRST1) writefln("get_firsts_data(%s): RETURN: %s", symbol, symbol.firstsData);
         }
         return symbol.firstsData;
     }
@@ -467,14 +518,22 @@ class GrammarSpecification {
     GrammarItemSet
     closure(GrammarItemSet itemSet)
     {
+        debug(Closure) {
+            writefln("Closure Input: %s items", itemSet.length);
+            foreach (itemKey, lookAheadSet; itemSet) {
+                writefln("[%s, %s]", itemKey, lookAheadSet);
+            }
+        }
         bool additions_made;
         do {
             additions_made = false;
             foreach (grammarItemKey, lookAheadSet; itemSet) {
                 if (!grammarItemKey.is_shiftable || grammarItemKey.nextSymbol.type != SymbolType.nonTerminal) continue;
                 auto prospectiveLhs = grammarItemKey.nextSymbol;
+                debug(ClosureLoop) writefln("Key: %s; Prospective LHS: %s; Look Ahead: %s", grammarItemKey, prospectiveLhs, lookAheadSet);
                 foreach (lookAheadSymbol; lookAheadSet.elements) {
                     auto firsts = FIRST(grammarItemKey.tail, lookAheadSymbol);
+                    debug(ClosureLoop) writefln("FIRSTS: %s", firsts);
                     foreach (production; productionList) {
                         if (prospectiveLhs != production.leftHandSide) continue;
                         auto prospectiveKey = new GrammarItemKey(production);
@@ -491,6 +550,12 @@ class GrammarSpecification {
                 }
             }
         } while (additions_made);
+        debug(Closure) {
+            writefln("Closure Output: %s items", itemSet.length);
+            foreach (itemKey, lookAheadSet; itemSet) {
+                writefln("[%s, %s]", itemKey, lookAheadSet);
+            }
+        }
         return itemSet;
     }
 }
@@ -520,27 +585,63 @@ class Grammar {
         while (true) {
             // Find a state that needs processing or quit
             ParserState unprocessedState = null;
-            foreach (candidateState; parserStates.byValue()) {
-                if (candidateState.state != ProcessedState.processed) {
-                    unprocessedState = candidateState;
+            // Go through states in id order
+            for (auto i = 0; i < parserStates.length; i++) {
+                if (parserStates[i].state != ProcessedState.processed) {
+                    unprocessedState = parserStates[i];
                     break;
                 }
             }
             if (unprocessedState is null) break;
 
             auto firstTime = unprocessedState.state == ProcessedState.unProcessed;
+            debug(Grammar) {
+                writefln("Chosen: %s State: %s First Time: %s", unprocessedState.id, unprocessedState.state, firstTime);
+                foreach (itemKey, lookAheadSet; unprocessedState.grammarItems) {
+                    writefln("\t[%s, %s]", itemKey, lookAheadSet);
+                }
+                foreach(token, state; unprocessedState.shiftList) {
+                    writefln("\t%s -> %s", token, state);
+                }
+                if (unprocessedState.errorRecoveryState !is null) {
+                    writefln("\tERS = %s", unprocessedState.errorRecoveryState);
+                }
+            }
             unprocessedState.state = ProcessedState.processed;
             auto fullItemSet = spec.closure(extract_kernel(unprocessedState.grammarItems));
+            debug(Grammar) {
+                writefln("Closure(%s):", unprocessedState.id);
+                foreach (itemKey, lookAheadSet; fullItemSet) {
+                    writefln("\t[%s, %s]", itemKey, lookAheadSet);
+                }
+            }
+            auto alreadyDone = new Set!Symbol;
             foreach (itemKey; fullItemSet.byKey()){
                 if (!itemKey.is_shiftable) continue;
                 ParserState gotoState;
                 auto symbolX = itemKey.nextSymbol;
+                if (alreadyDone.contains(symbolX)) continue;
+                alreadyDone.add(symbolX);
+                debug(Grammar12) writefln("SymbolX(%s): %s", itemKey, symbolX);
                 auto kernelX = generate_goto_kernel(fullItemSet, symbolX);
+                debug(Grammar) {
+                    writefln("KernelX(%s):", symbolX);
+                    foreach (itemKey, lookAheadSet; kernelX) {
+                        writefln("\t[%s, %s]", itemKey, lookAheadSet);
+                    }
+                }
                 auto equivalentState = find_equivalent_state(kernelX);
                 if (equivalentState is null) {
                     gotoState = new ParserState(kernelX);
                     parserStates[gotoState.id] = gotoState;
+                    debug(Grammar) writefln("\tNew State: %s", gotoState.id);
                 } else {
+                    debug(Grammar) {
+                        writefln("\tEquivalent State(before): %s: %s", equivalentState.id, equivalentState.state);
+                        foreach (itemKey, lookAheadSet; equivalentState.grammarItems) {
+                            writefln("\t\t[%s, %s]", itemKey, lookAheadSet);
+                        }
+                    }
                     foreach (itemKey, lookAheadSet; kernelX) {
                         if (!equivalentState.grammarItems[itemKey].contains(lookAheadSet)) {
                             equivalentState.grammarItems[itemKey].add(lookAheadSet);
@@ -549,17 +650,25 @@ class Grammar {
                             }
                         }
                     }
+                    debug(Grammar) {
+                        writefln("\tEquivalent State(after): %s: %s", equivalentState.id, equivalentState.state);
+                        foreach (itemKey, lookAheadSet; equivalentState.grammarItems) {
+                            writefln("\t\t[%s, %s]", itemKey, lookAheadSet);
+                        }
+                    }
                     gotoState = equivalentState;
                 }
                 if (firstTime) {
                     if (symbolX.type == SymbolType.token) {
                         unprocessedState.shiftList[symbolX] = gotoState;
+                        debug(Grammar) writefln("\tShift: %s --> %s", symbolX, gotoState.id);
                     } else {
                         if (symbolX !in gotoTable || gotoState !in gotoTable[symbolX]) {
                             gotoTable[symbolX] = [gotoState: new Set!(ParserState)(unprocessedState)];
                         } else {
                             gotoTable[symbolX][gotoState].add(unprocessedState);
                         }
+                        debug(Grammar) writefln("\tGoTo(%s, %s) --> %s", symbolX, gotoTable[symbolX][gotoState], gotoState);
                     }
                     if (symbolX.id == SpecialSymbols.parseError) {
                         unprocessedState.errorRecoveryState = gotoState;
@@ -594,17 +703,19 @@ class Grammar {
         codeTextLines ~= "dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, in DDAttributes[] ddAttributeStack)";
         codeTextLines ~= "{";
         codeTextLines ~= "    switch(ddCurrentState) {";
-        foreach (parserState; parserStates) {
-            codeTextLines ~= format("        case %s:", parserState.id);
-            auto indent = "            ";
+        // Do this in state id order
+        for (auto i = 0; i < parserStates.length; i++) {
+            auto parserState = parserStates[i];
+            codeTextLines ~= format("    case %s:", parserState.id);
+            auto indent = "        ";
             foreach (line; parserState.generate_code_text()) {
                 auto indented_line = indent ~ line;
                 codeTextLines ~= indented_line;
             }
-            codeTextLines ~= "            break;";
+            codeTextLines ~= "        break;";
         }
-        codeTextLines ~= "        default:";
-        codeTextLines ~= "            return ddError;";
+        codeTextLines ~= "    default:";
+        codeTextLines ~= "        return ddError;";
         codeTextLines ~= "    }";
         codeTextLines ~= "    assert(false);";
         codeTextLines ~= "}";
@@ -618,26 +729,28 @@ class Grammar {
         codeTextLines ~= "dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
         codeTextLines ~= "{";
         codeTextLines ~= "    switch(ddNonTerminal) {";
-        foreach (nonTerminal, stateGotoData; gotoTable) {
-            codeTextLines ~= format("        case DDNonTerminal.%s:", nonTerminal.name);
-            codeTextLines ~= "            switch(ddCurrentState) {";
+        auto keySet = extract_key_set(gotoTable);
+        foreach (nonTerminal; keySet.elements) {
+            auto stateGotoData = gotoTable[nonTerminal];
+            codeTextLines ~= format("    case DDNonTerminal.%s:", nonTerminal.name);
+            codeTextLines ~= "        switch(ddCurrentState) {";
             foreach (gotoState, fromStateSet; stateGotoData) {
                 auto fromStates = fromStateSet.elements;
-                auto caseline = format("                case %s", fromStates[0].id);
+                auto caseline = format("        case %s", fromStates[0].id);
                 foreach (token; fromStates[1 .. $]) {
                     caseline ~= format(", %s", token.id);
                 }
                 caseline ~= ":";
                 codeTextLines ~= caseline;
-                codeTextLines ~= format("                    return %s;", gotoState.id);
+                codeTextLines ~= format("            return %s;", gotoState.id);
             }
-            codeTextLines ~= "                default:";
-            codeTextLines ~= "                    ddFatalError();";
-            codeTextLines ~= "            }";
-            codeTextLines ~= "            break;";
+            codeTextLines ~= "        default:";
+            codeTextLines ~= "            ddFatalError();";
+            codeTextLines ~= "        }";
+            codeTextLines ~= "        break;";
         }
-        codeTextLines ~= "        default:";
-        codeTextLines ~= "            ddFatalError();";
+        codeTextLines ~= "    default:";
+        codeTextLines ~= "        ddFatalError();";
         codeTextLines ~= "    }";
         codeTextLines ~= "    assert(false);";
         codeTextLines ~= "}";
