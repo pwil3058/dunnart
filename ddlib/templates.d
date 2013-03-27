@@ -11,6 +11,11 @@ mixin template DDParserSupport() {
     alias ddlexan.TokenSpec DDTokenSpec;
     alias ddlexan.CharLocation DDCharLocation;
 
+    struct DDProductionData {
+        DDNonTerminal leftHandSide;
+        size_t length;
+    }
+
     DDParseAction
     ddShift(DDParserState ddState)
     {

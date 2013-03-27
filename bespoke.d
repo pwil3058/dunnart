@@ -259,6 +259,9 @@ main()
     foreach (line; bespokeGrammar.generate_non_terminal_enum_code_text()) {
         writeln(line);
     }
+    foreach (line; bespokeGrammar.generate_production_data_code_text()) {
+        writeln(line);
+    }
     foreach (line; bespokeGrammar.generate_attributes_code_text()) {
         writeln(line);
     }

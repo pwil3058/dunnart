@@ -770,6 +770,25 @@ class Grammar {
     }
 
     string[]
+    generate_production_data_code_text()
+    {
+        string[] textLines = ["DDProductionData"];
+        textLines ~= "dd_get_production_data(DDProduction ddProduction)";
+        textLines ~= "{";
+        textLines ~= "    with (DDNonTerminal) switch(ddProduction) {";
+        for (auto i = 0; i < spec.productionList.length; i++) {
+            auto production = spec.productionList[i];
+            textLines ~= format("    case %s: return DDProductionData(%s, %s);", i, production.leftHandSide.name, production.rightHandSide.length);
+        }
+        textLines ~= "    default:";
+        textLines ~= "        throw new Exception(\"Malformed production data table\");";
+        textLines ~= "    }";
+        textLines ~= "    assert(false);";
+        textLines ~= "}";
+        return textLines;
+    }
+
+    string[]
     generate_action_table_code_text()
     {
         string[] codeTextLines = ["DDParseAction"];

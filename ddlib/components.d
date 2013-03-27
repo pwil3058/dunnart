@@ -18,11 +18,6 @@ struct ParseAction {
     }
 }
 
-struct ProductionData {
-    SymbolId leftHandSide;
-    size_t length;
-} 
-
 struct TokenData {
     SymbolId symbolId;
     string fieldName;
