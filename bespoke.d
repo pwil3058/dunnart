@@ -271,4 +271,5 @@ main()
     foreach (line; bespokeGrammar.generate_lexan_token_code_text()) {
         writeln(line);
     }
+    writeln("\nmixin DDImplementParser;\n");
 }

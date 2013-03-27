@@ -755,7 +755,7 @@ class Grammar {
     generate_attributes_code_text()
     {
         string[] textLines = ["struct DDAttributes {"];
-        textLines ~= "    DDCharLocation ddCharLocation;";
+        textLines ~= "    DDCharLocation ddLocation;";
         textLines ~= "    string ddMatchedText;";
         auto fields = spec.symbolTable.get_field_definitions();
         if (fields.length > 0) {
