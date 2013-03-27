@@ -748,13 +748,6 @@ class Grammar {
             textLines ~= format("        %s,", quote_raw(rule));
         }
         textLines ~= "    ];";
-        textLines ~= "";
-        textLines ~= "class DDLexicalAnalyser: ddlexan.LexicalAnalyser {";
-        textLines ~= "    this()";
-        textLines ~= "    {";
-        textLines ~= "        super(ddTokenSpecs, ddSkipRules);";
-        textLines ~= "    }";
-        textLines ~= "}";
         return textLines;
     }
 

@@ -251,34 +251,8 @@ static this() {
 void
 main()
 {
-    writeln("import ddc = ddlib.components;");
-    writeln("import ddlexan = ddlib.lexan;\n");
-    writeln("alias ddc.ProductionId DDProduction;");
-    writeln("alias ddc.ParserStateId DDParserState;");
-    writeln("alias ddc.ParseAction DDParseAction;");
-    writeln("alias ddc.ParseActionType DDParseActionType;");
-    writeln("alias ddlexan.TokenSpec DDTokenSpec;");
-    writeln("alias ddlexan.CharLocation DDCharLocation;\n");
-    writeln("DDParseAction");
-    writeln("ddShift(DDParserState ddState)");
-    writeln("{");
-    writeln("    return DDParseAction(DDParseActionType.shift, ddState);");
-    writeln("}");
-    writeln("DDParseAction");
-    writeln("ddReduce(DDProduction ddProduction)");
-    writeln("{");
-    writeln("    return DDParseAction(DDParseActionType.reduce, ddProduction);");
-    writeln("}");
-    writeln("DDParseAction");
-    writeln("ddError()");
-    writeln("{");
-    writeln("    return DDParseAction(DDParseActionType.error, 0);");
-    writeln("}");
-    writeln("DDParseAction");
-    writeln("ddAccept()");
-    writeln("{");
-    writeln("    return DDParseAction(DDParseActionType.accept, 0);");
-    writeln("}");
+    writeln("import ddlib.templates;\n");
+    writeln("mixin DDParserSupport;\n");
     foreach (line; bespokeGrammar.generate_token_enum_code_text()) {
         writeln(line);
     }
