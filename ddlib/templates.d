@@ -21,16 +21,19 @@ mixin template DDParserSupport() {
     {
         return DDParseAction(DDParseActionType.shift, ddState);
     }
+
     DDParseAction
     ddReduce(DDProduction ddProduction)
     {
         return DDParseAction(DDParseActionType.reduce, ddProduction);
     }
+
     DDParseAction
     ddError()
     {
         return DDParseAction(DDParseActionType.error, 0);
     }
+
     DDParseAction
     ddAccept()
     {
@@ -45,8 +48,6 @@ mixin template DDImplementParser() {
             super(ddTokenSpecs, ddSkipRules);
         }
     }
-
-    alias typeof(DDNonTerminal.max) DDSymbol;
 
     class DDParser {
         struct StackElement {
@@ -100,7 +101,7 @@ mixin template DDImplementParser() {
         void
         do_shift(DDParserState to_state)
         {
-            push(cast(DDSymbol) currentToken, to_state);
+            push(currentToken, to_state);
             shifted = true;
             attrStack[stackIndex] = currentTokenAttributes;
             get_next_token();

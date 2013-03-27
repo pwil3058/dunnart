@@ -704,30 +704,26 @@ class Grammar {
     }
 
     string[]
-    generate_token_enum_code_text()
+    generate_symbol_enum_code_text()
     {
-        string[] textLines = ["enum DDToken {"];
+        // TODO: determine type for DDSymbol from maximum symbol id
+        string[] textLines = ["alias ushort DDSymbol;\n"];
+        textLines ~= "enum DDToken : DDSymbol {";
         foreach (token; spec.symbolTable.get_special_tokens_ordered()) {
             textLines ~= format("    %s = %s,", token.name, token.id);
         }
         foreach (token; spec.symbolTable.get_tokens_ordered()) {
             textLines ~= format("    %s = %s,", token.name, token.id);
         }
-        textLines ~= "}";
-        return textLines;
-    }
-
-    string[]
-    generate_non_terminal_enum_code_text()
-    {
-        string[] textLines = ["enum DDNonTerminal {"];
+        textLines ~= "}\n";
+        textLines ~= "enum DDNonTerminal : DDSymbol {";
         foreach (non_terminal; spec.symbolTable.get_special_non_terminals_ordered()) {
             textLines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
         }
         foreach (non_terminal; spec.symbolTable.get_non_terminals_ordered()) {
             textLines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
         }
-        textLines ~= "}";
+        textLines ~= "}\n";
         return textLines;
     }
 
