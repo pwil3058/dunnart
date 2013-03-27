@@ -63,10 +63,15 @@ static this() {
         auto PREDICATE = new_token("PREDICATE", r"(\?\((.|[\n\r])*?\?\))", plf.next(true));
         auto ACTION = new_token("ACTION", r"(!\{(.|[\n\r])*?!\})", plf.next(true));
         auto DCODE = new_token("DCODE", r"(%\{(.|[\n\r])*?%\})", plf.next(true));
-        bespokeLexAn = new LexicalAnalyser(generate_lexan_token_specs(), bespokeSkipPatterns);
 
+        add_skip_rule(r"(/\*(.|[\n\r])*?\*/)"); // D style comments
+        add_skip_rule(r"(//[^\n\r]*)"); // D EOL style comments
+        add_skip_rule(r"(\s+)"); // White space
+
+    // Simulate use of "specification" in grammar augmentation
+        auto specification = get_symbol("specification", plf.next(), true);
     // Rules specification
-        auto specification = define_non_terminal("specification", plf.next(true));
+        specification = define_non_terminal("specification", plf.next(true));
         auto preamble = get_symbol("preamble", plf.next(), true);
         auto definitions = get_symbol("definitions", plf.next(), true);
         NEWSECTION = get_literal_token("\"%%\"", plf.next()); // adds to the "used at" data
@@ -233,14 +238,13 @@ static this() {
             writefln("Non terminal: %s is not defined", symbol.name);
         }
     }
-    assert(bespokeSymbolTable.count_undefined_symbols() == 0);
+    assert(bespokeSymbolTable.get_undefined_symbols().length == 0);
     debug(Bespoke) {
         foreach (symbol; bespokeSymbolTable.get_unused_symbols()) {
             writefln("Symbol: %s is not used", symbol.name);
         }
     }
-    // The start symbol will show up as unused
-    assert(bespokeSymbolTable.count_unused_symbols() == 1);
+    assert(bespokeSymbolTable.get_unused_symbols().length == 0);
     bespokeGrammar = new Grammar(bespokeGrammarSpecification);
 }
 
@@ -251,6 +255,9 @@ main()
         writeln(line);
     }
     foreach (line; bespokeGrammar.generate_action_table_code_text()) {
+        writeln(line);
+    }
+    foreach (line; bespokeGrammar.generate_lexan_token_code_text()) {
         writeln(line);
     }
 }

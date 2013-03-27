@@ -1,6 +1,7 @@
 module symbols;
 
 import std.string;
+import std.regex;
 
 import sets;
 import idnumber;
@@ -102,7 +103,7 @@ alias Symbol NonTerminalSymbol;
 import std.stdio;
 
 class SymbolTable {
-    private static TokenSymbol[SpecialSymbols.max + 1] specialSymbols;
+    private static Symbol[SpecialSymbols.max + 1] specialSymbols;
     private TokenSymbol[string] tokens; // indexed by token name
     private TokenSymbol[string] literalTokens; // indexed by literal string
     private TagSymbol[string] tags; // indexed by name
@@ -323,40 +324,6 @@ class SymbolTable {
         return symbol;
     }
 
-    TokenSpec[]
-    generate_lexan_token_specs()
-    {
-        TokenSpec[] tokenSpecs;
-        foreach (token; tokens) {
-            tokenSpecs ~= new TokenSpec(token.name, token.pattern);
-        }
-        return tokenSpecs;
-    }
-
-    size_t
-    count_undefined_symbols()
-    {
-        size_t count;
-        foreach (nts; nonTerminals) {
-            if (nts.definedAt == CharLocation(0,0)) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    size_t
-    count_unused_symbols()
-    {
-        size_t count;
-        foreach (symbol; allSymbols) {
-            if (symbol.usedAt.length == 0 && symbol.id > SpecialSymbols.max) {
-                count++;
-            }
-        }
-        return count;
-    }
-
     NonTerminalSymbol[]
     get_undefined_symbols()
     {
@@ -379,6 +346,31 @@ class SymbolTable {
             }
         }
         return unused_symbols;
+    }
+
+    TokenSymbol[]
+    get_tokens_ordered()
+    {
+        auto tokenset = new Set!TokenSymbol(tokens.values);
+        return tokenset.elements;
+    }
+
+    TokenSymbol[]
+    get_special_tokens_ordered()
+    {
+        auto tokenset = new Set!TokenSymbol;
+        foreach (symbol; specialSymbols) {
+            if (symbol.type == SymbolType.token) {
+                tokenset.add(symbol);
+            }
+        }
+        return tokenset.elements;
+    }
+
+    string[]
+    get_skip_rules()
+    {
+        return skipRuleList.dup;
     }
 }
 

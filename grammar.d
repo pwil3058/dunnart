@@ -560,6 +560,13 @@ class GrammarSpecification {
     }
 }
 
+string
+quote_raw(string str)
+{
+    static auto re = regex(r"`", "g");
+    return "'" ~ replace(str, re, "`\"`\"`") ~ "'";
+}
+
 class Grammar {
     GrammarSpecification spec;
     ParserState[ParserStateId] parserStates;
@@ -697,6 +704,26 @@ class Grammar {
     }
 
     string[]
+    generate_lexan_token_code_text()
+    {
+        string[] textLines = ["DDTokenSpecs[] ddTokenSpecs;"];
+        textLines ~= "static this() {";
+        textLines ~= "    ddTokenSpecs = [";
+        foreach (token; spec.symbolTable.get_tokens_ordered()) {
+            textLines ~= format("        new ddTokenSpec(%s, %s),", quote_raw(token.name), quote_raw(token.pattern));
+        }
+        textLines ~= "    ];";
+        textLines ~= "}";
+        textLines ~= "";
+        textLines ~= "string[] ddSkipRules = [";
+        foreach (rule; spec.symbolTable.get_skip_rules()) {
+            textLines ~= format("        %s,", quote_raw(rule));
+        }
+        textLines ~= "    ];";
+        return textLines;
+    }
+
+    string[]
     generate_action_table_code_text()
     {
         string[] codeTextLines = ["DDParserAction"];
@@ -729,6 +756,7 @@ class Grammar {
         codeTextLines ~= "dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
         codeTextLines ~= "{";
         codeTextLines ~= "    switch(ddNonTerminal) {";
+        // Do this in nonTerminal id order
         auto keySet = extract_key_set(gotoTable);
         foreach (nonTerminal; keySet.elements) {
             auto stateGotoData = gotoTable[nonTerminal];

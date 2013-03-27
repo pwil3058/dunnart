@@ -306,11 +306,7 @@ unittest {
 Set!T
 extract_key_set(T, G)(G[T] assocArray)
 {
-    auto keyset = new Set!T;
-    foreach(key; assocArray.byKey()) {
-        keyset.add(key);
-    }
-    return keyset;
+    return new Set!T(assocArray.keys);
 }
 
 unittest {
