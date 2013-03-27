@@ -251,6 +251,43 @@ static this() {
 void
 main()
 {
+    writeln("import ddc = ddlib.components;");
+    writeln("import ddlexan = ddlib.lexan;\n");
+    writeln("alias ddc.ProductionId DDProduction;");
+    writeln("alias ddc.ParserStateId DDParserState;");
+    writeln("alias ddc.ParseAction DDParseAction;");
+    writeln("alias ddc.ParseActionType DDParseActionType;");
+    writeln("alias ddlexan.TokenSpec DDTokenSpec;");
+    writeln("alias ddlexan.CharLocation DDCharLocation;\n");
+    writeln("DDParseAction");
+    writeln("ddShift(DDParserState ddState)");
+    writeln("{");
+    writeln("    return DDParseAction(DDParseActionType.shift, ddState);");
+    writeln("}");
+    writeln("DDParseAction");
+    writeln("ddReduce(DDProduction ddProduction)");
+    writeln("{");
+    writeln("    return DDParseAction(DDParseActionType.reduce, ddProduction);");
+    writeln("}");
+    writeln("DDParseAction");
+    writeln("ddError()");
+    writeln("{");
+    writeln("    return DDParseAction(DDParseActionType.error, 0);");
+    writeln("}");
+    writeln("DDParseAction");
+    writeln("ddAccept()");
+    writeln("{");
+    writeln("    return DDParseAction(DDParseActionType.accept, 0);");
+    writeln("}");
+    foreach (line; bespokeGrammar.generate_token_enum_code_text()) {
+        writeln(line);
+    }
+    foreach (line; bespokeGrammar.generate_non_terminal_enum_code_text()) {
+        writeln(line);
+    }
+    foreach (line; bespokeGrammar.generate_attributes_code_text()) {
+        writeln(line);
+    }
     foreach (line; bespokeGrammar.generate_goto_table_code_text()) {
         writeln(line);
     }

@@ -367,6 +367,31 @@ class SymbolTable {
         return tokenset.elements;
     }
 
+    NonTerminalSymbol[]
+    get_non_terminals_ordered()
+    {
+        auto symbolset = new Set!NonTerminalSymbol(nonTerminals.values);
+        return symbolset.elements;
+    }
+
+    NonTerminalSymbol[]
+    get_special_non_terminals_ordered()
+    {
+        auto symbolset = new Set!NonTerminalSymbol;
+        foreach (symbol; specialSymbols) {
+            if (symbol.type == SymbolType.nonTerminal) {
+                symbolset.add(symbol);
+            }
+        }
+        return symbolset.elements;
+    }
+
+    FieldDefinition[]
+    get_field_definitions()
+    {
+        return fieldDefinitions.values;
+    }
+
     string[]
     get_skip_rules()
     {

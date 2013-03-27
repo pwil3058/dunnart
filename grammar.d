@@ -564,7 +564,7 @@ string
 quote_raw(string str)
 {
     static auto re = regex(r"`", "g");
-    return "'" ~ replace(str, re, "`\"`\"`") ~ "'";
+    return "`" ~ replace(str, re, "`\"`\"`") ~ "`";
 }
 
 class Grammar {
@@ -704,13 +704,41 @@ class Grammar {
     }
 
     string[]
+    generate_token_enum_code_text()
+    {
+        string[] textLines = ["enum DDToken {"];
+        foreach (token; spec.symbolTable.get_special_tokens_ordered()) {
+            textLines ~= format("    %s = %s,", token.name, token.id);
+        }
+        foreach (token; spec.symbolTable.get_tokens_ordered()) {
+            textLines ~= format("    %s = %s,", token.name, token.id);
+        }
+        textLines ~= "}";
+        return textLines;
+    }
+
+    string[]
+    generate_non_terminal_enum_code_text()
+    {
+        string[] textLines = ["enum DDNonTerminal {"];
+        foreach (non_terminal; spec.symbolTable.get_special_non_terminals_ordered()) {
+            textLines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
+        }
+        foreach (non_terminal; spec.symbolTable.get_non_terminals_ordered()) {
+            textLines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
+        }
+        textLines ~= "}";
+        return textLines;
+    }
+
+    string[]
     generate_lexan_token_code_text()
     {
-        string[] textLines = ["DDTokenSpecs[] ddTokenSpecs;"];
+        string[] textLines = ["DDTokenSpec[] ddTokenSpecs;"];
         textLines ~= "static this() {";
         textLines ~= "    ddTokenSpecs = [";
         foreach (token; spec.symbolTable.get_tokens_ordered()) {
-            textLines ~= format("        new ddTokenSpec(%s, %s),", quote_raw(token.name), quote_raw(token.pattern));
+            textLines ~= format("        new DDTokenSpec(%s, %s),", quote_raw(token.name), quote_raw(token.pattern));
         }
         textLines ~= "    ];";
         textLines ~= "}";
@@ -720,16 +748,41 @@ class Grammar {
             textLines ~= format("        %s,", quote_raw(rule));
         }
         textLines ~= "    ];";
+        textLines ~= "";
+        textLines ~= "class DDLexicalAnalyser: ddlexan.LexicalAnalyser {";
+        textLines ~= "    this()";
+        textLines ~= "    {";
+        textLines ~= "        super(ddTokenSpecs, ddSkipRules);";
+        textLines ~= "    }";
+        textLines ~= "}";
+        return textLines;
+    }
+
+    string[]
+    generate_attributes_code_text()
+    {
+        string[] textLines = ["struct DDAttributes {"];
+        textLines ~= "    DDCharLocation ddCharLocation;";
+        textLines ~= "    string ddMatchedText;";
+        auto fields = spec.symbolTable.get_field_definitions();
+        if (fields.length > 0) {
+            textLines ~= "    union {";
+            foreach (field; fields) {
+                textLines ~= format("        %s %s;", field.fieldType, field.fieldName);
+            }
+            textLines ~= "    }";
+        }
+        textLines ~= "}";
         return textLines;
     }
 
     string[]
     generate_action_table_code_text()
     {
-        string[] codeTextLines = ["DDParserAction"];
+        string[] codeTextLines = ["DDParseAction"];
         codeTextLines ~= "dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, in DDAttributes[] ddAttributeStack)";
         codeTextLines ~= "{";
-        codeTextLines ~= "    switch(ddCurrentState) {";
+        codeTextLines ~= "    with (DDToken) switch(ddCurrentState) {";
         // Do this in state id order
         for (auto i = 0; i < parserStates.length; i++) {
             auto parserState = parserStates[i];
@@ -755,12 +808,12 @@ class Grammar {
         string[] codeTextLines = ["DDParserState"];
         codeTextLines ~= "dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
         codeTextLines ~= "{";
-        codeTextLines ~= "    switch(ddNonTerminal) {";
+        codeTextLines ~= "    with (DDNonTerminal) switch(ddNonTerminal) {";
         // Do this in nonTerminal id order
         auto keySet = extract_key_set(gotoTable);
         foreach (nonTerminal; keySet.elements) {
             auto stateGotoData = gotoTable[nonTerminal];
-            codeTextLines ~= format("    case DDNonTerminal.%s:", nonTerminal.name);
+            codeTextLines ~= format("    case %s:", nonTerminal.name);
             codeTextLines ~= "        switch(ddCurrentState) {";
             foreach (gotoState, fromStateSet; stateGotoData) {
                 auto fromStates = fromStateSet.elements;
@@ -773,14 +826,14 @@ class Grammar {
                 codeTextLines ~= format("            return %s;", gotoState.id);
             }
             codeTextLines ~= "        default:";
-            codeTextLines ~= "            ddFatalError();";
+            codeTextLines ~= "            throw new Exception(\"Malformed goto table\");";
             codeTextLines ~= "        }";
             codeTextLines ~= "        break;";
         }
         codeTextLines ~= "    default:";
-        codeTextLines ~= "        ddFatalError();";
+        codeTextLines ~= "        throw new Exception(\"Malformed goto table\");";
         codeTextLines ~= "    }";
-        codeTextLines ~= "    assert(false);";
+        codeTextLines ~= "    throw new Exception(\"Malformed goto table\");";
         codeTextLines ~= "}";
         return codeTextLines;
     }
