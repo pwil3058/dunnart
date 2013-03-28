@@ -1,6 +1,7 @@
 module ddlib.templates;
 
 mixin template DDParserSupport() {
+    import std.conv;
     import ddc = ddlib.components;
     import ddlexan = ddlib.lexan;
 
@@ -156,11 +157,8 @@ mixin template DDImplementParser() {
             currentTokenAttributes.ddLocation = mr.location;
             currentTokenAttributes.ddMatchedText = mr.matchedText;
             if (mr.is_valid_token) {
-                auto tokenData = dd_get_token_data(mr.tokenSpec.name);
-                currentToken = tokenData.symbolId;
-                if (tokenData.fieldName.length > 0) {
-                    dd_set_attribute_value(currentTokenAttributes, tokenData.fieldName, mr.matchedText);
-                }
+                currentToken = to!(DDToken)(mr.tokenSpec.name);
+                dd_set_attribute_value(currentTokenAttributes, currentToken, mr.matchedText);
             } else {
                 currentToken = DDToken.ddLEXERROR;
             }

@@ -761,7 +761,44 @@ class Grammar {
             }
             textLines ~= "    }";
         }
-        textLines ~= "}";
+        textLines ~= "}\n";
+        textLines ~= "void";
+        textLines ~= "dd_set_attribute_value(ref DDAttributes attrs, DDToken ddToken, string text)";
+        textLines ~= "{";
+        Set!TokenSymbol[string] tokenSets;
+        foreach(token; spec.symbolTable.get_tokens_ordered()) {
+            if (token.fieldName.length > 0) {
+                if (token.fieldName in tokenSets) {
+                    tokenSets[token.fieldName] = new Set!TokenSymbol(token);
+                } else {
+                    tokenSets[token.fieldName].add(token);
+                }
+            }
+        }
+        if (tokenSets.length > 0) {
+            textLines ~= "    with (DDToken) switch (ddToken) {";
+            foreach (field; fields) {
+                if (field.fieldName in tokenSets) {
+                    auto tokens = tokenSets[field.fieldName].elements;
+                    auto caseline = format("    case %s", tokens[0].name);
+                    foreach (token; tokens[1 .. $]) {
+                        caseline ~= format(", %s", token.name);
+                    }
+                    caseline ~= ":";
+                    textLines ~= caseline;
+                    if (field.conversionFunctionName.length > 0) {
+                        textLines ~= format("        attrs.%s  = %s(text);", field.fieldName, field.conversionFunctionName);
+                    } else {
+                        textLines ~= format("        attrs.%s  = to!(%s)(text);", field.fieldName, field.fieldType);
+                    }
+                    textLines ~= "        break;";
+                }
+            }
+            textLines ~= "    default:";
+            textLines ~= "        // Do nothing";
+            textLines ~= "    }";
+        }
+        textLines ~= "}\n";
         return textLines;
     }
 
