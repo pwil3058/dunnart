@@ -53,6 +53,14 @@ class Production {
         return replace(predicate, stackAttr_re, replaceWith);
     }
 
+    @property string
+    expanded_semantic_action()
+    {
+        static auto lhs_re = regex(r"\$\$", "g");
+        static auto stackAttr_re = regex(r"\$(\d+)", "g");
+        return replace(replace(action, lhs_re, "ddLhs"), stackAttr_re, "ddArgs[$1 - 1]");
+    }
+
     override string
     toString()
     {
@@ -743,7 +751,7 @@ class Grammar {
         foreach (rule; spec.symbolTable.get_skip_rules()) {
             textLines ~= format("        %s,", quote_raw(rule));
         }
-        textLines ~= "    ];";
+        textLines ~= "    ];\n";
         return textLines;
     }
 
@@ -817,7 +825,29 @@ class Grammar {
         textLines ~= "        throw new Exception(\"Malformed production data table\");";
         textLines ~= "    }";
         textLines ~= "    assert(false);";
-        textLines ~= "}";
+        textLines ~= "}\n";
+        return textLines;
+    }
+
+    string[]
+    generate_semantic_code_text()
+    {
+        string[] textLines = ["void"];
+        textLines ~= "dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttributes[] ddArgs)";
+        textLines ~= "{";
+        textLines ~= "    switch(ddProduction) {";
+        for (auto i = 0; i < spec.productionList.length; i++) {
+            auto production = spec.productionList[i];
+            if (production.action.length > 0) {
+                textLines ~= format("    case %s:", i);
+                textLines ~= production.expanded_semantic_action;
+                textLines ~= "        break;";
+            }
+        }
+        textLines ~= "    default:";
+        textLines ~= "        // Do nothing";
+        textLines ~= "    }";
+        textLines ~= "}\n";
         return textLines;
     }
 
@@ -843,7 +873,7 @@ class Grammar {
         codeTextLines ~= "        return ddError;";
         codeTextLines ~= "    }";
         codeTextLines ~= "    assert(false);";
-        codeTextLines ~= "}";
+        codeTextLines ~= "}\n";
         return codeTextLines;
     }
 
@@ -879,7 +909,7 @@ class Grammar {
         codeTextLines ~= "        throw new Exception(\"Malformed goto table\");";
         codeTextLines ~= "    }";
         codeTextLines ~= "    throw new Exception(\"Malformed goto table\");";
-        codeTextLines ~= "}";
+        codeTextLines ~= "}\n";
         return codeTextLines;
     }
 }

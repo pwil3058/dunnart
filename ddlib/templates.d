@@ -115,7 +115,7 @@ mixin template DDImplementParser() {
             auto attrs = pop(productionData.length);
             auto nextState = dd_get_goto_state(productionData.leftHandSide, currentState);
             push(productionData.leftHandSide, nextState);
-            dd_do_semantic_action(productionId, attrs);
+            dd_do_semantic_action(attrStack[stackIndex], productionId, attrs);
         }
 
         bool
