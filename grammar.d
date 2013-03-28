@@ -444,6 +444,7 @@ class ParserState {
 class GrammarSpecification {
     SymbolTable symbolTable;
     Production[ProductionId] productionList;
+    string preambleCodeText;
 
     this() {
         this(new SymbolTable);
@@ -456,6 +457,12 @@ class GrammarSpecification {
         // Set the right hand side when start symbol is known.
         productionList[dummyProd.id] = dummyProd;
         this.symbolTable = symbolTable;
+    }
+
+    void
+    set_preamble(string preamble)
+    {
+        preambleCodeText = preamble;
     }
 
     void

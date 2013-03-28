@@ -9,7 +9,6 @@ import ddlib.lexan;
 
 SymbolTable bespokeSymbolTable;
 GrammarSpecification bespokeGrammarSpecification;
-auto bespokeSkipPatterns = [r"(/\*(.|[\n\r])*?\*/)", r"(//[^\n\r]*)", r"(\s+)"];
 LexicalAnalyser bespokeLexAn;
 Grammar bespokeGrammar;
 
@@ -38,11 +37,30 @@ class PhonyLocationFactory {
     }
 }
 
+auto bespokePreamble =
+"import std.stdio;
+import  std.c.stdlib;
+
+import symbols;
+import grammar;
+
+SymbolTable symbolTable;
+GrammarSpecification grammarSpecification;
+
+static this () {
+    symbolTable = new SymbolTable;
+    grammarSpecification = new GrammarSpecification(symbolTable);
+}
+
+alias string[] StringList;\n";
+
 static this() {
     auto plf = new PhonyLocationFactory;
     bespokeSymbolTable = new SymbolTable;
     bespokeGrammarSpecification = new GrammarSpecification(bespokeSymbolTable);
     with (bespokeSymbolTable) with (bespokeGrammarSpecification) {
+        set_preamble(bespokePreamble);
+        new_field("stringList", "StringList");
         auto REGEX = new_token("REGEX", r"(\(\S+\))", plf.next(true));
         auto LITERAL = new_token("LITERAL", "(\"\\S+\")", plf.next(true));
         auto TOKEN = new_token("TOKEN", "\"%token\"", plf.next(true));
@@ -80,13 +98,18 @@ static this() {
 
         auto allowable_ident = define_non_terminal("allowable_ident", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next());
-        add_production(new Production(allowable_ident, [IDENT], "// check ident name"));
+        add_production(new Production(allowable_ident, [IDENT],
+        "if (!is_allowable_name($1.ddMatchedText)) {
+            stderr.writefln(\"%s: Illegal name - must not start with dd, dD, Dd or DD.\", $1.ddMatchedText);
+            exit(-1);
+        }"
+        ));
 
     //Preamble
         preamble = define_non_terminal("preamble", plf.next(true));
         DCODE = get_symbol("DCODE", plf.next(true));
         add_production(new Production(preamble, [], "// do nothing"));
-        add_production(new Production(preamble, [DCODE], "// save code for copying to generated parser module"));
+        add_production(new Production(preamble, [DCODE], "grammarSpecification.set_preamble($1.ddMatchedText);"));
 
     //Definitions
         definitions = define_non_terminal("definitions", plf.next(true));
@@ -121,8 +144,8 @@ static this() {
         auto field_type = get_symbol("field_type", plf.next(true), true);
         auto field_name = get_symbol("field_name", plf.next(true), true);
         auto field_conversion_function = get_symbol("field_conversion_function", plf.next(true), true);
-        add_production(new Production(field_definition, [FIELD, field_type, field_name], "// add field definition to symbol table"));
-        add_production(new Production(field_definition, [FIELD, field_type, field_name, field_conversion_function], "// add field definition (and conversion function) to symbol table"));
+        add_production(new Production(field_definition, [FIELD, field_type, field_name], "symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText);"));
+        add_production(new Production(field_definition, [FIELD, field_type, field_name, field_conversion_function], "symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText);"));
 
         field_type = define_non_terminal("field_type", plf.next(true));
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
@@ -142,9 +165,9 @@ static this() {
         LITERAL = get_symbol("LITERAL", plf.next());
         REGEX = get_symbol("REGEX", plf.next());
         auto token_name = get_symbol("token_name", plf.next(true), true);
-        add_production(new Production(token_definition, [TOKEN, token_name, LITERAL], "// add literal token definition to symbol table"));
-        add_production(new Production(token_definition, [TOKEN, token_name, REGEX], "// add regex token definition to symbol table"));
-        add_production(new Production(token_definition, [TOKEN, FIELDNAME, token_name, REGEX], "// add regex token definition (with filed name) to symbol table"));
+        add_production(new Production(token_definition, [TOKEN, token_name, LITERAL], "symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);"));
+        add_production(new Production(token_definition, [TOKEN, token_name, REGEX], "symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);"));
+        add_production(new Production(token_definition, [TOKEN, FIELDNAME, token_name, REGEX], "symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation, $2.ddMatchedText);"));
 
         token_name = define_non_terminal("token_name", plf.next(true));
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
@@ -153,25 +176,25 @@ static this() {
         skip_definition = define_non_terminal("skip_definition", plf.next(true));
         SKIP = get_literal_token("\"%skip\"", plf.next());
         REGEX = get_symbol("REGEX", plf.next());
-        add_production(new Production(skip_definition, [SKIP, REGEX], "// add regex to skip list"));
+        add_production(new Production(skip_definition, [SKIP, REGEX], "symbolTable.add_skip_rule($2.ddMatchedText);"));
 
         precedence_definition = define_non_terminal("precedence_definition", plf.next(true));
         LEFT = get_literal_token("\"%left\"", plf.next());
         RIGHT = get_literal_token("\"%right\"", plf.next());
         NONASSOC = get_literal_token("\"%nonassoc\"", plf.next());
         auto tag_list = get_symbol("tag_list", plf.next(true), true);
-        add_production(new Production(precedence_definition, [LEFT, tag_list], "// set left associativity"));
-        add_production(new Production(precedence_definition, [RIGHT, tag_list], "// set right associativity"));
-        add_production(new Production(precedence_definition, [NONASSOC, tag_list], "// set non associativity"));
+        add_production(new Production(precedence_definition, [LEFT, tag_list], "symbolTable.set_precedences(Associativity.left, $2.stringList, $1.ddLocation);"));
+        add_production(new Production(precedence_definition, [RIGHT, tag_list], "symbolTable.set_precedences(Associativity.right, $2.stringList, $1.ddLocation);"));
+        add_production(new Production(precedence_definition, [NONASSOC, tag_list], "symbolTable.set_precedences(Associativity.nonassoc, $2.stringList, $1.ddLocation);"));
 
         tag_list = define_non_terminal("tag_list", plf.next(true));
         auto tag = get_symbol("tag", plf.next(true), true);
-        add_production(new Production(tag_list, [tag], "// initialize a dynamic array with [tag]"));
-        add_production(new Production(tag_list, [tag_list, tag], "// append to the tag list"));
+        add_production(new Production(tag_list, [tag], "$$.stringList = [$1.ddMatchedText];"));
+        add_production(new Production(tag_list, [tag_list, tag], "$$.stringList = $1.stringList ~ $2.ddMatchedText;"));
 
         tag = define_non_terminal("tag", plf.next(true));
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
-        add_production(new Production(tag, [allowable_ident], "// if not a defined token define it as a non token tag"));
+        add_production(new Production(tag, [allowable_ident], "// do nothing"));
 
     // Rules defining rules
         production_rules = define_non_terminal("production_rules", plf.next(true));
@@ -188,7 +211,7 @@ static this() {
         production_group_head = define_non_terminal("production_group_head", plf.next(true));
         COLON = get_literal_token("\":\"", plf.next());
         auto left_hand_side = get_symbol("left_hand_side", plf.next(true), true);
-        add_production(new Production(production_group_head, [left_hand_side, COLON], "// define the non terminal symbol"));
+        add_production(new Production(production_group_head, [left_hand_side, COLON], "symbolTable.define_non_terminal($1.ddMatchedText, $1.ddLocation);"));
 
         left_hand_side = define_non_terminal("left_hand_side", plf.next(true));
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
@@ -251,6 +274,8 @@ static this() {
 void
 main()
 {
+    writeln("module generated;\n");
+    writeln(bespokeGrammar.spec.preambleCodeText);
     writeln("import ddlib.templates;\n");
     writeln("mixin DDParserSupport;\n");
     foreach (line; bespokeGrammar.generate_symbol_enum_code_text()) {
