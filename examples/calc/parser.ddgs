@@ -1,0 +1,65 @@
+%{
+import std.stdio;
+import sets;
+double[string] variables;
+Enum Errors { undefinedVariables, divideByZero, syntaxError };
+Set!Errors errors;
+%}
+
+%field  value double
+%field  id string
+
+%token          EOL     (\n)
+%token          PLUS    "+"
+%token          MINUS   "-"
+%token          TIMES   "*"
+%token          DIVIDE  "/"
+%token          ASSIGN  "="
+%token  <value> DIGIT   ([0-9])
+%token  <id>    ID      ([a-zA-Z]+)
+%token          LPR     "("
+%token          RPR     ")"
+
+%skip   ([^A-Za-z0-9=/\*\-\+\n()]+)
+
+%right  UMINUS
+%left   "*" "/"
+%left   "+" "-"
+%left   EOL
+
+%%
+line: setup expr ?(errors.cardinality > 0?) !{stderr.writefln("Errors: %s", errors);!}
+    | setup expr !{writeln($2.value);!}
+    | setup ID "=" expr ?(errors.cardinality == 0?) !{variables[$2.id] = $4.value;!}
+    | setup ID "=" expr !{stderr.writefln("Errors: %s", errors);!}
+    | line EOL line
+    | line EOL
+    .
+
+setup: !{errors = new Set!Errors;!}
+
+expr: expr "+" expr ?($1.value == 0?) !{$$.value = $3.value;!}
+    | expr "+" expr ?($3.value == 0?) !{$$.value = $1.value;!}
+    | expr "+" expr !{$$.value = $1.value + $3.value;!}
+    | expr "-" expr ?($1.value == 0?) !{$$.value = -$3.value;!}
+    | expr "-" expr ?($3.value == 0?) !{$$.value = $1.value;!}
+    | expr "-" expr !{$$.value = $1.value - $3.value;!}
+    | expr "*" expr ?($1.value == 0 || $3.value == 0?) !{$$.value = -$3.value;!}
+    | expr "*" expr ?($1.value == 1?) !{$$.value = $3.value;!}
+    | expr "*" expr ?($3.value == 1?) !{$$.value = $1.value;!}
+    | expr "*" expr !{$$.value = $1.value * $3.value;!}
+    | expr "/" expr ?($3.value == 1?) !{$$.value = $1.value;!}
+    | expr "/" expr ?($3.value == 0?) !{errors.add(Errors.divideByZero);!}
+    | expr "/" expr ?($1.value == 0?) !{$$.value = 0;!}
+    | expr "/" expr !{$$.value = $1.value / $3.value;!}
+    | "(" expr ")" !{$$.value = $2.value;!}
+    | "-" expr %prec UMINUS !{$$.value = $2.value;!}
+    | number !{$$.value = $1.value!}
+    | ID ?($1.id in variables?) !{$$.value = variables[$1.id];!}
+    | ID !{errors.add(Errors.undefinedVariable); $$.value = 0;!}
+    | %error !{errors.add(Errors.syntaxError);!}
+    .
+
+number: DIGIT !{$$.value = $1.value;!}
+    | number DIGIT !{$$.value = $1.value * 10 + $2.value;!}
+    .
