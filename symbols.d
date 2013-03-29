@@ -207,6 +207,12 @@ class SymbolTable {
     }
 
     Symbol
+    get_special_symbol(SymbolId symbolId)
+    {
+        return specialSymbols[symbolId];
+    }
+
+    Symbol
     get_symbol(string symbolName, CharLocation location, bool autoCreate=false)
     in {
         assert(!autoCreate || is_allowable_name(symbolName));

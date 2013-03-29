@@ -329,8 +329,8 @@ static this() {
             "    errorCount++;\n"
             "}\n"
         ));
-        add_production(new Production(symbol, [ERROR], "// retrieve the named symbol"));
-        add_production(new Production(symbol, [LEXERROR], "// retrieve the named symbol"));
+        add_production(new Production(symbol, [ERROR], "$$.symbol = symbolTable.get_special_symbol(SpecialSymbols.parseError);"));
+        add_production(new Production(symbol, [LEXERROR], "$$.symbol = symbolTable.get_special_symbol(SpecialSymbols.lexError);"));
     }
     debug(Bespoke) {
         foreach (symbol; bespokeSymbolTable.get_undefined_symbols()) {
