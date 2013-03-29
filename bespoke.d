@@ -39,7 +39,6 @@ class PhonyLocationFactory {
 
 auto bespokePreamble =
 "import std.stdio;
-import  std.c.stdlib;
 
 import symbols;
 import grammar;
@@ -52,7 +51,25 @@ static this () {
     grammarSpecification = new GrammarSpecification(symbolTable);
 }
 
-alias string[] StringList;\n";
+struct AssociatedPrecedence {
+    Associativity associativity;
+    Precedence    precedence;
+}
+
+struct ProductionTail {
+    Symbol[] rightHandSide;
+    AssociatedPrecedence associatedPrecedence;
+    Predicate predicate;
+    SemanticAction action;
+}
+
+// Aliases for use in field definitions
+alias ProductionTail[] ProductionTailList;
+alias Symbol[] SymbolList;
+alias string[] StringList;
+
+uint errorCount;
+uint warningCount;\n";
 
 static this() {
     auto plf = new PhonyLocationFactory;
@@ -61,6 +78,13 @@ static this() {
     with (bespokeSymbolTable) with (bespokeGrammarSpecification) {
         set_preamble(bespokePreamble);
         new_field("stringList", "StringList");
+        new_field("productionTailList", "ProductionTailList");
+        new_field("productionTail", "ProductionTail");
+        new_field("symbolList", "SymbolList");
+        new_field("symbol", "Symbol");
+        new_field("predicate", "Predicate");
+        new_field("semanticAction", "SemanticAction");
+        new_field("associatedPrecedence", "AssociatedPrecedence");
         auto REGEX = new_token("REGEX", r"(\(\S+\))", plf.next(true));
         auto LITERAL = new_token("LITERAL", "(\"\\S+\")", plf.next(true));
         auto TOKEN = new_token("TOKEN", "\"%token\"", plf.next(true));
@@ -101,7 +125,7 @@ static this() {
         add_production(new Production(allowable_ident, [IDENT],
         "if (!is_allowable_name($1.ddMatchedText)) {
             stderr.writefln(\"%s: Illegal name - must not start with dd, dD, Dd or DD.\", $1.ddMatchedText);
-            exit(-1);
+            errorCount++;
         }"
         ));
 
@@ -206,7 +230,16 @@ static this() {
         auto production_group_head = get_symbol("production_group_head", plf.next(true), true);
         auto production_tail_list = get_symbol("production_tail_list", plf.next(true), true);
         DOT = get_literal_token("\".\"", plf.next());
-        add_production(new Production(production_group, [production_group_head, production_tail_list, DOT], "// add the productions to the grammar specification"));
+        add_production(new Production(production_group, [production_group_head, production_tail_list, DOT],
+        "foreach (productionTail; $2.productionTailList) {\n"
+        "    auto prodn = new Production($1.symbol, productionTail.rightHandSide);\n"
+        "    prodn.predicate = productionTail.predicate;\n"
+        "    prodn.action = productionTail.action;\n"
+        "    prodn.associativity = productionTail.associatedPrecedence.associativity;\n"
+        "    prodn.precedence = productionTail.associatedPrecedence.precedence;\n"
+        "    grammarSpecification.add_production(prodn);\n"
+        "}"
+        ));
 
         production_group_head = define_non_terminal("production_group_head", plf.next(true));
         COLON = get_literal_token("\":\"", plf.next());
@@ -220,39 +253,82 @@ static this() {
         production_tail_list = define_non_terminal("production_tail_list", plf.next(true));
         auto production_tail = get_symbol("production_tail", plf.next(true), true);
         VBAR = get_literal_token("\"|\"", plf.next());
-        add_production(new Production(production_tail_list, [production_tail], "// initialize a dynamic array with [production_tail]"));
-        add_production(new Production(production_tail_list, [production_tail_list, VBAR, production_tail], "// append to the production_tail list"));
+        add_production(new Production(production_tail_list, [production_tail], "$$.productionTailList = [$1.productionTail];"));
+        add_production(new Production(production_tail_list, [production_tail_list, VBAR, production_tail], "$$.productionTailList = $1.productionTailList ~ $2.productionTail;"));
 
         production_tail = define_non_terminal("production_tail", plf.next(true));
         auto symbol_list = get_symbol("symbol_list", plf.next(), true);
         auto tagged_precedence = get_symbol("tagged_precedence", plf.next(), true);
-        PREDICATE = get_symbol("PREDICATE", plf.next());
+        auto predicate = get_symbol("predicate", plf.next(), true);
+        auto action = get_symbol("action", plf.next(), true);
+        add_production(new Production(production_tail, [action], "$$.productionTail = ProductionTail([], AssociatedPrecedence(), null, $1.semanticAction);"));
+        add_production(new Production(production_tail, [symbol_list, predicate, tagged_precedence, action], "$$.productionTail = ProductionTail($1.symbolList, $3.associatedPrecedence, $2.predicate, $4.semanticAction);"));
+        add_production(new Production(production_tail, [symbol_list, predicate, tagged_precedence], "$$.productionTail = ProductionTail($1.symbolList, $3.associatedPrecedence, $2.predicate, null);"));
+        add_production(new Production(production_tail, [symbol_list, predicate, action], "$$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), $2.predicate, $3.semanticAction);"));
+        add_production(new Production(production_tail, [symbol_list, predicate], "$$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), $2.predicate, null);"));
+        add_production(new Production(production_tail, [symbol_list, tagged_precedence, action], "$$.productionTail = ProductionTail($1.symbolList, $2.associatedPrecedence, null, $3.semanticAction);"));
+        add_production(new Production(production_tail, [symbol_list, tagged_precedence], "$$.productionTail = ProductionTail($1.symbolList, $2.associatedPrecedence);"));
+        add_production(new Production(production_tail, [symbol_list, action], "$$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), null, $2.semanticAction);"));
+        add_production(new Production(production_tail, [symbol_list], "$$.productionTail = ProductionTail($1.symbolList);"));
+
+        action = define_non_terminal("action", plf.next(true));
         ACTION = get_symbol("ACTION", plf.next());
-        add_production(new Production(production_tail, [ACTION], "// create empty production"));
-        add_production(new Production(production_tail, [symbol_list, PREDICATE, tagged_precedence, ACTION], "// create production"));
-        add_production(new Production(production_tail, [symbol_list, PREDICATE, tagged_precedence], "// create production"));
-        add_production(new Production(production_tail, [symbol_list, PREDICATE, ACTION], "// create production"));
-        add_production(new Production(production_tail, [symbol_list, PREDICATE], "// create production"));
-        add_production(new Production(production_tail, [symbol_list, tagged_precedence, ACTION], "// create production"));
-        add_production(new Production(production_tail, [symbol_list, tagged_precedence], "// create production"));
-        add_production(new Production(production_tail, [symbol_list, ACTION], "// create production"));
-        add_production(new Production(production_tail, [symbol_list], "// create production"));
+        add_production(new Production(action, [ACTION], "$$.semanticAction = $1.ddMatchedText[2 .. $ - 2];"));
+
+        predicate = define_non_terminal("predicate", plf.next(true));
+        PREDICATE = get_symbol("PREDICATE", plf.next());
+        add_production(new Production(predicate, [PREDICATE], "$$.predicate = $1.ddMatchedText[2 .. $ - 2];"));
 
         tagged_precedence = define_non_terminal("tagged_precedence", plf.next(true));
         PRECEDENCE = get_literal_token("\"%prec\"", plf.next());
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
-        add_production(new Production(tagged_precedence, [PRECEDENCE, allowable_ident], "// get the precedence for the tag"));
+        LITERAL = get_symbol("LITERAL", plf.next());
+        add_production(new Production(tagged_precedence, [PRECEDENCE, allowable_ident],
+            "auto symbol = symbolTable.get_symbol($2.ddMatchedText, $2.ddLocation, false);\n"
+            "if (symbol is null) {\n"
+            "    stderr.writefln(\"%s: Unknown symbol.\", $2.ddMatchedText);\n"
+            "    errorCount++;\n"
+            "} else if (symbol.type == SymbolType.nonTerminal) {\n"
+            "    stderr.writefln(\"%s: Illegal precedence tag (must be Token or Tag).\", $2.ddMatchedText);\n"
+            "    errorCount++;\n"
+            "}\n"
+            "$$.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);"
+        ));
+        add_production(new Production(tagged_precedence, [PRECEDENCE, LITERAL],
+            "if (symbolTable.is_known_literal($2.ddMatchedText)) {\n"
+            "    auto symbol = symbolTable.get_literal_token($2.ddMatchedText, $2.ddLocation);\n"
+            "    $$.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);\n"
+            "} else {\n"
+            "    stderr.writefln(\"%s: Unknown literal token.\", $2.ddMatchedText);\n"
+            "    errorCount++;\n"
+            "}\n"
+        ));
 
         symbol_list = define_non_terminal("symbol_list", plf.next(true));
         auto symbol = get_symbol("symbol", plf.next(true), true);
-        add_production(new Production(symbol_list, [symbol], "// initialize a dynamic array with [symbol]"));
-        add_production(new Production(symbol_list, [symbol_list, symbol], "// append to the symbol list"));
+        add_production(new Production(symbol_list, [symbol], "$$.symbolList = [$1.symbol];"));
+        add_production(new Production(symbol_list, [symbol_list, symbol], "$$.symbolList = $1.symbolList ~ $2.symbol;"));
 
         symbol = define_non_terminal("symbol", plf.next(true));
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
         ERROR = get_literal_token("\"%error\"", plf.next());
         LEXERROR = get_literal_token("\"%lexerror\"", plf.next());
-        add_production(new Production(symbol, [allowable_ident], "// retrieve the named symbol"));
+        LITERAL = get_symbol("LITERAL", plf.next());
+        add_production(new Production(symbol, [allowable_ident],
+            "$$.symbol = symbolTable.get_symbol($2.ddMatchedText, $2.ddLocation, false);\n"
+            "if ($$.symbol is null) {\n"
+            "    stderr.writefln(\"%s: Unknown symbol.\", $2.ddMatchedText);\n"
+            "    errorCount++;\n"
+            "}\n"
+        ));
+        add_production(new Production(symbol, [LITERAL],
+            "if (symbolTable.is_known_literal($1.ddMatchedText)) {\n"
+            "    $$.symbol = symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);\n"
+            "} else {\n"
+            "    stderr.writefln(\"%s: Unknown literal token.\", $1.ddMatchedText);\n"
+            "    errorCount++;\n"
+            "}\n"
+        ));
         add_production(new Production(symbol, [ERROR], "// retrieve the named symbol"));
         add_production(new Production(symbol, [LEXERROR], "// retrieve the named symbol"));
     }
