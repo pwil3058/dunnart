@@ -7,7 +7,10 @@ import sets;
 import idnumber;
 
 import ddlib.lexan;
-import ddlib.components;
+//import ddlib.components;
+
+alias uint SymbolId;
+enum SpecialSymbols : SymbolId { start, end, lexError, parseError };
 
 enum SymbolType {token, tag, nonTerminal};
 
@@ -99,6 +102,12 @@ class Symbol {
 alias Symbol TokenSymbol;
 alias Symbol TagSymbol;
 alias Symbol NonTerminalSymbol;
+
+struct FieldDefinition {
+    string fieldName;
+    string fieldType;
+    string conversionFunctionName;
+}
 
 import std.stdio;
 
