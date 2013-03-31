@@ -2,15 +2,25 @@ module ddlib.templates;
 
 mixin template DDParserSupport() {
     import std.conv;
+    import std.string;
     import ddc = ddlib.components;
     import ddlexan = ddlib.lexan;
 
     alias ddc.ProductionId DDProduction;
     alias ddc.ParserStateId DDParserState;
-    alias ddc.ParseAction DDParseAction;
-    alias ddc.ParseActionType DDParseActionType;
     alias ddlexan.TokenSpec DDTokenSpec;
     alias ddlexan.CharLocation DDCharLocation;
+
+
+    enum DDParseActionType { shift, reduce, accept, error };
+    struct DDParseAction {
+        DDParseActionType action;
+        union {
+            DDProduction productionId;
+            DDParserState next_state;
+            DDToken[] expectedTokens;
+        }
+    }
 
     struct DDProductionData {
         DDNonTerminal leftHandSide;
@@ -30,9 +40,11 @@ mixin template DDParserSupport() {
     }
 
     DDParseAction
-    ddError()
+    ddError(DDToken[] expectedTokens)
     {
-        return DDParseAction(DDParseActionType.error, 0);
+        auto action = DDParseAction(DDParseActionType.error);
+        action.expectedTokens = expectedTokens;
+        return action;
     }
 
     DDParseAction
@@ -138,7 +150,7 @@ mixin template DDImplementParser() {
                 case error:
                     auto successful = recover_from_error();
                     if (!successful)
-                        return false;;
+                        return false;
                 }
             }
         }

@@ -100,12 +100,6 @@ class GrammarItemKey {
     }
 
     @property bool
-    is_kernel_item()
-    {
-        return dot > 0 || production.leftHandSide.id == SpecialSymbols.start;
-    }
-
-    @property bool
     is_shiftable()
     {
         return dot < production.length;
@@ -184,11 +178,11 @@ class GrammarItemKey {
 alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
 
 Set!GrammarItemKey
-get_kernel_keys(GrammarItemSet itemset)
+get_closable_keys(GrammarItemSet itemset)
 {
     auto keySet = new Set!GrammarItemKey;
-    foreach (grammarItemKey, lookAheadSet; itemset) {
-        if (grammarItemKey.is_kernel_item) {
+    foreach (grammarItemKey; itemset.byKey()) {
+        if (grammarItemKey.is_shiftable && grammarItemKey.nextSymbol.type == SymbolType.nonTerminal) {
             keySet.add(grammarItemKey);
         }
     }
@@ -205,18 +199,6 @@ get_reducible_keys(GrammarItemSet itemset)
         }
     }
     return keySet;
-}
-
-GrammarItemSet
-extract_kernel(GrammarItemSet itemset)
-{
-    GrammarItemSet kernel;
-    foreach (grammarItemKey, lookAheadSet; itemset) {
-        if (grammarItemKey.is_kernel_item) {
-            kernel[grammarItemKey] = lookAheadSet.clone();
-        }
-    }
-    return kernel;
 }
 
 GrammarItemSet
@@ -265,6 +247,16 @@ trivially_true(Predicate predicate)
     return strip(predicate).length == 0;
 }
 
+string token_list_string(TokenSymbol[] tokens)
+{
+    if (tokens.length == 0) return "";
+    auto str = tokens[0].name;
+    foreach (token; tokens[1 .. $]) {
+        str ~= format(", %s", token.name);
+    }
+    return str;
+}
+
 class ParserState {
     mixin UniqueId!(ParserStateId);
     GrammarItemSet grammarItems;
@@ -282,7 +274,7 @@ class ParserState {
     size_t
     resolve_shift_reduce_conflicts()
     {
-        // Do this in two stages to obviate problems modifyin shiftList
+        // Do this in two stages to obviate problems modifying shiftList
         ShiftReduceConflict[] conflicts;
         foreach(shiftSymbol, gotoState; shiftList) {
             foreach (item, lookAheadSet; grammarItems) {
@@ -348,21 +340,46 @@ class ParserState {
         return reduceReduceConflicts.length;
     }
 
+    Set!TokenSymbol look_ahead_set()
+    {
+        auto lookAheadSet = extract_key_set(shiftList);
+        debug(LookAheadSet) writefln("Parser Set: %s\n  Shift Set: %s", id, lookAheadSet);
+        foreach (key; get_reducible_keys(grammarItems).elements) {
+            lookAheadSet.add(grammarItems[key]);
+            debug(LookAheadSet) writefln("  Reduce: %s on: %s", key, grammarItems[key]);
+        }
+        debug(LookAheadSet) {
+            writefln("  Look Ahead Set: %s", lookAheadSet);
+            if (lookAheadSet.cardinality == 0) {
+                foreach (itemKey; grammarItems.byKey()) {
+                    writefln("    %s : %s", itemKey, grammarItems[itemKey]);
+                }
+            }
+        }
+        return lookAheadSet;
+    }
+
     string[]
     generate_code_text()
     {
         string[] codeTextLines = ["switch (ddToken) {"];
-        foreach (token, parserState; shiftList) {
-            codeTextLines ~= format("case %s: return ddShift(%s);", token.name, parserState.id);
+        string expectedTokensList;
+        auto shiftTokenSet = extract_key_set(shiftList);
+        foreach (token; shiftTokenSet.elements) {
+            codeTextLines ~= format("case %s: return ddShift(%s);", token.name, shiftList[token].id);
         }
         auto itemKeys = get_reducible_keys(grammarItems);
-        if (itemKeys.cardinality > 0) {
+        if (itemKeys.cardinality == 0) {
+            assert(shiftTokenSet.cardinality > 0);
+            expectedTokensList = token_list_string(shiftTokenSet.elements);
+        } else {
             struct Pair { Set!TokenSymbol lookAheadSet; Set!GrammarItemKey productionSet; };
             Pair[] pairs;
             auto combinedLookAhead = new Set!TokenSymbol;
             foreach (itemKey; itemKeys.elements) {
                 combinedLookAhead.add(grammarItems[itemKey]);
             }
+            expectedTokensList = token_list_string(set_union(shiftTokenSet, combinedLookAhead).elements);
             foreach (token; combinedLookAhead.elements) {
                 auto productionSet = new Set!GrammarItemKey;
                 foreach (itemKey; itemKeys.elements) {
@@ -381,13 +398,7 @@ class ParserState {
                 }
             }
             foreach (pair; pairs) {
-                auto tokens = pair.lookAheadSet.elements;
-                auto caseline = format("case %s", tokens[0].name);
-                foreach (token; tokens[1 .. $]) {
-                    caseline ~= format(", %s", token.name);
-                }
-                caseline ~= ":";
-                codeTextLines ~= caseline;
+                codeTextLines ~= format("case %s:", token_list_string(pair.lookAheadSet.elements));
                 auto keys = pair.productionSet.elements;
                 if (trivially_true(keys[0].production.predicate)) {
                     assert(keys.length == 1);
@@ -401,7 +412,7 @@ class ParserState {
                     codeTextLines ~= format("        return ddReduce(%s); // %s", keys[0].production.id, keys[0].production);
                     if (keys.length == 1) {
                         codeTextLines ~= "    } else {";
-                        codeTextLines ~= "        return ddError;";
+                        codeTextLines ~= format("        return ddError([%s]);", expectedTokensList);
                         codeTextLines ~= "    }";
                         continue;
                     }
@@ -422,14 +433,14 @@ class ParserState {
                         codeTextLines ~= format("    } else if (%s) {", keys[$ - 1].production.expanded_predicate);
                         codeTextLines ~= format("        return ddReduce(%s); // %s", keys[$ - 1].production.id, keys[$ - 1].production);
                         codeTextLines ~= "    } else {";
-                        codeTextLines ~= "        return ddError;";
+                        codeTextLines ~= format("        return ddError([%s]);", expectedTokensList);
                         codeTextLines ~= "    }";
                     }
                 }
             }
         }
         codeTextLines ~= "default:";
-        codeTextLines ~= "    return ddError;";
+        codeTextLines ~= format("    return ddError([%s]);", expectedTokensList);
         codeTextLines ~= "}";
         return codeTextLines;
     }
@@ -483,6 +494,7 @@ class GrammarSpecification {
             auto firstsData = get_firsts_data(symbol);
             tokenSet.add(firstsData.tokenset);
             if (!firstsData.transparent) {
+                debug(FIRST) writefln("FIRST(%s, %s): RETURN: %s", symbolString, token, tokenSet);
                 return tokenSet;
             }
         }
@@ -536,15 +548,18 @@ class GrammarSpecification {
         debug(Closure) {
             writefln("Closure Input: %s items", itemSet.length);
             foreach (itemKey, lookAheadSet; itemSet) {
-                writefln("[%s, %s]", itemKey, lookAheadSet);
+                writefln("\t[%s, %s]", itemKey, lookAheadSet);
             }
         }
         bool additions_made;
         do {
             additions_made = false;
-            foreach (grammarItemKey, lookAheadSet; itemSet) {
-                if (!grammarItemKey.is_shiftable || grammarItemKey.nextSymbol.type != SymbolType.nonTerminal) continue;
+            auto grammarItemKeys = get_closable_keys(itemSet);
+            debug(ClosureLoop) writefln("keys: %s", grammarItemKeys);
+            foreach (grammarItemKey; grammarItemKeys.elements) {
+                //if (!grammarItemKey.is_shiftable || grammarItemKey.nextSymbol.type != SymbolType.nonTerminal) continue;
                 auto prospectiveLhs = grammarItemKey.nextSymbol;
+                auto lookAheadSet = itemSet[grammarItemKey];
                 debug(ClosureLoop) writefln("Key: %s; Prospective LHS: %s; Look Ahead: %s", grammarItemKey, prospectiveLhs, lookAheadSet);
                 foreach (lookAheadSymbol; lookAheadSet.elements) {
                     auto firsts = FIRST(grammarItemKey.tail, lookAheadSymbol);
@@ -564,11 +579,12 @@ class GrammarSpecification {
                     }
                 }
             }
+            debug (ClosureLoop) writefln("additions made: %s", additions_made);
         } while (additions_made);
         debug(Closure) {
             writefln("Closure Output: %s items", itemSet.length);
             foreach (itemKey, lookAheadSet; itemSet) {
-                writefln("[%s, %s]", itemKey, lookAheadSet);
+                writefln("\t[%s, %s]", itemKey, lookAheadSet);
             }
         }
         return itemSet;
@@ -630,7 +646,7 @@ class Grammar {
                 }
             }
             unprocessedState.state = ProcessedState.processed;
-            auto fullItemSet = spec.closure(extract_kernel(unprocessedState.grammarItems));
+            auto fullItemSet = spec.closure(unprocessedState.grammarItems);
             debug(Grammar) {
                 writefln("Closure(%s):", unprocessedState.id);
                 foreach (itemKey, lookAheadSet; fullItemSet) {
@@ -700,6 +716,8 @@ class Grammar {
             
         }
         foreach (parserState; parserStates) {
+            auto lookAheadSet = parserState.look_ahead_set();
+            // TODO: fix this failure assert(lookAheadSet.cardinality > 0);
             unresolvedSRConflicts += parserState.resolve_shift_reduce_conflicts();
             unresolvedRRConflicts += parserState.resolve_reduce_reduce_conflicts();
         }
@@ -709,9 +727,9 @@ class Grammar {
     find_equivalent_state(GrammarItemSet kernel)
     {
         // TODO: check if this needs to be this complex
-        auto targetKeySet = get_kernel_keys(kernel);
+        auto targetKeySet = extract_key_set(kernel);
         foreach (parserState; parserStates.byValue()) {
-            if (targetKeySet == get_kernel_keys(parserState.grammarItems)) {
+            if (targetKeySet == extract_key_set(parserState.grammarItems)) {
                 return parserState;
             }
         }
@@ -877,7 +895,7 @@ class Grammar {
             codeTextLines ~= "        break;";
         }
         codeTextLines ~= "    default:";
-        codeTextLines ~= "        return ddError;";
+        codeTextLines ~= "        throw new Exception(format(\"Invalid parser state: %s\", ddCurrentState));";
         codeTextLines ~= "    }";
         codeTextLines ~= "    assert(false);";
         codeTextLines ~= "}\n";
