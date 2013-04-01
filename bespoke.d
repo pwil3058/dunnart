@@ -85,7 +85,7 @@ static this() {
         new_field("predicate", "Predicate");
         new_field("semanticAction", "SemanticAction");
         new_field("associatedPrecedence", "AssociatedPrecedence");
-        auto REGEX = new_token("REGEX", r"(\(\S+\))", plf.next(true));
+        auto REGEX = new_token("REGEX", r"(\(.+\)(?=\s))", plf.next(true));
         auto LITERAL = new_token("LITERAL", "(\"\\S+\")", plf.next(true));
         auto TOKEN = new_token("TOKEN", "\"%token\"", plf.next(true));
         auto FIELD = new_token("FIELD", "\"%field\"", plf.next(true));
@@ -370,6 +370,9 @@ main()
         writeln(line);
     }
     foreach (line; bespokeGrammar.generate_action_table_code_text()) {
+        writeln(line);
+    }
+    foreach (line; bespokeGrammar.generate_error_recovery_code_text()) {
         writeln(line);
     }
     foreach (line; bespokeGrammar.generate_lexan_token_code_text()) {

@@ -789,10 +789,13 @@ class Grammar {
         auto fields = spec.symbolTable.get_field_definitions();
         if (fields.length > 0) {
             textLines ~= "    union {";
+            textLines ~= "        DDSyntaxErrorData ddSyntaxErrorData;";
             foreach (field; fields) {
                 textLines ~= format("        %s %s;", field.fieldType, field.fieldName);
             }
             textLines ~= "    }";
+        } else {
+            textLines ~= "    DDSyntaxErrorData ddSyntaxErrorData;";
         }
         textLines ~= "}\n";
         textLines ~= "void";
@@ -934,6 +937,40 @@ class Grammar {
         codeTextLines ~= "        throw new Exception(\"Malformed goto table\");";
         codeTextLines ~= "    }";
         codeTextLines ~= "    throw new Exception(\"Malformed goto table\");";
+        codeTextLines ~= "}\n";
+        return codeTextLines;
+    }
+
+    string[]
+    generate_error_recovery_code_text()
+    {
+        string[] codeTextLines = ["bool dd_error_recovery_ok(DDParserState ddParserState, DDToken ddToken)"];
+        codeTextLines ~= "{";
+        codeTextLines ~= "    with (DDToken) switch(ddParserState) {";
+        // Do this in state id order
+        for (auto i = 0; i < parserStates.length; i++) {
+            auto parserState = parserStates[i];
+            if (parserState.errorRecoveryState is null) continue;
+            auto errorRecoverySet = new Set!TokenSymbol;
+            foreach (itemKey, lookAheadSet; parserState.errorRecoveryState.grammarItems) {
+                if (itemKey.dot > 0 && itemKey.production.rightHandSide[itemKey.dot - 1].id == SpecialSymbols.parseError) {
+                    errorRecoverySet.add(lookAheadSet);
+                }
+            }
+            if (errorRecoverySet.cardinality > 0) {
+                codeTextLines ~= format("    case %s:", parserState.id);
+                codeTextLines ~= "        switch (ddToken) {";
+                codeTextLines ~= format("        case %s:", token_list_string(errorRecoverySet.elements));
+                codeTextLines ~= "            return true;";
+                codeTextLines ~= "        default:";
+                codeTextLines ~= "            return false;";
+                codeTextLines ~= "        }";
+                codeTextLines ~= "        break;";
+            }
+        }
+        codeTextLines ~= "    default:";
+        codeTextLines ~= "    }";
+        codeTextLines ~= "    return false;";
         codeTextLines ~= "}\n";
         return codeTextLines;
     }

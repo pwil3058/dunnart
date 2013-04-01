@@ -3,6 +3,8 @@ module ddlib.templates;
 mixin template DDParserSupport() {
     import std.conv;
     import std.string;
+    import std.stdio;
+
     import ddc = ddlib.components;
     import ddlexan = ddlib.lexan;
 
@@ -52,6 +54,30 @@ mixin template DDParserSupport() {
     {
         return DDParseAction(DDParseActionType.accept, 0);
     }
+
+    class DDSyntaxErrorData {
+        DDToken unexpectedToken;
+        string matchedText;
+        DDCharLocation location;
+        DDToken[] expectedTokens;
+        uint skipCount;
+
+        this(DDToken ddToken, DDAttributes ddAttrs, DDToken[] ddTokenList)
+        {
+            unexpectedToken = ddToken;
+            matchedText = ddAttrs.ddMatchedText;
+            location = ddAttrs.ddLocation;
+            expectedTokens = ddTokenList;
+        }
+
+        override string toString()
+        {
+            auto str = format("Line %s: Syntax Error: ", location.lineNumber);
+            str ~= format("found %s (\"%s\"): ", unexpectedToken, matchedText);
+            str ~= format("expected %s.", expectedTokens);
+            return str;
+        }
+    }
 }
 
 mixin template DDImplementParser() {
@@ -71,10 +97,13 @@ mixin template DDImplementParser() {
         StackElement[] stateStack;
         DDAttributes[] attrStack;
         size_t stackLength;
-        bool shifted;
         DDAttributes currentTokenAttributes;
         DDToken currentToken;
         DDLexicalAnalyser lexicalAnalyser;
+        // Error handling data
+        bool shifted;
+        DDParserState lastErrorState;
+        uint skipCount;
 
         this()
         {
@@ -148,18 +177,43 @@ mixin template DDImplementParser() {
                 case accept:
                     return true;
                 case error:
-                    auto successful = recover_from_error();
-                    if (!successful)
+                    auto errorData = new DDSyntaxErrorData(currentToken, currentTokenAttributes, next_action.expectedTokens);
+                    auto successful = recover_from_error(errorData);
+                    if (!successful) {
+                        stderr.writeln(errorData);
                         return false;
+                    }
                 }
             }
         }
 
         bool
-        recover_from_error()
+        recover_from_error(DDSyntaxErrorData errorData)
         {
-            // TODO: implement error recovery
-            return false;
+            auto found = false;
+            auto distanceToViableState = 0;
+            if (shifted) {
+                lastErrorState = 0;
+                skipCount = 0;
+            }
+            while (true) {
+                for (distanceToViableState = 0; !found && distanceToViableState < stackLength; distanceToViableState++) {
+                    auto candidateState = stateStack[stackIndex - distanceToViableState].state;
+                    found = candidateState != lastErrorState && dd_error_recovery_ok(candidateState, currentToken);
+                }
+                if (found || currentToken == DDToken.ddEND) break;
+                get_next_token();
+                skipCount++;
+            }
+            errorData.skipCount = skipCount;
+            if (found) {
+                pop(distanceToViableState);
+                lastErrorState = currentState;
+                auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
+                push(DDNonTerminal.ddERROR, nextState);
+                attrStack[stackIndex].ddSyntaxErrorData = errorData;
+            }
+            return found;
         }
 
         void
