@@ -606,7 +606,7 @@ class Grammar {
     size_t unresolvedRRConflicts;
 
     @property bool
-    valid()
+    is_valid()
     {
         return unresolvedRRConflicts == 0 && unresolvedSRConflicts == 0;
     }
