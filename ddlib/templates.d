@@ -164,6 +164,7 @@ mixin template DDImplementParser() {
         {
             stackLength = 0;
             lexicalAnalyser.set_input_text(text);
+            get_next_token();
             push(DDNonTerminal.ddSTART, 0);
             while (true) {
                 auto next_action = dd_get_next_action(currentState, currentToken, attrStack[0 .. stackLength]);
@@ -220,6 +221,10 @@ mixin template DDImplementParser() {
         get_next_token()
         {
             auto mr = lexicalAnalyser.advance();
+            if (mr is null) {
+                currentToken = DDToken.ddEND;
+                return;
+            }
             currentTokenAttributes.ddLocation = mr.location;
             currentTokenAttributes.ddMatchedText = mr.matchedText;
             if (mr.is_valid_token) {
