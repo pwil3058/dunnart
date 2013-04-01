@@ -39,6 +39,8 @@ class PhonyLocationFactory {
     }
 }
 
+auto verbose = false;
+
 auto bespokePreamble =
 "import std.stdio;
 
@@ -73,7 +75,8 @@ alias string[] StringList;
 uint errorCount;
 uint warningCount;\n";
 
-static this() {
+void generate_grammar()
+{
     auto plf = new PhonyLocationFactory;
     bespokeSymbolTable = new SymbolTable;
     bespokeGrammarSpecification = new GrammarSpecification(bespokeSymbolTable);
@@ -346,6 +349,16 @@ static this() {
         }
     }
     assert(bespokeSymbolTable.get_unused_symbols().length == 0);
+    if (verbose) {
+        writeln("Tokens:");
+        foreach (token; bespokeSymbolTable.get_tokens_ordered()) {
+            writefln("\t%s %s %s", token.id, token.name, token.pattern);
+        }
+        writeln("Productions:");
+        for (auto prid = 0; prid < bespokeGrammarSpecification.productionList.length; prid++) {
+            writefln("\t%s", bespokeGrammarSpecification.productionList[prid]);
+        }
+    }
     bespokeGrammar = new Grammar(bespokeGrammarSpecification);
 }
 
@@ -354,11 +367,12 @@ string moduleName;
 
 int main(string[] args)
 {
-    getopt(args, "f|force", &force, "module", &moduleName);
+    getopt(args, "f|force", &force, "module", &moduleName, "v|verbose", &verbose);
     if (args.length != 2) {
         print_usage(args[0]);
         return -1;
     }
+    generate_grammar();
     auto outputFilePath = args[1];
     // Don't overwrite existing files without specific authorization
     if (!force && exists(outputFilePath)) {
@@ -372,5 +386,5 @@ int main(string[] args)
 
 void print_usage(string command)
 {
-    writefln("Usage: %s [--force|-f] [--module=<module name>] <output file>", command);
+    writefln("Usage: %s [--force|-f] [--verbose|-v] [--module=<module name>] <output file>", command);
 }
