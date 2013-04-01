@@ -968,4 +968,45 @@ class Grammar {
         codeTextLines ~= "}\n";
         return codeTextLines;
     }
+
+    void write_parser_code(File outputFile, string moduleName="")
+    in {
+        assert(outputFile.isOpen);
+        assert(outputFile.size == 0);
+        assert(is_valid);
+    }
+    body {
+        if (moduleName.length > 0) {
+            outputFile.writefln("module %s;\n", moduleName);
+        }
+        outputFile.writeln(spec.preambleCodeText);
+        outputFile.writeln("import ddlib.templates;\n");
+        outputFile.writeln("mixin DDParserSupport;\n");
+        foreach (line; generate_symbol_enum_code_text()) {
+            outputFile.writeln(line);
+        }
+        foreach (line; generate_production_data_code_text()) {
+            outputFile.writeln(line);
+        }
+        foreach (line; generate_semantic_code_text()) {
+            outputFile.writeln(line);
+        }
+        foreach (line; generate_attributes_code_text()) {
+            outputFile.writeln(line);
+        }
+        foreach (line; generate_goto_table_code_text()) {
+            outputFile.writeln(line);
+        }
+        foreach (line; generate_action_table_code_text()) {
+            outputFile.writeln(line);
+        }
+        foreach (line; generate_error_recovery_code_text()) {
+            outputFile.writeln(line);
+        }
+        foreach (line; generate_lexan_token_code_text()) {
+            outputFile.writeln(line);
+        }
+        outputFile.writeln("\nmixin DDImplementParser;\n");
+        outputFile.close();
+    }
 }

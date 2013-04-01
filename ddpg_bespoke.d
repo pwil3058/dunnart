@@ -12,7 +12,7 @@ int main(string[] args)
     getopt(args);
     if (args.length != 2) {
         print_usage(args[0]);
-        return - 1;
+        return -1;
     }
     // Read the text to be parsed
     auto inputFilePath = args[1];

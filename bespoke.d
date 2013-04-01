@@ -1,6 +1,8 @@
 module bespoke;
 
 import std.stdio;
+import std.file;
+import std.getopt;
 
 import symbols;
 import grammar;
@@ -347,36 +349,28 @@ static this() {
     bespokeGrammar = new Grammar(bespokeGrammarSpecification);
 }
 
-void
-main()
+bool force;
+string moduleName;
+
+int main(string[] args)
 {
-    writeln("module generated;\n");
-    writeln(bespokeGrammar.spec.preambleCodeText);
-    writeln("import ddlib.templates;\n");
-    writeln("mixin DDParserSupport;\n");
-    foreach (line; bespokeGrammar.generate_symbol_enum_code_text()) {
-        writeln(line);
+    getopt(args, "f|force", &force, "module", &moduleName);
+    if (args.length != 2) {
+        print_usage(args[0]);
+        return -1;
     }
-    foreach (line; bespokeGrammar.generate_production_data_code_text()) {
-        writeln(line);
+    auto outputFilePath = args[1];
+    // Don't overwrite existing files without specific authorization
+    if (!force && exists(outputFilePath)) {
+        stderr.writefln("%s: already exists: use --force (or -f) to overwrite", outputFilePath);
+        return 1;
     }
-    foreach (line; bespokeGrammar.generate_semantic_code_text()) {
-        writeln(line);
-    }
-    foreach (line; bespokeGrammar.generate_attributes_code_text()) {
-        writeln(line);
-    }
-    foreach (line; bespokeGrammar.generate_goto_table_code_text()) {
-        writeln(line);
-    }
-    foreach (line; bespokeGrammar.generate_action_table_code_text()) {
-        writeln(line);
-    }
-    foreach (line; bespokeGrammar.generate_error_recovery_code_text()) {
-        writeln(line);
-    }
-    foreach (line; bespokeGrammar.generate_lexan_token_code_text()) {
-        writeln(line);
-    }
-    writeln("\nmixin DDImplementParser;\n");
+    auto outputFile = File(outputFilePath, "w");
+    bespokeGrammar.write_parser_code(outputFile, moduleName);
+    return 0;
+}
+
+void print_usage(string command)
+{
+    writefln("Usage: %s [--force|-f] [--module=<module name>] <output file>", command);
 }
