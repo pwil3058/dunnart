@@ -815,13 +815,7 @@ class Grammar {
             textLines ~= "    with (DDToken) switch (ddToken) {";
             foreach (field; fields) {
                 if (field.fieldName in tokenSets) {
-                    auto tokens = tokenSets[field.fieldName].elements;
-                    auto caseline = format("    case %s", tokens[0].name);
-                    foreach (token; tokens[1 .. $]) {
-                        caseline ~= format(", %s", token.name);
-                    }
-                    caseline ~= ":";
-                    textLines ~= caseline;
+                    textLines ~= format("    case %s:", token_list_string(tokenSets[field.fieldName].elements));
                     if (field.conversionFunctionName.length > 0) {
                         textLines ~= format("        attrs.%s  = %s(text);", field.fieldName, field.conversionFunctionName);
                     } else {
