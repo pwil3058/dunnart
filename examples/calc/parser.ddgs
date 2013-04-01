@@ -20,7 +20,7 @@ Set!Errors errors;
 %token          LPR     "("
 %token          RPR     ")"
 
-%skip   ([^A-Za-z0-9=/\*\-\+\n()]+)
+%skip   ([\t\r ]+)
 
 %right  UMINUS
 %left   "*" "/"
