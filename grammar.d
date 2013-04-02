@@ -204,24 +204,10 @@ get_reducible_keys(GrammarItemSet itemset)
 GrammarItemSet
 generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
 {
-    debug(GoToKernel) {
-        writefln("generate_goto_kernel(%s)", symbol);
-        writefln("IN:");
-        foreach (item, lookAheadSet; itemset) {
-            writefln("\t[%s, %s]", item, lookAheadSet);
-        }
-    }
     GrammarItemSet goto_kernel;
     foreach (grammarItemKey, lookAheadSet; itemset) {
         if (grammarItemKey.is_next_symbol(symbol)) {
-            debug(GoToKernel1) writefln("%s >>> %s", grammarItemKey, grammarItemKey.clone_shifted());
             goto_kernel[grammarItemKey.clone_shifted()] = lookAheadSet.clone();
-        }
-    }
-    debug(GoToKernel) {
-        writefln("OUT:");
-        foreach (item, lookAheadSet; goto_kernel) {
-            writefln("\t[%s, %s]", item, lookAheadSet);
         }
     }
     return goto_kernel;
@@ -343,18 +329,8 @@ class ParserState {
     Set!TokenSymbol look_ahead_set()
     {
         auto lookAheadSet = extract_key_set(shiftList);
-        debug(LookAheadSet) writefln("Parser Set: %s\n  Shift Set: %s", id, lookAheadSet);
         foreach (key; get_reducible_keys(grammarItems).elements) {
             lookAheadSet.add(grammarItems[key]);
-            debug(LookAheadSet) writefln("  Reduce: %s on: %s", key, grammarItems[key]);
-        }
-        debug(LookAheadSet) {
-            writefln("  Look Ahead Set: %s", lookAheadSet);
-            if (lookAheadSet.cardinality == 0) {
-                foreach (itemKey; grammarItems.byKey()) {
-                    writefln("    %s : %s", itemKey, grammarItems[itemKey]);
-                }
-            }
         }
         return lookAheadSet;
     }
@@ -488,18 +464,15 @@ class GrammarSpecification {
     Set!TokenSymbol
     FIRST(Symbol[] symbolString, TokenSymbol token)
     {
-        debug(FIRST2) writefln("FIRST(%s, %s)", symbolString, token);
         auto tokenSet = new Set!TokenSymbol;
         foreach (symbol; symbolString) {
             auto firstsData = get_firsts_data(symbol);
             tokenSet.add(firstsData.tokenset);
             if (!firstsData.transparent) {
-                debug(FIRST) writefln("FIRST(%s, %s): RETURN: %s", symbolString, token, tokenSet);
                 return tokenSet;
             }
         }
         tokenSet.add(token);
-        debug(FIRST) writefln("FIRST(%s, %s): RETURN: %s", symbolString, token, tokenSet);
         return tokenSet;
     }
 
@@ -537,7 +510,6 @@ class GrammarSpecification {
                 }
             }
             symbol.firstsData = new FirstsData(tokenSet, transparent);
-            debug(FIRST1) writefln("get_firsts_data(%s): RETURN: %s", symbol, symbol.firstsData);
         }
         return symbol.firstsData;
     }
@@ -545,25 +517,16 @@ class GrammarSpecification {
     GrammarItemSet
     closure(GrammarItemSet itemSet)
     {
-        debug(Closure) {
-            writefln("Closure Input: %s items", itemSet.length);
-            foreach (itemKey, lookAheadSet; itemSet) {
-                writefln("\t[%s, %s]", itemKey, lookAheadSet);
-            }
-        }
         auto closureSet = itemSet.dup;
         bool additions_made;
         do {
             additions_made = false;
             auto closableItemKeys = get_closable_keys(closureSet);
-            debug(ClosureLoop) writefln("keys: %s", closableItemKeys);
             foreach (closableItemKey; closableItemKeys.elements) {
                 auto prospectiveLhs = closableItemKey.nextSymbol;
                 auto lookAheadSet = closureSet[closableItemKey];
-                debug(ClosureLoop) writefln("\tKey: %s; Prospective LHS: %s; Look Ahead: %s", closableItemKey, prospectiveLhs, lookAheadSet);
                 foreach (lookAheadSymbol; lookAheadSet.elements) {
                     auto firsts = FIRST(closableItemKey.tail, lookAheadSymbol);
-                    debug(ClosureLoop) writefln("\t\tFIRSTS: %s %s -> %s", closableItemKey.tail, lookAheadSymbol, firsts);
                     foreach (production; productionList) {
                         if (prospectiveLhs != production.leftHandSide) continue;
                         auto prospectiveKey = new GrammarItemKey(production);
@@ -571,23 +534,14 @@ class GrammarSpecification {
                             auto cardinality = closureSet[prospectiveKey].cardinality;
                             closureSet[prospectiveKey].add(firsts);
                             additions_made = additions_made || closureSet[prospectiveKey].cardinality > cardinality;
-                            debug(ClosureLoop) writefln("\t\t\tMOD: %s :: %s: change %s", prospectiveKey, closureSet[prospectiveKey], closureSet[prospectiveKey].cardinality - cardinality);
                         } else {
                             closureSet[prospectiveKey] = firsts.clone();
                             additions_made = true;
-                            debug(ClosureLoop) writefln("\t\t\tADD: %s :: %s", prospectiveKey, closureSet[prospectiveKey]);
                         }
                     }
                 }
             }
-            debug (ClosureLoop) writefln("additions made: %s", additions_made);
         } while (additions_made);
-        debug(Closure) {
-            writefln("Closure Output: %s items", closureSet.length);
-            foreach (itemKey, lookAheadSet; closureSet) {
-                writefln("\t[%s, %s]", itemKey, lookAheadSet);
-            }
-        }
         return closureSet;
     }
 }
@@ -615,7 +569,6 @@ class Grammar {
     this(GrammarSpecification specification)
     {
         spec = specification;
-        debug(Grammar) writefln("Specification: %s Tokens; %s NonTerminals; %s Productions", spec.symbolTable.tokenCount, spec.symbolTable.nonTerminalCount, spec.productionList.length);
         auto startItemKey = new GrammarItemKey(spec.productionList[0]);
         auto startLookAheadSet = new Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
         GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
@@ -634,25 +587,7 @@ class Grammar {
             if (unprocessedState is null) break;
 
             auto firstTime = unprocessedState.state == ProcessedState.unProcessed;
-            debug(Grammar) {
-                writefln("Chosen: %s State: %s First Time: %s", unprocessedState.id, unprocessedState.state, firstTime);
-                foreach (itemKey, lookAheadSet; unprocessedState.grammarItems) {
-                    writefln("\t[%s, %s]", itemKey, lookAheadSet);
-                }
-                foreach(token, state; unprocessedState.shiftList) {
-                    writefln("\t%s -> %s", token, state);
-                }
-                if (unprocessedState.errorRecoveryState !is null) {
-                    writefln("\tERS = %s", unprocessedState.errorRecoveryState);
-                }
-            }
             unprocessedState.state = ProcessedState.processed;
-            debug(Grammar) {
-                writefln("Closure(%s):", unprocessedState.id);
-                foreach (itemKey, lookAheadSet; unprocessedState.grammarItems) {
-                    writefln("\t[%s, %s]", itemKey, lookAheadSet);
-                }
-            }
             auto alreadyDone = new Set!Symbol;
             foreach (itemKey; unprocessedState.grammarItems.byKey()){
                 if (!itemKey.is_shiftable) continue;
@@ -660,31 +595,12 @@ class Grammar {
                 auto symbolX = itemKey.nextSymbol;
                 if (alreadyDone.contains(symbolX)) continue;
                 alreadyDone.add(symbolX);
-                debug(Grammar12) writefln("SymbolX(%s): %s", itemKey, symbolX);
                 auto kernelX = spec.closure(generate_goto_kernel(unprocessedState.grammarItems, symbolX));
-                debug(Grammar) {
-                    writefln("KernelX(%s):", symbolX);
-                    foreach (itemKey, lookAheadSet; kernelX) {
-                        writefln("\t[%s, %s]", itemKey, lookAheadSet);
-                    }
-                }
                 auto equivalentState = find_equivalent_state(kernelX);
                 if (equivalentState is null) {
                     gotoState = new ParserState(kernelX);
                     parserStates[gotoState.id] = gotoState;
-                    debug(Grammar) {
-                        writefln("\t\tNew State: %s", gotoState);
-                        foreach (itemKey, lookAheadSet; gotoState.grammarItems) {
-                            writefln("\t\t\t[%s, %s]", itemKey, lookAheadSet);
-                        }
-                    }
                 } else {
-                    debug(Grammar) {
-                        writefln("\t\tEquivalent State(before): %s: %s", equivalentState, equivalentState.state);
-                        foreach (itemKey, lookAheadSet; equivalentState.grammarItems) {
-                            writefln("\t\t\t[%s, %s]", itemKey, lookAheadSet);
-                        }
-                    }
                     foreach (itemKey, lookAheadSet; kernelX) {
                         if (!equivalentState.grammarItems[itemKey].contains(lookAheadSet)) {
                             equivalentState.grammarItems[itemKey].add(lookAheadSet);
@@ -693,25 +609,17 @@ class Grammar {
                             }
                         }
                     }
-                    debug(Grammar) {
-                        writefln("\t\tEquivalent State(after): %s: %s", equivalentState, equivalentState.state);
-                        foreach (itemKey, lookAheadSet; equivalentState.grammarItems) {
-                            writefln("\t\t\t[%s, %s]", itemKey, lookAheadSet);
-                        }
-                    }
                     gotoState = equivalentState;
                 }
                 if (firstTime) {
                     if (symbolX.type == SymbolType.token) {
                         unprocessedState.shiftList[symbolX] = gotoState;
-                        debug(Grammar) writefln("\t%s.Shift(%s) --> %s", unprocessedState, symbolX, gotoState);
                     } else {
                         if (symbolX !in gotoTable || gotoState !in gotoTable[symbolX]) {
                             gotoTable[symbolX] = [gotoState: new Set!(ParserState)(unprocessedState)];
                         } else {
                             gotoTable[symbolX][gotoState].add(unprocessedState);
                         }
-                        debug(Grammar) writefln("\tGoTo(%s, %s) --> %s", symbolX, gotoTable[symbolX][gotoState], gotoState);
                     }
                     if (symbolX.id == SpecialSymbols.parseError) {
                         unprocessedState.errorRecoveryState = gotoState;
@@ -722,7 +630,7 @@ class Grammar {
         }
         foreach (parserState; parserStates) {
             auto lookAheadSet = parserState.look_ahead_set();
-            // TODO: fix this failure assert(lookAheadSet.cardinality > 0);
+            assert(lookAheadSet.cardinality > 0);
             unresolvedSRConflicts += parserState.resolve_shift_reduce_conflicts();
             unresolvedRRConflicts += parserState.resolve_reduce_reduce_conflicts();
         }

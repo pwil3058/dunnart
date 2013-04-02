@@ -26,7 +26,6 @@ int main(string[] args)
         writeln(e);
         return 2;
     }
-    debug(input) writeln(inputText);
     // Parse the text and generate the grammar specification
     auto parser = new DDParser;
     if (!parser.parse_text(inputText)) {

@@ -337,17 +337,7 @@ void generate_grammar()
         add_production(new Production(symbol, [ERROR], "$$.symbol = symbolTable.get_special_symbol(SpecialSymbols.parseError);"));
         add_production(new Production(symbol, [LEXERROR], "$$.symbol = symbolTable.get_special_symbol(SpecialSymbols.lexError);"));
     }
-    debug(Bespoke) {
-        foreach (symbol; bespokeSymbolTable.get_undefined_symbols()) {
-            writefln("Non terminal: %s is not defined", symbol.name);
-        }
-    }
     assert(bespokeSymbolTable.get_undefined_symbols().length == 0);
-    debug(Bespoke) {
-        foreach (symbol; bespokeSymbolTable.get_unused_symbols()) {
-            writefln("Symbol: %s is not used", symbol.name);
-        }
-    }
     assert(bespokeSymbolTable.get_unused_symbols().length == 0);
     if (verbose) {
         writeln("Tokens:");
