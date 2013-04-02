@@ -1,9 +1,9 @@
 
-ddpg_bespoke: ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d
+ddpg_bespoke: ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d Makefile
 	dmd ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d
 
-generated.d: bespoke
+generated.d: bespoke Makefile
 	./bespoke --force $@
 
-bespoke: bespoke.d grammar.d sets.d symbols.d ddlib/components.d ddlib/lexan.d ddlib/templates.d
+bespoke: bespoke.d grammar.d sets.d symbols.d ddlib/components.d ddlib/lexan.d ddlib/templates.d Makefile
 	dmd bespoke.d grammar.d sets.d symbols.d ddlib/components.d ddlib/lexan.d

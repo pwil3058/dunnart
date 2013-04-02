@@ -551,30 +551,31 @@ class GrammarSpecification {
                 writefln("\t[%s, %s]", itemKey, lookAheadSet);
             }
         }
+        auto closureSet = itemSet.dup;
         bool additions_made;
         do {
             additions_made = false;
-            auto grammarItemKeys = get_closable_keys(itemSet);
-            debug(ClosureLoop) writefln("keys: %s", grammarItemKeys);
-            foreach (grammarItemKey; grammarItemKeys.elements) {
-                //if (!grammarItemKey.is_shiftable || grammarItemKey.nextSymbol.type != SymbolType.nonTerminal) continue;
-                auto prospectiveLhs = grammarItemKey.nextSymbol;
-                auto lookAheadSet = itemSet[grammarItemKey];
-                debug(ClosureLoop) writefln("Key: %s; Prospective LHS: %s; Look Ahead: %s", grammarItemKey, prospectiveLhs, lookAheadSet);
+            auto closableItemKeys = get_closable_keys(closureSet);
+            debug(ClosureLoop) writefln("keys: %s", closableItemKeys);
+            foreach (closableItemKey; closableItemKeys.elements) {
+                auto prospectiveLhs = closableItemKey.nextSymbol;
+                auto lookAheadSet = closureSet[closableItemKey];
+                debug(ClosureLoop) writefln("\tKey: %s; Prospective LHS: %s; Look Ahead: %s", closableItemKey, prospectiveLhs, lookAheadSet);
                 foreach (lookAheadSymbol; lookAheadSet.elements) {
-                    auto firsts = FIRST(grammarItemKey.tail, lookAheadSymbol);
-                    debug(ClosureLoop) writefln("FIRSTS: %s", firsts);
+                    auto firsts = FIRST(closableItemKey.tail, lookAheadSymbol);
+                    debug(ClosureLoop) writefln("\t\tFIRSTS: %s %s -> %s", closableItemKey.tail, lookAheadSymbol, firsts);
                     foreach (production; productionList) {
                         if (prospectiveLhs != production.leftHandSide) continue;
                         auto prospectiveKey = new GrammarItemKey(production);
-                        if (prospectiveKey in itemSet) {
-                            if (!itemSet[prospectiveKey].contains(firsts)) {
-                                itemSet[prospectiveKey].add(firsts);
-                                additions_made = true;
-                            }
+                        if (prospectiveKey in closureSet) {
+                            auto cardinality = closureSet[prospectiveKey].cardinality;
+                            closureSet[prospectiveKey].add(firsts);
+                            additions_made = additions_made || closureSet[prospectiveKey].cardinality > cardinality;
+                            debug(ClosureLoop) writefln("\t\t\tMOD: %s :: %s: change %s", prospectiveKey, closureSet[prospectiveKey], closureSet[prospectiveKey].cardinality - cardinality);
                         } else {
-                            itemSet[prospectiveKey] = firsts.clone();
+                            closureSet[prospectiveKey] = firsts.clone();
                             additions_made = true;
+                            debug(ClosureLoop) writefln("\t\t\tADD: %s :: %s", prospectiveKey, closureSet[prospectiveKey]);
                         }
                     }
                 }
@@ -582,12 +583,12 @@ class GrammarSpecification {
             debug (ClosureLoop) writefln("additions made: %s", additions_made);
         } while (additions_made);
         debug(Closure) {
-            writefln("Closure Output: %s items", itemSet.length);
-            foreach (itemKey, lookAheadSet; itemSet) {
+            writefln("Closure Output: %s items", closureSet.length);
+            foreach (itemKey, lookAheadSet; closureSet) {
                 writefln("\t[%s, %s]", itemKey, lookAheadSet);
             }
         }
-        return itemSet;
+        return closureSet;
     }
 }
 
@@ -617,7 +618,7 @@ class Grammar {
         debug(Grammar) writefln("Specification: %s Tokens; %s NonTerminals; %s Productions", spec.symbolTable.tokenCount, spec.symbolTable.nonTerminalCount, spec.productionList.length);
         auto startItemKey = new GrammarItemKey(spec.productionList[0]);
         auto startLookAheadSet = new Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
-        GrammarItemSet startKernel = [ startItemKey : startLookAheadSet];
+        GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
         parserStates[0] = new ParserState(startKernel);
         assert(parserStates[0].id == 0);
         while (true) {
@@ -646,22 +647,21 @@ class Grammar {
                 }
             }
             unprocessedState.state = ProcessedState.processed;
-            auto fullItemSet = spec.closure(unprocessedState.grammarItems);
             debug(Grammar) {
                 writefln("Closure(%s):", unprocessedState.id);
-                foreach (itemKey, lookAheadSet; fullItemSet) {
+                foreach (itemKey, lookAheadSet; unprocessedState.grammarItems) {
                     writefln("\t[%s, %s]", itemKey, lookAheadSet);
                 }
             }
             auto alreadyDone = new Set!Symbol;
-            foreach (itemKey; fullItemSet.byKey()){
+            foreach (itemKey; unprocessedState.grammarItems.byKey()){
                 if (!itemKey.is_shiftable) continue;
                 ParserState gotoState;
                 auto symbolX = itemKey.nextSymbol;
                 if (alreadyDone.contains(symbolX)) continue;
                 alreadyDone.add(symbolX);
                 debug(Grammar12) writefln("SymbolX(%s): %s", itemKey, symbolX);
-                auto kernelX = generate_goto_kernel(fullItemSet, symbolX);
+                auto kernelX = spec.closure(generate_goto_kernel(unprocessedState.grammarItems, symbolX));
                 debug(Grammar) {
                     writefln("KernelX(%s):", symbolX);
                     foreach (itemKey, lookAheadSet; kernelX) {
@@ -672,12 +672,17 @@ class Grammar {
                 if (equivalentState is null) {
                     gotoState = new ParserState(kernelX);
                     parserStates[gotoState.id] = gotoState;
-                    debug(Grammar) writefln("\tNew State: %s", gotoState.id);
+                    debug(Grammar) {
+                        writefln("\t\tNew State: %s", gotoState);
+                        foreach (itemKey, lookAheadSet; gotoState.grammarItems) {
+                            writefln("\t\t\t[%s, %s]", itemKey, lookAheadSet);
+                        }
+                    }
                 } else {
                     debug(Grammar) {
-                        writefln("\tEquivalent State(before): %s: %s", equivalentState.id, equivalentState.state);
+                        writefln("\t\tEquivalent State(before): %s: %s", equivalentState, equivalentState.state);
                         foreach (itemKey, lookAheadSet; equivalentState.grammarItems) {
-                            writefln("\t\t[%s, %s]", itemKey, lookAheadSet);
+                            writefln("\t\t\t[%s, %s]", itemKey, lookAheadSet);
                         }
                     }
                     foreach (itemKey, lookAheadSet; kernelX) {
@@ -689,9 +694,9 @@ class Grammar {
                         }
                     }
                     debug(Grammar) {
-                        writefln("\tEquivalent State(after): %s: %s", equivalentState.id, equivalentState.state);
+                        writefln("\t\tEquivalent State(after): %s: %s", equivalentState, equivalentState.state);
                         foreach (itemKey, lookAheadSet; equivalentState.grammarItems) {
-                            writefln("\t\t[%s, %s]", itemKey, lookAheadSet);
+                            writefln("\t\t\t[%s, %s]", itemKey, lookAheadSet);
                         }
                     }
                     gotoState = equivalentState;
@@ -699,7 +704,7 @@ class Grammar {
                 if (firstTime) {
                     if (symbolX.type == SymbolType.token) {
                         unprocessedState.shiftList[symbolX] = gotoState;
-                        debug(Grammar) writefln("\tShift: %s --> %s", symbolX, gotoState.id);
+                        debug(Grammar) writefln("\t%s.Shift(%s) --> %s", unprocessedState, symbolX, gotoState);
                     } else {
                         if (symbolX !in gotoTable || gotoState !in gotoTable[symbolX]) {
                             gotoTable[symbolX] = [gotoState: new Set!(ParserState)(unprocessedState)];
@@ -1008,5 +1013,47 @@ class Grammar {
         }
         outputFile.writeln("\nmixin DDImplementParser;\n");
         outputFile.close();
+    }
+
+    string get_parser_state_description(ParserStateId parserStateId)
+    in {
+        assert(parserStateId < parserStates.length);
+    }
+    body {
+        //TODO: finish ParserState.toString()
+        // Have to do this in grammar to access gotoTable
+        auto str = format("State<%s>:\n  Kernel:\n", parserStateId);
+        with (parserStates[parserStateId]) {
+            foreach (itemKey; extract_key_set(grammarItems).elements) {
+                str ~= format("    %s: %s\n", itemKey, grammarItems[itemKey]);
+            }
+            str ~= "  Shift List:\n";
+            if (shiftList.length == 0) {
+                str ~= "    <empty>\n";
+            } else {
+                foreach (token; extract_key_set(shiftList).elements) {
+                    str ~= format("    %s -> State<%s>\n", token, shiftList[token].id);
+                }
+            }
+            str ~= "  Reduce List:\n";
+            auto reducableItemkeys = get_reducible_keys(grammarItems);
+            if (reducableItemkeys.cardinality == 0) {
+                str ~= "    <empty>\n";
+            } else {
+                foreach (reducableItemKey; reducableItemkeys.elements) {
+                    str ~= format("    %s: %s\n", reducableItemKey, grammarItems[reducableItemKey]);
+                }
+            }
+        }
+        return str;
+    }
+
+    string get_parser_states_description()
+    {
+        string str;
+        for (auto i = 0; i < parserStates.length; i++) {
+            str ~= get_parser_state_description(i);
+        }
+        return str;
     }
 }

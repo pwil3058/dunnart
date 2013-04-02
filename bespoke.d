@@ -360,6 +360,9 @@ void generate_grammar()
         }
     }
     bespokeGrammar = new Grammar(bespokeGrammarSpecification);
+    if (verbose) {
+        writeln(bespokeGrammar.get_parser_states_description());
+    }
 }
 
 bool force;
