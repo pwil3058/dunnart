@@ -136,7 +136,8 @@ mixin template DDImplementParser() {
         private DDAttributes[]
         pop(size_t count)
         {
-            stackLength -= 1;
+            if (count == 0) return [];
+            stackLength -= count;
             return attrStack[stackIndex .. stackIndex + count].dup;
         }
 
