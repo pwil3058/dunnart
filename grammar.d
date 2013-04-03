@@ -615,13 +615,13 @@ class Grammar {
                 auto symbolX = itemKey.nextSymbol;
                 if (alreadyDone.contains(symbolX)) continue;
                 alreadyDone.add(symbolX);
-                auto kernelX = spec.closure(generate_goto_kernel(unprocessedState.grammarItems, symbolX));
-                auto equivalentState = find_equivalent_state(kernelX);
+                auto itemSetX = spec.closure(generate_goto_kernel(unprocessedState.grammarItems, symbolX));
+                auto equivalentState = find_equivalent_state(itemSetX);
                 if (equivalentState is null) {
-                    gotoState = new ParserState(kernelX);
+                    gotoState = new ParserState(itemSetX);
                     parserStates[gotoState.id] = gotoState;
                 } else {
-                    foreach (itemKey, lookAheadSet; kernelX) {
+                    foreach (itemKey, lookAheadSet; itemSetX) {
                         if (!equivalentState.grammarItems[itemKey].contains(lookAheadSet)) {
                             equivalentState.grammarItems[itemKey].add(lookAheadSet);
                             if (equivalentState.state == ProcessedState.processed) {
