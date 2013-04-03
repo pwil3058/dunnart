@@ -125,15 +125,6 @@ void generate_grammar()
         auto production_rules = get_symbol("production_rules", plf.next(), true);
         add_production(new Production(specification, [preamble, definitions, NEWSECTION, production_rules], "// that's all folks"));
 
-        auto allowable_ident = define_non_terminal("allowable_ident", plf.next(true));
-        IDENT = get_symbol("IDENT", plf.next());
-        add_production(new Production(allowable_ident, [IDENT],
-        "if (!is_allowable_name($1.ddMatchedText)) {
-            stderr.writefln(\"%s: Illegal name - must not start with dd, dD, Dd or DD.\", $1.ddMatchedText);
-            errorCount++;
-        }"
-        ));
-
     //Preamble
         preamble = define_non_terminal("preamble", plf.next(true));
         DCODE = get_symbol("DCODE", plf.next(true));
@@ -177,7 +168,7 @@ void generate_grammar()
         add_production(new Production(field_definition, [FIELD, field_type, field_name, field_conversion_function], "symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText);"));
 
         field_type = define_non_terminal("field_type", plf.next(true));
-        allowable_ident = get_symbol("allowable_ident", plf.next(true));
+        auto allowable_ident = get_symbol("allowable_ident", plf.next(true), true);
         add_production(new Production(field_type, [allowable_ident], "// do nothing"));
 
         field_name = define_non_terminal("field_name", plf.next(true));
@@ -187,6 +178,15 @@ void generate_grammar()
         field_conversion_function = define_non_terminal("field_conversion_function", plf.next(true));
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
         add_production(new Production(field_conversion_function, [allowable_ident], "// do nothing"));
+
+        allowable_ident = define_non_terminal("allowable_ident", plf.next(true));
+        IDENT = get_symbol("IDENT", plf.next());
+        add_production(new Production(allowable_ident, [IDENT],
+        "if (!is_allowable_name($1.ddMatchedText)) {
+            stderr.writefln(\"%s: Illegal name - must not start with dd, dD, Dd or DD.\", $1.ddMatchedText);
+            errorCount++;
+        }"
+        ));
 
         token_definition = define_non_terminal("token_definition", plf.next(true));
         TOKEN = get_literal_token("\"%token\"", plf.next());
@@ -223,7 +223,9 @@ void generate_grammar()
 
         tag = define_non_terminal("tag", plf.next(true));
         allowable_ident = get_symbol("allowable_ident", plf.next(true));
+        LITERAL = get_symbol("LITERAL", plf.next());
         add_production(new Production(tag, [allowable_ident], "// do nothing"));
+        add_production(new Production(tag, [LITERAL], "// do nothing"));
 
     // Rules defining rules
         production_rules = define_non_terminal("production_rules", plf.next(true));
@@ -350,6 +352,8 @@ void generate_grammar()
         }
     }
     bespokeGrammar = new Grammar(bespokeGrammarSpecification);
+    assert(bespokeGrammar.unresolvedRRConflicts == 0);
+    assert(bespokeGrammar.unresolvedSRConflicts == 0);
     if (verbose) {
         writeln(bespokeGrammar.get_parser_states_description());
     }

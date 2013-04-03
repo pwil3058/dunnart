@@ -23,8 +23,8 @@ Set!Errors errors;
 %skip   ([\t\r ]+)
 
 %right  UMINUS
-%left   "*" "/"
-%left   "+" "-"
+%left   TIMES DIVIDE
+%left   PLUS MINUS
 %left   EOL
 
 %%

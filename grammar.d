@@ -105,6 +105,12 @@ class GrammarItemKey {
         return dot < production.length;
     }
 
+    @property bool
+    is_kernel_item()
+    {
+        return dot > 0 || production.leftHandSide.id == SpecialSymbols.start;
+    }
+
     @property Symbol
     nextSymbol()
     in {
@@ -176,6 +182,18 @@ class GrammarItemKey {
 }
 
 alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
+
+Set!GrammarItemKey
+get_kernel_keys(GrammarItemSet itemset)
+{
+    auto keySet = new Set!GrammarItemKey;
+    foreach (grammarItemKey; itemset.byKey()) {
+        if (grammarItemKey.is_kernel_item) {
+            keySet.add(grammarItemKey);
+        }
+    }
+    return keySet;
+}
 
 Set!GrammarItemKey
 get_closable_keys(GrammarItemSet itemset)
@@ -643,10 +661,10 @@ class Grammar {
     ParserState
     find_equivalent_state(GrammarItemSet kernel)
     {
-        // TODO: check if this needs to be this complex
-        auto targetKeySet = extract_key_set(kernel);
+        // TODO: check if this needs to use only kernel keys
+        auto targetKeySet = get_kernel_keys(kernel);
         foreach (parserState; parserStates.byValue()) {
-            if (targetKeySet == extract_key_set(parserState.grammarItems)) {
+            if (targetKeySet == get_kernel_keys(parserState.grammarItems)) {
                 return parserState;
             }
         }
