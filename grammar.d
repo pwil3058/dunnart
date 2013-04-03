@@ -124,7 +124,7 @@ class GrammarItemKey {
     }
 
     bool
-    is_next_symbol(Symbol symbol)
+    next_symbol_is(Symbol symbol)
     {
         return is_shiftable && nextSymbol == symbol;
     }
@@ -206,7 +206,7 @@ generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
 {
     GrammarItemSet goto_kernel;
     foreach (grammarItemKey, lookAheadSet; itemset) {
-        if (grammarItemKey.is_next_symbol(symbol)) {
+        if (grammarItemKey.next_symbol_is(symbol)) {
             goto_kernel[grammarItemKey.clone_shifted()] = lookAheadSet.clone();
         }
     }
