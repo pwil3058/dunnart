@@ -615,8 +615,10 @@ class Grammar {
                     if (symbolX.type == SymbolType.token) {
                         unprocessedState.shiftList[symbolX] = gotoState;
                     } else {
-                        if (symbolX !in gotoTable || gotoState !in gotoTable[symbolX]) {
+                        if (symbolX !in gotoTable) {
                             gotoTable[symbolX] = [gotoState: new Set!(ParserState)(unprocessedState)];
+                        } else if (gotoState !in gotoTable[symbolX]) {
+                            gotoTable[symbolX][gotoState] = new Set!(ParserState)(unprocessedState);
                         } else {
                             gotoTable[symbolX][gotoState].add(unprocessedState);
                         }
