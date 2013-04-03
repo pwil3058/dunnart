@@ -589,7 +589,9 @@ class Grammar {
             auto firstTime = unprocessedState.state == ProcessedState.unProcessed;
             unprocessedState.state = ProcessedState.processed;
             auto alreadyDone = new Set!Symbol;
-            foreach (itemKey; unprocessedState.grammarItems.byKey()){
+            // do items in order
+            auto itemKeys = extract_key_set(unprocessedState.grammarItems);
+            foreach (itemKey; itemKeys.elements){
                 if (!itemKey.is_shiftable) continue;
                 ParserState gotoState;
                 auto symbolX = itemKey.nextSymbol;
