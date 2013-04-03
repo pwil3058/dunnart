@@ -81,6 +81,18 @@ mixin template DDParserSupport() {
 }
 
 mixin template DDImplementParser() {
+    string symbol_name(DDSymbol symbol) {
+        string str;
+        switch (symbol) {
+        case 1: case 2: case 4: .. case DDToken.max:
+            str = to!string(to!DDToken(symbol));
+            break;
+        default:
+            str = to!string(to!DDNonTerminal(symbol));
+        }
+        return str;
+    }
+
     class DDLexicalAnalyser: ddlexan.LexicalAnalyser {
         this()
         {
@@ -122,6 +134,12 @@ mixin template DDImplementParser() {
             return stateStack[stackIndex].state;
         }
 
+        private @property DDSymbol
+        topOfStack()
+        {
+            return stateStack[stackIndex].symbolId;
+        }
+
         private void
         push(DDSymbol symbolId, DDParserState state)
         {
@@ -138,7 +156,7 @@ mixin template DDImplementParser() {
         {
             if (count == 0) return [];
             stackLength -= count;
-            return attrStack[stackIndex .. stackIndex + count].dup;
+            return attrStack[stackLength .. stackLength + count].dup;
         }
 
         void
