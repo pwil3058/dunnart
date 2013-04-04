@@ -118,13 +118,16 @@ struct CharLocation {
     // as these are used for error messages.
     size_t lineNumber;
     size_t offset;
+    string label; // e.g. name of file that text came from
 }
 
 class CharLocationData {
     private size_t[] lineStart;
+    string label;
 
-    this(string text)
+    this(string text, string label="")
     {
+        this.label = label;
         lineStart = [0];
         if (newline.length == 1) {
             for (size_t i; i < text.length; i++)
@@ -157,7 +160,7 @@ class CharLocationData {
         auto ln = (index < lineStart[imin]) ? imin : imin + 1;
         auto offset = index - lineStart[ln - 1] + 1;
 
-        return CharLocation(ln, offset);
+        return CharLocation(ln, offset, label);
     }
 }
 
@@ -220,11 +223,11 @@ class LexicalAnalyser {
         assert(recnt == regexTokenSpecs.length);
     }
 
-    void set_input_text(string text)
+    void set_input_text(string text, string label="")
     {
         inputText = text;
         index = 0;
-        charLocationData = new CharLocationData(text);
+        charLocationData = new CharLocationData(text, label);
     }
 
     MatchResult advance()
