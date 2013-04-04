@@ -710,9 +710,8 @@ class Grammar {
         } else {
             textLines ~= "    DDSyntaxErrorData ddSyntaxErrorData;";
         }
-        textLines ~= "}\n";
-        textLines ~= "void";
-        textLines ~= "dd_set_attribute_value(ref DDAttributes attrs, DDToken ddToken, string text)";
+        textLines ~= "}\n\n";
+        textLines ~= "void dd_set_attribute_value(ref DDAttributes attrs, DDToken ddToken, string text)";
         textLines ~= "{";
         Set!TokenSymbol[string] tokenSets;
         foreach(token; spec.symbolTable.get_tokens_ordered()) {

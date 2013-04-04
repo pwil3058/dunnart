@@ -275,7 +275,7 @@ void generate_grammar()
         production_group_head = define_non_terminal("production_group_head", plf.next(true));
         COLON = get_literal_token("\":\"", plf.next());
         auto left_hand_side = get_symbol("left_hand_side", plf.next(true), true);
-        add_production(new Production(production_group_head, [left_hand_side, COLON], "symbolTable.define_non_terminal($1.ddMatchedText, $1.ddLocation);"));
+        add_production(new Production(production_group_head, [left_hand_side, COLON], "$$.symbol = symbolTable.define_non_terminal($1.ddMatchedText, $1.ddLocation);"));
 
         left_hand_side = define_non_terminal("left_hand_side", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));
@@ -290,7 +290,7 @@ void generate_grammar()
         auto production_tail = get_symbol("production_tail", plf.next(true), true);
         VBAR = get_literal_token("\"|\"", plf.next());
         add_production(new Production(production_tail_list, [production_tail], "$$.productionTailList = [$1.productionTail];"));
-        add_production(new Production(production_tail_list, [production_tail_list, VBAR, production_tail], "$$.productionTailList = $1.productionTailList ~ $2.productionTail;"));
+        add_production(new Production(production_tail_list, [production_tail_list, VBAR, production_tail], "$$.productionTailList = $1.productionTailList ~ $3.productionTail;"));
 
         production_tail = define_non_terminal("production_tail", plf.next(true));
         auto symbol_list = get_symbol("symbol_list", plf.next(), true);
