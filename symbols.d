@@ -160,6 +160,19 @@ class SymbolTable {
         return token;
     }
 
+    TagSymbol
+    new_tag(string newTagName, CharLocation location)
+    in {
+        assert(!is_known_symbol(newTagName));
+        assert(is_allowable_name(newTagName));
+    }
+    body {
+        auto tag = new TagSymbol(newTagName, SymbolType.tag, location);
+        tags[newTagName] = tag;
+        allSymbols[tag.id] = tag;
+        return tag;
+    }
+
     @property size_t
     tokenCount()
     {
@@ -284,10 +297,23 @@ class SymbolTable {
         foreach (symbolName; symbolNames) {
             auto symbol = tokens.get(symbolName, null);
             if (symbol is null) {
-                symbol = new Symbol(symbolName, SymbolType.tag, location);
-                tags[symbolName] = symbol;
-                allSymbols[symbol.id] = symbol;
+                symbol = new_tag(symbolName, location);
             }
+            symbol.associativity = assoc;
+            symbol.precedence = currentPrecedence;
+        }
+        currentPrecedence--;
+    }
+
+    void
+    set_precedences(Associativity assoc, Symbol[] symbols)
+    in {
+        foreach (symbol; symbols) {
+            assert(symbol.type != SymbolType.nonTerminal);
+        }
+    }
+    body {
+        foreach (symbol; symbols) {
             symbol.associativity = assoc;
             symbol.precedence = currentPrecedence;
         }

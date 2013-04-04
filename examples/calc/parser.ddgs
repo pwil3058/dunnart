@@ -36,7 +36,7 @@ line: setup expr ?(errors.cardinality > 0?) !{stderr.writefln("Errors: %s", erro
     | line EOL
     .
 
-setup: !{errors = new Set!Errors;!}
+setup: !{errors = new Set!Errors;!}.
 
 expr: expr "+" expr ?($1.value == 0?) !{$$.value = $3.value;!}
     | expr "+" expr ?($3.value == 0?) !{$$.value = $1.value;!}

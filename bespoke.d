@@ -173,11 +173,21 @@ void generate_grammar()
 
         field_name = define_non_terminal("field_name", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));
-        add_production(new Production(field_name, [IDENT], "// do nothing"));
+        add_production(new Production(field_name, [IDENT],
+            "if (!is_allowable_name($1.ddMatchedText)) {\n"
+            "    errorCount++;\n"
+            "    stderr.writefln(\"%s: %s: Illegal field name.\", $1.ddLocation.lineNumber, $1.ddMatchedText);\n"
+            "}\n"
+             ));
 
         field_conversion_function = define_non_terminal("field_conversion_function", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));
-        add_production(new Production(field_conversion_function, [IDENT], "// do nothing"));
+        add_production(new Production(field_conversion_function, [IDENT],
+            "if (!is_allowable_name($1.ddMatchedText)) {\n"
+            "    errorCount++;\n"
+            "    stderr.writefln(\"%s: %s: Illegal field conversion function name.\", $1.ddLocation.lineNumber, $1.ddMatchedText);\n"
+            "}\n"
+             ));
 
         token_definition = define_non_terminal("token_definition", plf.next(true));
         TOKEN = get_literal_token("\"%token\"", plf.next());
@@ -191,7 +201,12 @@ void generate_grammar()
 
         token_name = define_non_terminal("token_name", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));
-        add_production(new Production(token_name, [IDENT], "// check token not already defined"));
+        add_production(new Production(token_name, [IDENT],
+            "if (!is_allowable_name($1.ddMatchedText)) {\n"
+            "    errorCount++;\n"
+            "    stderr.writefln(\"%s: %s: Illegal token name.\", $1.ddLocation.lineNumber, $1.ddMatchedText);\n"
+            "}\n"
+             ));
 
         skip_definition = define_non_terminal("skip_definition", plf.next(true));
         SKIP = get_literal_token("\"%skip\"", plf.next());
@@ -203,26 +218,45 @@ void generate_grammar()
         RIGHT = get_literal_token("\"%right\"", plf.next());
         NONASSOC = get_literal_token("\"%nonassoc\"", plf.next());
         auto tag_list = get_symbol("tag_list", plf.next(true), true);
-        add_production(new Production(precedence_definition, [LEFT, tag_list], "symbolTable.set_precedences(Associativity.left, $2.stringList, $1.ddLocation);"));
-        add_production(new Production(precedence_definition, [RIGHT, tag_list], "symbolTable.set_precedences(Associativity.right, $2.stringList, $1.ddLocation);"));
-        add_production(new Production(precedence_definition, [NONASSOC, tag_list], "symbolTable.set_precedences(Associativity.nonassoc, $2.stringList, $1.ddLocation);"));
+        add_production(new Production(precedence_definition, [LEFT, tag_list], "symbolTable.set_precedences(Associativity.left, $2.symbolList);"));
+        add_production(new Production(precedence_definition, [RIGHT, tag_list], "symbolTable.set_precedences(Associativity.right, $2.symbolList);"));
+        add_production(new Production(precedence_definition, [NONASSOC, tag_list], "symbolTable.set_precedences(Associativity.nonassoc, $2.symbolList);"));
 
         tag_list = define_non_terminal("tag_list", plf.next(true));
         auto tag = get_symbol("tag", plf.next(true), true);
-        add_production(new Production(tag_list, [tag], "$$.stringList = [$1.ddMatchedText];"));
-        add_production(new Production(tag_list, [tag_list, tag], "$$.stringList = $1.stringList ~ $2.ddMatchedText;"));
+        add_production(new Production(tag_list, [tag], "$$.symbolList = [$1.symbol];"));
+        add_production(new Production(tag_list, [tag_list, tag], "$$.symbolList = $1.symbolList ~ $2.symbol;"));
 
         tag = define_non_terminal("tag", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));
         LITERAL = get_symbol("LITERAL", plf.next());
-        add_production(new Production(tag, [IDENT], "// do nothing"));
-        add_production(new Production(tag, [LITERAL], "// do nothing"));
+        add_production(new Production(tag, [IDENT],
+            "if (!is_allowable_name($1.ddMatchedText)) {\n"
+            "    errorCount++;\n"
+            "    stderr.writefln(\"%s: %s: Illegal symbol name.\", $1.ddLocation.lineNumber, $1.ddMatchedText);\n"
+            "} else {\n"
+            "    $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);\n"
+            "    if ($$.symbol is null) {\n"
+            "        $$.symbol = symbolTable.new_tag($1.ddMatchedText, $1.ddLocation);\n"
+            "    } else if ($$.symbol.type == SymbolType.nonTerminal) {\n"
+            "        errorCount++;\n"
+            "        stderr.writefln(\"%s: %s: non terminal symbol in precedence specification.\", $1.ddLocation.lineNumber, $1.ddMatchedText);\n"
+            "    }\n"
+            "}\n"
+            ));
+        add_production(new Production(tag, [LITERAL],
+            "$$.symbol = symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);\n"
+            "if ($$.symbol is null) {\n"
+            "    errorCount++;\n"
+            "    stderr.writefln(\"%s: %s: Unknown literal token\", $1.ddLocation.lineNumber, $1.ddMatchedText);\n"
+            "}\n"
+            ));
 
     // Rules defining rules
         production_rules = define_non_terminal("production_rules", plf.next(true));
         auto production_group = get_symbol("production_group", plf.next(true), true);
-        add_production(new Production(production_rules, [production_group], "// initialize a dynamic array with [production_group]"));
-        add_production(new Production(production_rules, [production_rules, production_group], "// append to the production_group list"));
+        add_production(new Production(production_rules, [production_group], "// do nothing"));
+        add_production(new Production(production_rules, [production_rules, production_group], "// do nothing"));
 
         production_group = define_non_terminal("production_group", plf.next(true));
         auto production_group_head = get_symbol("production_group_head", plf.next(true), true);
@@ -246,7 +280,12 @@ void generate_grammar()
 
         left_hand_side = define_non_terminal("left_hand_side", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));
-        add_production(new Production(left_hand_side, [IDENT], "// do nothing"));
+        add_production(new Production(left_hand_side, [IDENT],
+            "if (!is_allowable_name($1.ddMatchedText)) {\n"
+            "    errorCount++;\n"
+            "    stderr.writefln(\"%s: %s: Illegal symbol name.\", $1.ddLocation.lineNumber, $1.ddMatchedText);\n"
+            "}\n"
+            ));
 
         production_tail_list = define_non_terminal("production_tail_list", plf.next(true));
         auto production_tail = get_symbol("production_tail", plf.next(true), true);

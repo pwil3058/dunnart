@@ -31,9 +31,10 @@ int main(string[] args)
     if (!parser.parse_text(inputText)) {
         return 3;
     }
+    writefln("got here");
     // Generate the grammar from the specification
     auto grammar = new Grammar(grammarSpecification);
-    if (!grammar.is_valid) {
+    if (grammar is null || !grammar.is_valid) {
         return 4;
     }
     return 0;
