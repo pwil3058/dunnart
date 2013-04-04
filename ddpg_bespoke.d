@@ -31,12 +31,33 @@ int main(string[] args)
     if (!parser.parse_text(inputText)) {
         return 3;
     }
-    writefln("got here");
+    writeln("Tokens:");
+    foreach (token; symbolTable.get_tokens_ordered()) {
+        with (token) {
+            writefln("\t%s: %s: %s: %s: %s: %s: %s", id, name, type, pattern, fieldName, associativity, precedence);
+            writefln("\t\tDefined At: %s", definedAt);
+            writefln("\t\tUsed At: %s", usedAt);
+        }
+    }
+    writeln("Not Terminals:");
+    foreach (token; symbolTable.get_non_terminals_ordered()) {
+        with (token) {
+            writefln("\t%s: %s:", id, name);
+            writefln("\t\tDefined At: %s", definedAt);
+            writefln("\t\tUsed At: %s", usedAt);
+        }
+    }
+    writeln("Productions: %s", grammarSpecification.productionList.keys);
+    for (auto i = 0; i < grammarSpecification.productionList.length; i++) {
+        writefln("\t%s:\t%s", i, grammarSpecification.productionList[i]);
+    }
     // Generate the grammar from the specification
     auto grammar = new Grammar(grammarSpecification);
     if (grammar is null || !grammar.is_valid) {
         return 4;
     }
+    writeln("\nGrammar");
+    writeln(grammar.get_parser_states_description());
     return 0;
 }
 
