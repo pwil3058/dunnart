@@ -18,19 +18,18 @@ class PhonyLocationFactory {
     size_t lineNumber;
     size_t offset;
 
-    this() {
+    this()
+    {
         lineNumber = 0;
     }
 
-    void
-    incr_line()
+    void incr_line()
     {
         lineNumber++;
         offset = 0;
     }
 
-    CharLocation
-    next(bool incrLine=false)
+    CharLocation next(bool incrLine=false)
     {
         if (incrLine) {
             incr_line();

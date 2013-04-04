@@ -39,30 +39,29 @@ class Production {
         this.action = action;
     }
 
-    @property const size_t
-    length()
+    @property
+    const size_t length()
     {
         return rightHandSide.length;
     }
 
-    @property string
-    expanded_predicate()
+    @property
+    string expanded_predicate()
     {
         static auto stackAttr_re = regex(r"\$(\d+)", "g");
         auto replaceWith = format("ddAttributeStack[$$ - %s + $1]", rightHandSide.length + 1);
         return replace(predicate, stackAttr_re, replaceWith);
     }
 
-    @property string
-    expanded_semantic_action()
+    @property
+    string expanded_semantic_action()
     {
         static auto lhs_re = regex(r"\$\$", "g");
         static auto stackAttr_re = regex(r"\$(\d+)", "g");
         return replace(replace(action, lhs_re, "ddLhs"), stackAttr_re, "ddArgs[$1 - 1]");
     }
 
-    override string
-    toString()
+    override string toString()
     {
         // This is just for use in generated code comments
         if (rightHandSide.length == 0) {
@@ -99,20 +98,20 @@ class GrammarItemKey {
         return cloned;
     }
 
-    @property bool
-    is_shiftable()
+    @property
+    bool is_shiftable()
     {
         return dot < production.length;
     }
 
-    @property bool
-    is_kernel_item()
+    @property
+    bool is_kernel_item()
     {
         return dot > 0 || production.leftHandSide.id == SpecialSymbols.start;
     }
 
-    @property Symbol
-    nextSymbol()
+    @property
+    Symbol nextSymbol()
     in {
         assert(is_shiftable);
     }
@@ -120,8 +119,8 @@ class GrammarItemKey {
         return production.rightHandSide[dot];
     }
 
-    @property Symbol[]
-    tail()
+    @property
+    Symbol[] tail()
     in {
         assert(is_shiftable);
     }
@@ -129,27 +128,23 @@ class GrammarItemKey {
         return production.rightHandSide[dot + 1 .. $];
     }
 
-    bool
-    next_symbol_is(Symbol symbol)
+    bool next_symbol_is(Symbol symbol)
     {
         return is_shiftable && nextSymbol == symbol;
     }
 
-    override hash_t
-    toHash()
+    override hash_t toHash()
     {
         return production.id * (dot + 1);
     }
 
-    override bool
-    opEquals(Object o)
+    override bool opEquals(Object o)
     {
         GrammarItemKey other = cast(GrammarItemKey) o;
         return production.id == other.production.id && dot == other.dot;
     }
 
-    override int
-    opCmp(Object o)
+    override int opCmp(Object o)
     {
         GrammarItemKey other = cast(GrammarItemKey) o;
         if (production.id == other.production.id) {
@@ -158,8 +153,7 @@ class GrammarItemKey {
         return production.id - other.production.id;
     }
 
-    override string
-    toString()
+    override string toString()
     {
         with (production) {
             // This is just for use in debugging
@@ -183,8 +177,7 @@ class GrammarItemKey {
 
 alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
 
-Set!GrammarItemKey
-get_kernel_keys(GrammarItemSet itemset)
+Set!GrammarItemKey get_kernel_keys(GrammarItemSet itemset)
 {
     auto keySet = new Set!GrammarItemKey;
     foreach (grammarItemKey; itemset.byKey()) {
@@ -195,8 +188,7 @@ get_kernel_keys(GrammarItemSet itemset)
     return keySet;
 }
 
-Set!GrammarItemKey
-get_closable_keys(GrammarItemSet itemset)
+Set!GrammarItemKey get_closable_keys(GrammarItemSet itemset)
 {
     auto keySet = new Set!GrammarItemKey;
     foreach (grammarItemKey; itemset.byKey()) {
@@ -207,8 +199,7 @@ get_closable_keys(GrammarItemSet itemset)
     return keySet;
 }
 
-Set!GrammarItemKey
-get_reducible_keys(GrammarItemSet itemset)
+Set!GrammarItemKey get_reducible_keys(GrammarItemSet itemset)
 {
     auto keySet = new Set!GrammarItemKey;
     foreach (grammarItemKey, lookAheadSet; itemset) {
@@ -219,8 +210,7 @@ get_reducible_keys(GrammarItemSet itemset)
     return keySet;
 }
 
-GrammarItemSet
-generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
+GrammarItemSet generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
 {
     GrammarItemSet goto_kernel;
     foreach (grammarItemKey, lookAheadSet; itemset) {
@@ -245,10 +235,9 @@ struct ReduceReduceConflict {
     Set!(TokenSymbol) lookAheadSetIntersection;
 }
 
-bool
-trivially_true(Predicate predicate)
+bool trivially_true(Predicate predicate)
 {
-    return strip(predicate).length == 0;
+    return strip(predicate).length == 0 || predicate == "true";
 }
 
 string token_list_string(TokenSymbol[] tokens)
@@ -270,13 +259,13 @@ class ParserState {
     ShiftReduceConflict[] shiftReduceConflicts;
     ReduceReduceConflict[] reduceReduceConflicts;
 
-    this(GrammarItemSet kernel) {
+    this(GrammarItemSet kernel)
+    {
         mixin(set_unique_id);
         grammarItems = kernel;
     }
 
-    size_t
-    resolve_shift_reduce_conflicts()
+    size_t resolve_shift_reduce_conflicts()
     {
         // Do this in two stages to obviate problems modifying shiftList
         ShiftReduceConflict[] conflicts;
@@ -310,8 +299,7 @@ class ParserState {
         return shiftReduceConflicts.length;
     }
 
-    size_t
-    resolve_reduce_reduce_conflicts()
+    size_t resolve_reduce_reduce_conflicts()
     {
         reduceReduceConflicts = [];
         auto reducibleKeySet = get_reducible_keys(grammarItems);
@@ -353,8 +341,7 @@ class ParserState {
         return lookAheadSet;
     }
 
-    string[]
-    generate_code_text()
+    string[] generate_code_text()
     {
         string[] codeTextLines = ["switch (ddToken) {"];
         string expectedTokensList;
@@ -439,8 +426,7 @@ class ParserState {
         return codeTextLines;
     }
 
-    override string
-    toString()
+    override string toString()
     {
         return format("State<%s>", id);
     }
@@ -451,11 +437,13 @@ class GrammarSpecification {
     Production[ProductionId] productionList;
     string preambleCodeText;
 
-    this() {
+    this()
+    {
         this(new SymbolTable);
     }
 
-    this(SymbolTable symbolTable) {
+    this(SymbolTable symbolTable)
+    {
         auto dummyProd = new Production;
         assert(dummyProd.id == 0);
         dummyProd.leftHandSide = symbolTable.get_symbol(SpecialSymbols.start);
@@ -464,14 +452,12 @@ class GrammarSpecification {
         this.symbolTable = symbolTable;
     }
 
-    void
-    set_preamble(string preamble)
+    void set_preamble(string preamble)
     {
         preambleCodeText = preamble;
     }
 
-    void
-    add_production(Production newProdn)
+    void add_production(Production newProdn)
     {
         if (newProdn.id == 1) {
             productionList[0].rightHandSide = [newProdn.leftHandSide];
@@ -479,8 +465,7 @@ class GrammarSpecification {
         productionList[newProdn.id] = newProdn;
     }
 
-    Set!TokenSymbol
-    FIRST(Symbol[] symbolString, TokenSymbol token)
+    Set!TokenSymbol FIRST(Symbol[] symbolString, TokenSymbol token)
     {
         auto tokenSet = new Set!TokenSymbol;
         foreach (symbol; symbolString) {
@@ -494,8 +479,7 @@ class GrammarSpecification {
         return tokenSet;
     }
 
-    FirstsData
-    get_firsts_data(Symbol symbol)
+    FirstsData get_firsts_data(Symbol symbol)
     {
         if (symbol.firstsData is null ) {
             auto tokenSet = new Set!TokenSymbol;
@@ -532,8 +516,7 @@ class GrammarSpecification {
         return symbol.firstsData;
     }
 
-    GrammarItemSet
-    closure(GrammarItemSet itemSet)
+    GrammarItemSet closure(GrammarItemSet itemSet)
     {
         auto closureSet = itemSet.dup;
         bool additions_made;
@@ -564,8 +547,7 @@ class GrammarSpecification {
     }
 }
 
-string
-quote_raw(string str)
+string quote_raw(string str)
 {
     static auto re = regex(r"`", "g");
     return "`" ~ replace(str, re, "`\"`\"`") ~ "`";
@@ -578,8 +560,8 @@ class Grammar {
     size_t unresolvedSRConflicts;
     size_t unresolvedRRConflicts;
 
-    @property bool
-    is_valid()
+    @property
+    bool is_valid()
     {
         return unresolvedRRConflicts == 0 && unresolvedSRConflicts == 0;
     }
@@ -658,8 +640,7 @@ class Grammar {
         }
     }
 
-    ParserState
-    find_equivalent_state(GrammarItemSet kernel)
+    ParserState find_equivalent_state(GrammarItemSet kernel)
     {
         // TODO: check if this needs to use only kernel keys
         auto targetKeySet = get_kernel_keys(kernel);
@@ -671,8 +652,7 @@ class Grammar {
         return null;
     }
 
-    string[]
-    generate_symbol_enum_code_text()
+    string[] generate_symbol_enum_code_text()
     {
         // TODO: determine type for DDSymbol from maximum symbol id
         string[] textLines = ["alias ushort DDSymbol;\n"];
@@ -695,8 +675,7 @@ class Grammar {
         return textLines;
     }
 
-    string[]
-    generate_lexan_token_code_text()
+    string[] generate_lexan_token_code_text()
     {
         string[] textLines = ["DDTokenSpec[] ddTokenSpecs;"];
         textLines ~= "static this() {";
@@ -715,8 +694,7 @@ class Grammar {
         return textLines;
     }
 
-    string[]
-    generate_attributes_code_text()
+    string[] generate_attributes_code_text()
     {
         string[] textLines = ["struct DDAttributes {"];
         textLines ~= "    DDCharLocation ddLocation;";
@@ -767,8 +745,7 @@ class Grammar {
         return textLines;
     }
 
-    string[]
-    generate_production_data_code_text()
+    string[] generate_production_data_code_text()
     {
         string[] textLines = ["DDProductionData"];
         textLines ~= "dd_get_production_data(DDProduction ddProduction)";
@@ -786,8 +763,7 @@ class Grammar {
         return textLines;
     }
 
-    string[]
-    generate_semantic_code_text()
+    string[] generate_semantic_code_text()
     {
         string[] textLines = ["void"];
         textLines ~= "dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttributes[] ddArgs)";
@@ -808,11 +784,10 @@ class Grammar {
         return textLines;
     }
 
-    string[]
-    generate_action_table_code_text()
+    string[] generate_action_table_code_text()
     {
-        string[] codeTextLines = ["DDParseAction"];
-        codeTextLines ~= "dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, in DDAttributes[] ddAttributeStack)";
+        string[] codeTextLines = [];
+        codeTextLines ~= "DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, in DDAttributes[] ddAttributeStack)";
         codeTextLines ~= "{";
         codeTextLines ~= "    with (DDToken) switch(ddCurrentState) {";
         // Do this in state id order
@@ -834,11 +809,10 @@ class Grammar {
         return codeTextLines;
     }
 
-    string[]
-    generate_goto_table_code_text()
+    string[] generate_goto_table_code_text()
     {
-        string[] codeTextLines = ["DDParserState"];
-        codeTextLines ~= "dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
+        string[] codeTextLines = [];
+        codeTextLines ~= "DDParserState dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
         codeTextLines ~= "{";
         codeTextLines ~= "    with (DDNonTerminal) switch(ddNonTerminal) {";
         // Do this in nonTerminal id order
@@ -870,8 +844,7 @@ class Grammar {
         return codeTextLines;
     }
 
-    string[]
-    generate_error_recovery_code_text()
+    string[] generate_error_recovery_code_text()
     {
         string[] codeTextLines = ["bool dd_error_recovery_ok(DDParserState ddParserState, DDToken ddToken)"];
         codeTextLines ~= "{";

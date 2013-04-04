@@ -26,8 +26,7 @@ class FirstsData {
         this.transparent = transparent;
     }
 
-    override string
-    toString()
+    override string toString()
     {
         return format("Firsts: %s; Transparent: %s", tokenset, transparent);
     }
@@ -35,8 +34,7 @@ class FirstsData {
 
 alias uint Precedence;
 
-bool
-is_allowable_name(string name)
+bool is_allowable_name(string name)
 {
     return name.length < 2 || toLower(name[0 .. 2]) != "dd";
 }
@@ -77,20 +75,19 @@ class Symbol {
         }
     }
 
-    @property bool
-    is_defined()
+    @property
+    bool is_defined()
     {
         return definedAt != CharLocation(0, 0);
     }
 
-    @property bool
-    is_used()
+    @property
+    bool is_used()
     {
         return usedAt.length > 0;
     }
 
-    override string
-    toString()
+    override string toString()
     {
         if (type == SymbolType.token && pattern.length > 0 && pattern[0] == '"') {
             return pattern;
@@ -122,7 +119,8 @@ class SymbolTable {
     private string[] skipRuleList;
     private auto currentPrecedence = Precedence.max;
 
-    static this() {
+    static this()
+    {
         specialSymbols[SpecialSymbols.start] = new Symbol("ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.end] = new Symbol("ddEND", SymbolType.token, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.lexError] = new Symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
@@ -136,14 +134,14 @@ class SymbolTable {
         assert(Symbol.next_id == SpecialSymbols.max + 1);
     }
 
-    this() {
+    this()
+    {
         foreach (symbol; specialSymbols) {
             allSymbols[symbol.id] = symbol;
         }
     }
 
-    TokenSymbol
-    new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
+    TokenSymbol new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
     in {
         assert(!is_known_symbol(newTokenName));
         assert(is_allowable_name(newTokenName));
@@ -160,8 +158,7 @@ class SymbolTable {
         return token;
     }
 
-    TagSymbol
-    new_tag(string newTagName, CharLocation location)
+    TagSymbol new_tag(string newTagName, CharLocation location)
     in {
         assert(!is_known_symbol(newTagName));
         assert(is_allowable_name(newTagName));
@@ -173,32 +170,29 @@ class SymbolTable {
         return tag;
     }
 
-    @property size_t
-    tokenCount()
+    @property
+    size_t tokenCount()
     {
         return tokens.length;
     }
 
-    @property size_t
-    nonTerminalCount()
+    @property
+    size_t nonTerminalCount()
     {
         return nonTerminals.length;
     }
 
-    bool
-    is_known_token(string symbolName)
+    bool is_known_token(string symbolName)
     {
         return (symbolName in tokens) !is null;
     }
 
-    bool
-    is_known_literal(string literal)
+    bool is_known_literal(string literal)
     {
         return (literal in literalTokens) !is null;
     }
 
-    bool
-    is_known_tag(string symbolName)
+    bool is_known_tag(string symbolName)
     {
         return (symbolName in tags) !is null;
     }
@@ -209,14 +203,12 @@ class SymbolTable {
         return (symbolName in nonTerminals) !is null;
     }
 
-    bool
-    is_known_symbol(string symbolName)
+    bool is_known_symbol(string symbolName)
     {
         return symbolName in tokens || symbolName in tags || symbolName in nonTerminals;
     }
 
-    Symbol
-    get_symbol(string symbolName)
+    Symbol get_symbol(string symbolName)
     {
         if (symbolName in tokens) {
             return tokens[symbolName];
@@ -228,14 +220,12 @@ class SymbolTable {
         return null;
     }
 
-    Symbol
-    get_special_symbol(SymbolId symbolId)
+    Symbol get_special_symbol(SymbolId symbolId)
     {
         return specialSymbols[symbolId];
     }
 
-    Symbol
-    get_symbol(string symbolName, CharLocation location, bool autoCreate=false)
+    Symbol get_symbol(string symbolName, CharLocation location, bool autoCreate=false)
     in {
         assert(!autoCreate || is_allowable_name(symbolName));
     }
@@ -252,14 +242,12 @@ class SymbolTable {
         return symbol;
     }
 
-    Symbol
-    get_symbol(SymbolId symbolId)
+    Symbol get_symbol(SymbolId symbolId)
     {
         return allSymbols.get(symbolId, null);
     }
 
-    TokenSymbol
-    get_literal_token(string literal, CharLocation location)
+    TokenSymbol get_literal_token(string literal, CharLocation location)
     {
         auto tokenSymbol = literalTokens.get(literal, null);
         if (tokenSymbol !is null) {
@@ -268,8 +256,7 @@ class SymbolTable {
         return tokenSymbol;
     }
 
-    CharLocation
-    get_declaration_point(string symbolName)
+    CharLocation get_declaration_point(string symbolName)
     in {
         assert(is_known_symbol(symbolName));
     }
@@ -284,8 +271,7 @@ class SymbolTable {
         assert(0);
     }
 
-    void
-    set_precedences(Associativity assoc, string[] symbolNames, CharLocation location)
+    void set_precedences(Associativity assoc, string[] symbolNames, CharLocation location)
     in {
         foreach (symbolName; symbolNames) {
             assert(!is_known_non_terminal(symbolName));
@@ -305,8 +291,7 @@ class SymbolTable {
         currentPrecedence--;
     }
 
-    void
-    set_precedences(Associativity assoc, Symbol[] symbols)
+    void set_precedences(Associativity assoc, Symbol[] symbols)
     in {
         foreach (symbol; symbols) {
             assert(symbol.type != SymbolType.nonTerminal);
@@ -320,8 +305,7 @@ class SymbolTable {
         currentPrecedence--;
     }
 
-    void
-    new_field(string fieldName, string fieldType, string convFuncName = "")
+    void new_field(string fieldName, string fieldType, string convFuncName = "")
     in {
         assert(!is_known_field(fieldName));
         assert(is_allowable_name(fieldName));
@@ -332,14 +316,12 @@ class SymbolTable {
         fieldDefinitions[fieldName] = FieldDefinition(fieldName, fieldType, convFuncName);
     }
 
-    bool
-    is_known_field(string fieldName)
+    bool is_known_field(string fieldName)
     {
         return (fieldName in fieldDefinitions) !is null;
     }
 
-    void
-    add_skip_rule(string newRule)
+    void add_skip_rule(string newRule)
     in {
         assert(newRule.length > 3);
     }
@@ -347,8 +329,7 @@ class SymbolTable {
         skipRuleList ~= newRule;
     }
 
-    NonTerminalSymbol
-    define_non_terminal(string symbolName, CharLocation location)
+    NonTerminalSymbol define_non_terminal(string symbolName, CharLocation location)
     in {
         assert(!is_known_token(symbolName) && !is_known_tag(symbolName));
         assert(!is_known_non_terminal(symbolName) || !nonTerminals[symbolName].is_defined());
@@ -365,8 +346,7 @@ class SymbolTable {
         return symbol;
     }
 
-    NonTerminalSymbol[]
-    get_undefined_symbols()
+    NonTerminalSymbol[] get_undefined_symbols()
     {
         NonTerminalSymbol[] undefined_symbols;
         foreach (nts; nonTerminals) {
@@ -377,8 +357,7 @@ class SymbolTable {
         return undefined_symbols;
     }
 
-    Symbol[]
-    get_unused_symbols()
+    Symbol[] get_unused_symbols()
     {
         Symbol[] unused_symbols;
         foreach (symbol; allSymbols) {
@@ -389,15 +368,13 @@ class SymbolTable {
         return unused_symbols;
     }
 
-    TokenSymbol[]
-    get_tokens_ordered()
+    TokenSymbol[] get_tokens_ordered()
     {
         auto tokenset = new Set!TokenSymbol(tokens.values);
         return tokenset.elements;
     }
 
-    TokenSymbol[]
-    get_special_tokens_ordered()
+    TokenSymbol[] get_special_tokens_ordered()
     {
         auto tokenset = new Set!TokenSymbol;
         foreach (symbol; specialSymbols) {
@@ -408,15 +385,13 @@ class SymbolTable {
         return tokenset.elements;
     }
 
-    NonTerminalSymbol[]
-    get_non_terminals_ordered()
+    NonTerminalSymbol[] get_non_terminals_ordered()
     {
         auto symbolset = new Set!NonTerminalSymbol(nonTerminals.values);
         return symbolset.elements;
     }
 
-    NonTerminalSymbol[]
-    get_special_non_terminals_ordered()
+    NonTerminalSymbol[] get_special_non_terminals_ordered()
     {
         auto symbolset = new Set!NonTerminalSymbol;
         foreach (symbol; specialSymbols) {
@@ -427,14 +402,12 @@ class SymbolTable {
         return symbolset.elements;
     }
 
-    FieldDefinition[]
-    get_field_definitions()
+    FieldDefinition[] get_field_definitions()
     {
         return fieldDefinitions.values;
     }
 
-    string[]
-    get_skip_rules()
+    string[] get_skip_rules()
     {
         return skipRuleList.dup;
     }

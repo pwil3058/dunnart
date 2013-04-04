@@ -29,28 +29,24 @@ mixin template DDParserSupport() {
         size_t length;
     }
 
-    DDParseAction
-    ddShift(DDParserState ddState)
+    DDParseAction ddShift(DDParserState ddState)
     {
         return DDParseAction(DDParseActionType.shift, ddState);
     }
 
-    DDParseAction
-    ddReduce(DDProduction ddProduction)
+    DDParseAction ddReduce(DDProduction ddProduction)
     {
         return DDParseAction(DDParseActionType.reduce, ddProduction);
     }
 
-    DDParseAction
-    ddError(DDToken[] expectedTokens)
+    DDParseAction ddError(DDToken[] expectedTokens)
     {
         auto action = DDParseAction(DDParseActionType.error);
         action.expectedTokens = expectedTokens;
         return action;
     }
 
-    DDParseAction
-    ddAccept()
+    DDParseAction ddAccept()
     {
         return DDParseAction(DDParseActionType.accept, 0);
     }
@@ -122,26 +118,26 @@ mixin template DDImplementParser() {
             lexicalAnalyser = new DDLexicalAnalyser;
         }
 
-        private @property size_t
-        stackIndex()
+        private @property
+        size_t stackIndex()
         {
             return stackLength - 1;
         }
 
-        private @property DDParserState
-        currentState()
+        private @property
+        DDParserState currentState()
         {
             return stateStack[stackIndex].state;
         }
 
-        private @property DDSymbol
-        topOfStack()
+        private @property
+        DDSymbol topOfStack()
         {
             return stateStack[stackIndex].symbolId;
         }
 
-        private void
-        push(DDSymbol symbolId, DDParserState state)
+        private
+        void push(DDSymbol symbolId, DDParserState state)
         {
             stackLength += 1;
             if (stackLength >= stateStack.length) {
@@ -151,16 +147,15 @@ mixin template DDImplementParser() {
             stateStack[stackIndex] = StackElement(symbolId, state);
         }
 
-        private DDAttributes[]
-        pop(size_t count)
+        private
+        DDAttributes[] pop(size_t count)
         {
             if (count == 0) return [];
             stackLength -= count;
             return attrStack[stackLength .. stackLength + count].dup;
         }
 
-        void
-        do_shift(DDParserState to_state)
+        void do_shift(DDParserState to_state)
         {
             push(currentToken, to_state);
             shifted = true;
@@ -168,8 +163,7 @@ mixin template DDImplementParser() {
             get_next_token();
         }
 
-        void
-        do_reduce(DDProduction productionId)
+        void do_reduce(DDProduction productionId)
         {
             auto productionData = dd_get_production_data(productionId);
             auto attrs = pop(productionData.length);
@@ -178,8 +172,7 @@ mixin template DDImplementParser() {
             dd_do_semantic_action(attrStack[stackIndex], productionId, attrs);
         }
 
-        bool
-        parse_text(string text)
+        bool parse_text(string text)
         {
             stackLength = 0;
             lexicalAnalyser.set_input_text(text);
@@ -207,8 +200,7 @@ mixin template DDImplementParser() {
             }
         }
 
-        bool
-        recover_from_error(DDSyntaxErrorData errorData)
+        bool recover_from_error(DDSyntaxErrorData errorData)
         {
             auto found = false;
             auto distanceToViableState = 0;
@@ -236,8 +228,7 @@ mixin template DDImplementParser() {
             return found;
         }
 
-        void
-        get_next_token()
+        void get_next_token()
         {
             auto mr = lexicalAnalyser.advance();
             if (mr is null) {

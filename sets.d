@@ -13,32 +13,31 @@ class Set(T) {
         }
     }
 
-    this(T[] initialElements...) {
+    this(T[] initialElements...)
+    {
         add(initialElements);
     }
 
-    @property size_t
-    cardinality()
+    @property
+    size_t cardinality()
     {
         return _elements.length;
     }
 
-    @property T[]
-    elements()
+    @property
+    T[] elements()
     {
         return _elements.dup;
     }
 
-    Set!T
-    clone()
+    Set!T clone()
     {
         auto cloneSet = new Set!T;
         cloneSet._elements = _elements.dup;
         return cloneSet;
     }
 
-    void
-    add(T[] newElements...)
+    void add(T[] newElements...)
     {
         foreach(newElement; newElements) {
             auto result = binary_search(_elements, newElement);
@@ -48,8 +47,7 @@ class Set(T) {
         }
     }
 
-    void
-    add(Set!T otherSet)
+    void add(Set!T otherSet)
     {
         // The fact otherSet._elements is sorted enables more efficiency
         auto newElements = new T[_elements.length + otherSet._elements.length];
@@ -74,8 +72,7 @@ class Set(T) {
         _elements = newElements[0 .. ne_i].dup;
     }
 
-    void
-    remove(T[] delElements...)
+    void remove(T[] delElements...)
     {
         foreach(delElement; delElements) {
             auto result = binary_search(_elements, delElement);
@@ -85,8 +82,7 @@ class Set(T) {
         }
     }
 
-    void
-    remove(Set!T otherSet)
+    void remove(Set!T otherSet)
     {
         // The fact otherSet._elements is sorted enables more efficiency
         auto newElements = new T[_elements.length];
@@ -107,8 +103,7 @@ class Set(T) {
         _elements = newElements[0 .. ne_i].dup;
     }
 
-    bool
-    contains(T[] targetElements ...)
+    bool contains(T[] targetElements ...)
     {
         foreach (targetElement; targetElements) {
             if (!binary_search(_elements, targetElement).found)
@@ -117,8 +112,7 @@ class Set(T) {
         return true;
     }
 
-    bool
-    contains(Set!T otherSet)
+    bool contains(Set!T otherSet)
     {
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
@@ -136,8 +130,7 @@ class Set(T) {
         return true;
     }
 
-    bool
-    intersects(Set!T otherSet)
+    bool intersects(Set!T otherSet)
     {
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
@@ -152,8 +145,7 @@ class Set(T) {
         return false;
     }
 
-    override bool
-    opEquals(Object object)
+    override bool opEquals(Object object)
     in {
         assert(typeof(object) == typeof(this));
     }
@@ -161,8 +153,7 @@ class Set(T) {
         return _elements == (cast(typeof(this)) object)._elements;
     }
 
-    override string
-    toString()
+    override string toString()
     {
         if (_elements.length == 0) return "Set{}";
         auto str = format("Set{%s", _elements[0]);
@@ -174,13 +165,15 @@ class Set(T) {
     }
 }
 
-Set!T set_union(T)(Set!T a, Set!T b) {
+Set!T set_union(T)(Set!T a, Set!T b)
+{
     auto union_a_b = a.clone();
     union_a_b.add(b);
     return union_a_b;
 }
 
-Set!T set_intersection(T)(Set!T a, Set!T b) {
+Set!T set_intersection(T)(Set!T a, Set!T b)
+{
     auto elements = new T[a._elements.length > b._elements.length ? a._elements.length : b._elements.length];
     size_t e_i, a_i, b_i;
     while (a_i < a._elements.length && b_i < b._elements.length) {
@@ -240,8 +233,8 @@ unittest {
 }
 
 // TODO: fix this so const can be used for parameters when T not a class
-private bool
-strictly_ordered(T)(T[] list) {
+private bool strictly_ordered(T)(T[] list)
+{
     for (auto j = 1; j < list.length; j++) {
         if (list[j - 1] >= list[j])
             return false;
@@ -264,8 +257,7 @@ struct BinarySearchResult {
 }
 
 // TODO: fix this so const can be used for parameters when T not a class
-BinarySearchResult
-binary_search(T)(T[] list, T item)
+BinarySearchResult binary_search(T)(T[] list, T item)
 in {
     assert(strictly_ordered(list));
 }
@@ -303,8 +295,7 @@ unittest {
     }
 }
 
-Set!T
-extract_key_set(T, G)(G[T] assocArray)
+Set!T extract_key_set(T, G)(G[T] assocArray)
 {
     return new Set!T(assocArray.keys);
 }

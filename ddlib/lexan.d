@@ -50,8 +50,7 @@ class LiteralMatchNode {
         }
     }
 
-    void
-    add_tail(string new_tail)
+    void add_tail(string new_tail)
     {
         if (new_tail.length == 0) {
             validMatch = true;
@@ -68,8 +67,7 @@ private:
     LiteralMatchNode[char] literals;
 
 public:
-    void
-    add_literal(string literal)
+    void add_literal(string literal)
     {
         if (literal[0] in literals) {
             literals[literal[0]].add_tail(literal[1 .. $]);
@@ -78,8 +76,7 @@ public:
         }
     }
 
-    string
-    get_longest_match(string target, size_t offset=0)
+    string get_longest_match(string target, size_t offset=0)
     {
         auto lvm = offset;
         auto lits = literals;
@@ -140,8 +137,7 @@ class CharLocationData {
         }
     }
 
-    CharLocation
-    get_char_location(size_t index)
+    CharLocation get_char_location(size_t index)
     {
         size_t imin = 0;
         size_t imax = lineStart.length - 1;
@@ -184,8 +180,8 @@ class MatchResult {
         location = locn;
     }
 
-    @property bool
-    is_valid_token()
+    @property
+    bool is_valid_token()
     {
         return tokenSpec !is null;
     }
@@ -224,16 +220,14 @@ class LexicalAnalyser {
         assert(recnt == regexTokenSpecs.length);
     }
 
-    void
-    set_input_text(string text)
+    void set_input_text(string text)
     {
         inputText = text;
         index = 0;
         charLocationData = new CharLocationData(text);
     }
 
-    MatchResult
-    advance()
+    MatchResult advance()
     {
         mainloop: while (index < inputText.length) {
             // skips have highest priority
