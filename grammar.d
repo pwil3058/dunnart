@@ -71,6 +71,9 @@ class Production {
         foreach (symbol; rightHandSide) {
             str ~= format(" %s", symbol);
         }
+        if (predicate.length > 0) {
+            str ~= format(" ?( %s ?)", predicate);
+        }
         return str;
     }
 }
@@ -169,6 +172,9 @@ class GrammarItemKey {
             }
             if (dot == rightHandSide.length) {
                 str ~= " .";
+            }
+            if (predicate.length > 0) {
+                str ~= format(" ?( %s ?)", predicate);
             }
             return str;
         }

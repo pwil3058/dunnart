@@ -47,7 +47,7 @@ int main(string[] args)
             writefln("\t\tUsed At: %s", usedAt);
         }
     }
-    writeln("Productions: %s", grammarSpecification.productionList.keys);
+    writeln("Productions:");
     for (auto i = 0; i < grammarSpecification.productionList.length; i++) {
         writefln("\t%s:\t%s", i, grammarSpecification.productionList[i]);
     }
