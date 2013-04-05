@@ -56,7 +56,7 @@ class Symbol {
 
     this(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
     in {
-        assert(next_id <= SpecialSymbols.max || is_allowable_name(sname));
+        assert(next_id <= SpecialSymbols.max);
     }
     body {
         mixin(set_unique_id);
@@ -144,7 +144,6 @@ class SymbolTable {
     TokenSymbol new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
     in {
         assert(!is_known_symbol(newTokenName));
-        assert(is_allowable_name(newTokenName));
     }
     body {
         auto token = new TokenSymbol(newTokenName, SymbolType.token, location);
@@ -161,7 +160,6 @@ class SymbolTable {
     TagSymbol new_tag(string newTagName, CharLocation location)
     in {
         assert(!is_known_symbol(newTagName));
-        assert(is_allowable_name(newTagName));
     }
     body {
         auto tag = new TagSymbol(newTagName, SymbolType.tag, location);
@@ -226,10 +224,7 @@ class SymbolTable {
     }
 
     Symbol get_symbol(string symbolName, CharLocation location, bool autoCreate=false)
-    in {
-        assert(!autoCreate || is_allowable_name(symbolName));
-    }
-    body {
+    {
         auto symbol = get_symbol(symbolName);
         if (symbol !is null) {
             symbol.usedAt ~= location;
@@ -276,7 +271,6 @@ class SymbolTable {
         foreach (symbolName; symbolNames) {
             assert(!is_known_non_terminal(symbolName));
             assert(!is_known_tag(symbolName));
-            assert(is_allowable_name(symbolName));
         }
     }
     body {
@@ -308,9 +302,6 @@ class SymbolTable {
     void new_field(string fieldName, string fieldType, string convFuncName = "")
     in {
         assert(!is_known_field(fieldName));
-        assert(is_allowable_name(fieldName));
-        assert(is_allowable_name(fieldType));
-        assert(is_allowable_name(convFuncName));
     }
     body {
         fieldDefinitions[fieldName] = FieldDefinition(fieldName, fieldType, convFuncName);
