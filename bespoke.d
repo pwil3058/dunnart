@@ -196,7 +196,7 @@ void generate_grammar()
         auto token_name = get_symbol("token_name", plf.next(true), true);
         add_production(new Production(token_definition, [TOKEN, token_name, LITERAL], "symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);"));
         add_production(new Production(token_definition, [TOKEN, token_name, REGEX], "symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);"));
-        add_production(new Production(token_definition, [TOKEN, FIELDNAME, token_name, REGEX], "symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation, $2.ddMatchedText);"));
+        add_production(new Production(token_definition, [TOKEN, FIELDNAME, token_name, REGEX], "symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation, $2.ddMatchedText[1 .. $ - 1]);"));
 
         token_name = define_non_terminal("token_name", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));
