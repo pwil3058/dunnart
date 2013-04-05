@@ -55,10 +55,7 @@ class Symbol {
     FirstsData firstsData;
 
     this(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
-    in {
-        assert(next_id <= SpecialSymbols.max);
-    }
-    body {
+    {
         mixin(set_unique_id);
         name = sname;
         type = stype;
