@@ -7,35 +7,71 @@ import ddlib.components;
 import symbols; // This is only because we're bootstrapping
 import grammar; // This is only because we're bootstrapping
 
-string preamble;
-
 SymbolTable symbolTable;
+GrammarSpecification grammarSpecification;
 
-alias string Tag;
-alias Tag[] TagList;
-alias SymbolId[] SymbolIdList;
-alias Production[] ProductionList;
-
-struct ApPair {
-    Associativity assoc;
-    Precedence prec;
+struct AssociatedPrecedence {
+    Associativity associativity;
+    Precedence    precedence;
 }
+
+struct ProductionTail {
+    Symbol[] rightHandSide;
+    AssociatedPrecedence associatedPrecedence;
+    Predicate predicate;
+    SemanticAction action;
+}
+
+// Aliases for use in field definitions
+alias ProductionTail[] ProductionTailList;
+alias Symbol[] SymbolList;
+alias string[] StringList;
 
 this {
     symbolTable = new SymbolTable;
-    grammar = new GrammarSpecification(symbolTable);
+    grammarSpecification = new GrammarSpecification(symbolTable);
+}
+
+uint errorCount;
+uint warningCount;
+
+void
+message(T...)(const CharLocation locn, const string tag, const string format, T args)
+{
+    if (locn.label.length > 0) {
+        stderr.writef("%s:%s:%s:", locn.label, locn.lineNumber, tag);
+    } else {
+        stderr.writef("%s:%s:", locn.lineNumber, tag);
+    }
+    stderr.writefln(format, args);
+    stderr.flush();
+}
+
+void
+warning(T...)(const CharLocation locn, const string format, T args)
+{
+    message(locn, "Warning", format, args);
+    warningCount++;
+}
+
+void
+error(T...)(const CharLocation locn, const string format, T args)
+{
+    message(locn, "Error", format, args);
+    errorCount++;
 }
 %}
 
 %field  Symbol symbol
-%field  SymbolId symbolId
-%field  SymbolIdList symbolIdList
-%field  TagList tagList
-%field  ApPair apPair
-%field  Production production
-%field  ProductionList productionList;
+%field  SymbolList symbolList
+%field  Predicate predicate
+%field  SemanticAction semanticAction
+%field  AssociatedPrecedence associatedPrecedence
+%field  ProductionTail productionTail
+%field  ProductionTailList productionTailList
+%field  StringList stringList
 
-%token  REGEX           (\(\S+\))
+%token  REGEX           (\(.+\)(?=\s))
 %token  LITERAL         ("\S+")
 %token  TOKEN           "%token"
 %token  FIELD           "%field"
@@ -48,6 +84,7 @@ this {
 %token  LEXERROR        "%lexerror"
 %token  NEWSECTION      "%%"
 %token  COLON           ":"
+%token  VBAR            "|"
 %token  DOT             "."
 %token  IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
 %token  FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
@@ -59,209 +96,334 @@ this {
 %skip (\s+)
 
 %%
-specification: preamble definitions "%%" production_rules.
+specification: preamble definitions "%%" production_rules
+    | %error
+    | %error %lexerror
+    .
 
-allowable_ident: IDENT ?( symbolTable.is_allowable_name($1.ddMatchString) ?)
-    | IDENT
+// Preamble
+preamble: !{ \\ no preamble defined so there's nothing to do !}
+    | DCODE !{ grammarSpecification.set_preamble($1.ddMatchedText); !}
+    .
+
+definitions : field_definitions token_definitions skip_definitions precedence_definitions .
+
+// Field definitions
+field_definitions : // empty production
         !{
-            auto msg = format("%s: illegal name", $1.ddMatchString);
-            abort(msg, symbolTable.get_declaration_point($1.ddMatchString));
+            // do nothing
+        !}
+    | field_definitions field_definition
+    .
+
+field_definition: "%field" fieldType fieldName
+        !{
+            if (symbolTable.is_known_field($3.ddMatchedText)) {
+                auto previous = fieldDefinitions[$3.ddMatchedText].declaredAt;
+                error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
+            } else {
+                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText);
+            }
+        !}
+    | "%field" fieldType fieldName fieldConversionFunction
+        !{
+            if (symbolTable.is_known_field($3.ddMatchedText)) {
+                auto previous = fieldDefinitions[$3.ddMatchedText].declaredAt;
+                error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
+            } else {
+                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText);
+            }
         !}
     .
 
-preamble: !{ \\ do nothing !}
-    | DCODE !{ preamble = $1.ddMatchString[2 .. $ - 2]. !}
+fieldType: IDENT ?( !is_allowable_name($1.ddMatchedText) ?)
+        !{
+            warning($1.ddLocation, "field type name \"%s\" may clash with generated code", $1.ddMatchedText);
+        !}
+    | IDENT
     .
 
-definitions : definition
-    | definitions definition
+fieldName: IDENT ?( !is_allowable_name($1.ddMatchedText) ?)
+        !{
+            warning($1.ddLocation, "field name \"%s\" may clash with generated code", $1.ddMatchedText);
+        !}
+    | IDENT
     .
 
-definition: token_definition
-    | precedence_definition
-    | field_definition
-    | skip_definition
+fieldConversionFunction: IDENT ?( !is_allowable_name($1.ddMatchedText) ?)
+        !{
+            warning($1.ddLocation, "field conversion function name \"%s\" may clash with generated code", $1.ddMatchedText);
+        !}
+    | IDENT
+    .
+
+// Token definitions
+token_definitions : token_definition
+    | token_definitions token_definition
     .
 
 token_definition: "%token" new_token_name pattern
         !{
-            $$.symbol = symbolTable.new_token($2.ddMatchString, $3.ddMatchString, $2.ddLocation);
+            if (symbolTable.is_known_symbol($2.ddMatchedText)) {
+                auto previous = fieldDefinitions[$2.ddMatchedText].declaredAt;
+                error($2.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
+            } else {
+                symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);
+            }
         !} 
     | "%token" FIELDNAME new_token_name pattern
         !{
-            $$.symbol = symbolTable.new_token($3.ddMatchString, $4.ddMatchString, $3.ddLocation, $2.ddMatchString[1 .. $ - 1]);
+            auto fieldName = $2.ddMatchedText[1 .. $ - 1];
+            if (symbolTable.is_known_field($2.ddMatchedText)) {
+                auto previous = fieldDefinitions[$2.ddMatchedText].declaredAt;
+                error($2.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
+            } else (!symbolTable.is_known_field(fieldName)) {
+                error($2.ddLocation, "field name \"%s\" is not known.", fieldName);
+                symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation);
+            }
+                symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation, fieldName);
+            }
         !}
     .
 
-new_token_name: allowable_ident ?( symbolTable.is_known_symbol($1.ddMatchString) ?)
+new_token_name: IDENT ?( !is_allowable_name($1.ddMatchedText) ?)
         !{
-            abort("already declared.", symbolTable.get_declaration_point($1.ddMatchString));
+            warning($1.ddLocation, "token name \"%s\" may clash with generated code", $1.ddMatchedText);
         !}
-    | allowable_ident
+    | IDENT
     .
 
 pattern: REGEX
     | LITERAL
     .
 
+// Skip definitions
+skip_definitions : // empty production
+        !{
+            // do nothing
+        !}
+    | skip_definitions skip_definition
+    .
+
+skip_definition: "%skip" REGEX
+        !{
+            symbolTable.add_skip_rule($1.ddMatchedText);
+        !}
+    .
+
+// Precedence definitions
+precedence_definitions : // empty production
+        !{
+            // do nothing
+        !}
+    | precedence_definitions precedence_definition
+    .
+
 precedent_definition: "%left" tag_list
         !{
-            symbolTable.set_precedences(Associativity.left, $2.tagList, $1.ddLocation);
+            symbolTable.set_precedences(Associativity.left, $2.symbolList);
         !}
     | "%right" tag_list
         !{
-            symbolTable.set_precedences(Associativity.right, $2.tagList, $1.ddLocation);
+            symbolTable.set_precedences(Associativity.right, $2.symbolList);
         !}
     | "%nonassoc" tag_list
         !{
-            symbolTable.set_precedences(Associativity.nonassoc, $2.tagList, $1.ddLocation);
+            symbolTable.set_precedences(Associativity.nonassoc, $2.symbolList);
         !}
     .
 
-tag_list: allowable_ident ?( symbolTable.is_known_tag($1.ddMatchString) ?)
+tag_list: tag
         !{
-            abort("already declared.", symbolTable.get_declaration_point($1.ddMatchString));
-        !}
-    | allowable_ident !{ $$.tagList = new Tag[$1.ddMatchString] !}
-    | tag_list allowable_ident !{ $1.tagList ~= $1.ddMatchString !}
-    .
-
-field_definition: "$field" fieldType fieldName
-        !{
-            if ($3.ddMatchString in fieldDefinitions) {
-                auto previous = fieldDefinitions[$3.ddMatchString].declaredAt;
-                abort("already declared.", previous);
-            }
-            fieldDefinitions[$3.ddMatchString] = new FieldDefinition($3.ddMatchString, $2.ddMatchString);
-        !}
-    | "$field" fieldType fieldName fieldConversionFunction
-        !{
-            if ($3.ddMatchString in fieldDefinitions) {
-                auto previous = fieldDefinitions[$3.ddMatchString].declaredAt;
-                abort("already declared.", previous);
-            }
-            fieldDefinitions[$3.ddMatchString] = new FieldDefinition($3.ddMatchString, $2.ddMatchString, $4.ddMatchString);
-        !}
-    .
-
-fieldType: allowable_ident.
-
-fieldName: allowable_ident ?( symbolTable.is_known_field($1.ddMatchString) ?)
-        !{
-            abort("already declared.", symbolTable.get_declaration_point($1.ddMatchString));
-        !}
-    | allowable_ident
-    .
-
-fieldConversionFunction: allowable_ident.
-
-skip_definition: "$skip" REGEX !{ symbolTable.add_skip_rule($1.ddMatchString); !}.
-
-production_rules: production_list
-    | production_rules production_list
-    .
-
-production_list: production_list_head right_hand_side_list "."
-        !{
-            foreach (production; $2.productionList) {
-                production.leftHandSide = $1.symbol.id;
-                grammar.add_production(production);
-            }
-        !}
-    .
-
-production_list_head: allowable_ident ":" ?( symbolTable.is_known_token($1.ddMatchString) ?)
-        !{
-            auto lineNo = symbolTable.get_declaration_point($1.ddMatchString).lineNumber;
-            auto msg = format("%s: token (defined at line %s) cannot be used as left hand side", $1.ddMatchString, lineNo);
-            abort(msg, $1.ddLocation);
-        !}
-    | allowable_ident ":" ?( symbolTable.is_known_tag($1.ddMatchString) ?)
-        !{
-            auto lineNo = symbolTable.get_declaration_point($1.ddMatchString).lineNumber;
-            auto msg = format("%s: tag (defined at line %s) cannot be used as left hand side", $1.ddMatchString, lineNo);
-            abort(msg, $1.ddLocation);
-        !}
-    | allowable_ident ":" ?( symbolTable.is_defined($1.ddMatchString) ?)
-        !{
-            auto lineNo = symbolTable.get_declaration_point($1.ddMatchString).lineNumber;
-            auto msg = format("%s: already defined at line %s", $1.ddMatchString, lineNo);
-            abort(msg, $1.ddLocation);
-        !}
-    | allowable_ident ":"
-        !{
-            $$.symbol = symbolTable.define_non_terminal($1.ddMatchString, $1.ddLocation);
-        !}
-    .
-
-right_hand_sides_list: right_hand_side !{ $$.productionList = new Production[$1.production]; !}
-    | right_hand_sides_list "|" right_hand_side !{ $$.productionList = [$1].productionList ~ [$3.production]; !}
-    .
-
-right_hand_side: ACTION
-        !{
-            $$.production = Production(0, 0, new SymbolId[], Associativity.nonassoc, 0, "", $1.ddMatchString);
-        !}
-    | symbol_list ACTION
-        !{
-            $$.production = Production(0, 0, $1.symbolIdList, Associativity.nonassoc, 0, "", $2.ddMatchString);
-        !}
-    | symbol_list PREDICATE ACTION
-        !{
-            $$.production = Production(0, 0, $1.symbolIdList, Associativity.nonassoc, 0, $2.ddMatchString, $3.ddMatchString);
-        !}
-    | symbol_list PREDICATE
-        !{
-            $$.production = Production(0, 0, $1.symbolIdList, Associativity.nonassoc, 0, $2.ddMatchString, "");
-        !}
-    | symbol_list tagged_precedence ACTION
-        !{
-            $$.production = Production(0, 0, $1.symbolIdList, $2.assoc, $2.prec, "", $3.ddMatchString);
-        !}
-    | symbol_list PREDICATE tagged_precedence ACTION
-        !{
-            $$.production = Production(0, 0, $1.symbolIdList, $3.assoc, $3.prec, $2.ddMatchString, $4.ddMatchString);
-        !}
-    | symbol_list PREDICATE tagged_precedence
-        !{
-            $$.production = Production(0, 0, $1.symbolIdList, $3.assoc, $3.prec, $2.ddMatchString, "");
-        !}
-    .
-
-tagged_precedence: PRECEDENCE IDENT
-        !{
-            if (symbolTable.is_known_tag($2.ddMatchSring)) {
-                auto tag = get_symbol($2.ddMatchSring, $2.ddLocation);
-                $$.apPair = ApPair(tag.associativity, tag.precedence);
-            } else if (symbolTable.is_known_token($2.ddMatchSring)) {
-                // This doesn't count as a reference for tokens
-                auto token = get_symbol($2.ddMatchSring);
-                $$.apPair = ApPair(tag.associativity, tag.precedence);
+            if ($1.symbol is null) {
+                $$.symbolList = [];
             } else {
-                auto msg = format("%s: unknown precedence tag", $2.ddMatchString);
-                abort(msg, $2.ddLocation);
+                $$.symbolList = [$1.symbol];
+            }
+        !}
+    | tag_list tag
+        !{
+            if ($2.symbol is null) {
+                $$.symbolList = $1.symbolList;
+            } else {
+                $$.symbolList = $1.symbolList ~ $2.symbol;
             }
         !}
     .
 
-symbol_list: symbol !{ $$.symbolIdList = new SymbolId[$1.symbolId]; !}
-    | symbol_list symbol !{ $$.symbolIdList = $1.symbolIdList ~ $2.symbolId; !}
+tag: LITERAL
+        !{
+            $$.symbol = symbolTable.get_literal_token($1.matchedText, $1.ddLocation);
+            if ($$.symbol is null) {
+                error($1.ddLocation, "Literal \"%s\" is not known.", $1.matchedText);
+            }
+        !}
+    | IDENT ?( symbolTable.is_known_token($1.ddMatchedText) ?)
+        !{
+            $$.symbol = symbolTable.get_symbol($1.matchedText, $1.ddLocation);
+        !}
+    | IDENT ?( symbolTable.is_known_non_terminal($1.ddMatchedText) ?)
+        !{
+            $$.symbol = null;
+            error($1.ddLocation, "Non terminal \"%s\" cannot be used as precedence tag.", $1.matchedText);
+        !}
+    | IDENT
+        !{
+            $$.symbol = symbolTable.new_tag($1.ddMatchedText, $1.ddLocation);
+        !}
     .
 
-symbol: allowable_ident
+// Production rules
+production_rules: production_group
+    | production_rules production_group
+    .
+
+production_group: production_group_head production_tail_list "."
         !{
-            auto symbol = symbolTable.get_symbol($1.ddMatchText, $1.ddLocation, true);
-            $$.symbolId = symbol.id;
+            foreach (productionTail; $2.productionTailList) {
+                auto prodn = new Production($1.symbol, productionTail.rightHandSide);
+                prodn.predicate = productionTail.predicate;
+                prodn.action = productionTail.action;
+                prodn.associativity = productionTail.associatedPrecedence.associativity;
+                prodn.precedence = productionTail.associatedPrecedence.precedence;
+                grammarSpecification.add_production(prodn);
+            }
+        !}
+    .
+
+production_group_head: IDENT ":" ?( symbolTable.is_known_token($1.ddMatchedText) ?)
+        !{
+            auto lineNo = symbolTable.get_declaration_point($1.ddMatchedText).lineNumber;
+            error($1.ddLocation, "%s: token (defined at line %s) cannot be used as left hand side", $1.ddMatchedText, lineNo);
+            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
+        !}
+    | IDENT ":" ?( symbolTable.is_known_tag($1.ddMatchedText) ?)
+        !{
+            auto lineNo = symbolTable.get_declaration_point($1.ddMatchedText).lineNumber;
+            error($1.ddLocation, "%s: precedence tag (defined at line %s) cannot be used as left hand side", $1.ddMatchedText, lineNo);
+            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
+        !}
+    | IDENT ":"
+        !{
+            if (!is_allowable_name($1.ddMatchedText)) {
+                warning($1.ddLocation, "non terminal symbol name \"%s\" may clash with generated code", $1.ddMatchedText);
+            }
+            $$.symbol = symbolTable.define_non_terminal($1.ddMatchedText, $1.ddLocation);
+        !}
+    .
+
+production_tail_list: production_tail
+        !{
+            $$.productionTailList = [$1.productionTail];
+        !}
+    | production_tail_list "|" production_tail
+        !{
+            $$.productionTailList = $1.productionTailList ~ $3.productionTail;
+        !}
+    .
+
+production_tail: action
+        !{
+            $$.productionTail = ProductionTail([], AssociatedPrecedence(), null, $1.semanticAction);
+        !}
+    | symbol_list predicate tagged_precedence action
+        !{
+            $$.productionTail = ProductionTail($1.symbolList, $3.associatedPrecedence, $2.predicate, $4.semanticAction);
+        !}
+    | symbol_list predicate tagged_precedence
+        !{
+            $$.productionTail = ProductionTail($1.symbolList, $3.associatedPrecedence, $2.predicate, null);
+        !}
+    | symbol_list predicate action
+        !{
+            $$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), $2.predicate, $3.semanticAction);
+        !}
+    | symbol_list predicate
+        !{
+            $$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), $2.predicate, null);
+        !}
+    | symbol_list tagged_precedence action
+        !{
+            $$.productionTail = ProductionTail($1.symbolList, $2.associatedPrecedence, null, $3.semanticAction);
+        !}
+    | symbol_list tagged_precedence
+        !{
+            $$.productionTail = ProductionTail($1.symbolList, $2.associatedPrecedence);
+        !}
+    | symbol_list action
+        !{
+            $$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), null, $2.semanticAction);
+        !}
+    | symbol_list
+        !{
+            $$.productionTail = ProductionTail($1.symbolList);
+        !}
+    .
+
+action: ACTION
+        !{
+            $$.semanticAction = $1.ddMatchedText[2 .. $ - 2];
+        !}
+    .
+
+predicate: PREDICATE
+        !{
+            $$.predicate = $1.ddMatchedText[2 .. $ - 2];
+        !}
+    .
+
+tagged_precedence: "%prec" IDENT
+        !{
+            auto symbol = symbolTable.get_symbol($2.ddMatchedText, $2.ddLocation, false);
+            if (symbol is null) {
+                error($2.ddLocation, "%s: Unknown symbol.", $2.ddMatchedText);
+                $$.associatedPrecedence = AssociatedPrecedence();
+            } else if (symbol.type == SymbolType.nonTerminal) {
+                error($2.ddLocation, "%s: Illegal precedence tag (must be Token or Tag).", $2.ddMatchedText);
+                $$.associatedPrecedence = AssociatedPrecedence();
+            } else {
+                $$.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
+            }
+        !}
+    | "%prec" LITERAL
+        !{
+            auto symbol = symbolTable.get_literal_token($2.ddMatchedText, $2.ddLocation);
+            if (symbol is null) {
+                $$.associatedPrecedence = AssociatedPrecedence();
+                error($2.ddLocation, "%s: Unknown literal token.", $2.ddMatchedText);
+            } else {
+                $$.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
+            }
+        !}
+    .
+
+symbol_list: symbol
+        !{
+            $$.symbolList = [$1.symbol];
+        !}
+    | symbol_list symbol
+        !{
+            $$.symbolList = $1.symbolList ~ $2.symbol;
+        !}
+    .
+
+symbol: IDENT
+        !{
+            $$.symbol = symbolTable.get_symbol($1.ddMatchText, $1.ddLocation, true);
         !}
     | LITERAL
         !{
-            auto symbol = symbolTable.get_literal_token($1.ddMatchText, $1.ddLocation);
-            if (symbol is null) {
-                auto msg = format("%s: unknown literal token", $1.ddMatchString);
-                abort(msg, $1.ddLocation);
+            $$.symbol = symbolTable.get_literal_token($1.ddMatchText, $1.ddLocation);
+            if ($$.symbol is null) {
+                error($1.ddLocation, "%s: unknown literal token", $1.ddMatchedText);
             }
-            $$.symbolId = symbol.id;
         !}
-    | "%error" !{ $$.symbolId = SpecialSymbols.parseError; !}
-    | "%lexerror" !{ $$.symbolId = SpecialSymbols.lexError; !}
+    | "%error"
+        !{
+            $$.symbol = symbolTable.get_special_symbol(SpecialSymbols.parseError);
+        !}
+    | "%lexerror"
+        !{
+            $$.symbol = symbolTable.get_special_symbol(SpecialSymbols.lexError);;
+        !}
     .
