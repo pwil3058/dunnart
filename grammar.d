@@ -563,6 +563,7 @@ class Grammar {
     GrammarSpecification spec;
     ParserState[ParserStateId] parserStates;
     Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;
+    ParserStateId[] emptyLookAheadSets; 
     size_t unresolvedSRConflicts;
     size_t unresolvedRRConflicts;
 
@@ -638,9 +639,11 @@ class Grammar {
             }
             
         }
-        foreach (parserState; parserStates) {
-            auto lookAheadSet = parserState.look_ahead_set();
-            assert(lookAheadSet.cardinality > 0);
+        for (auto i = 0; i < parserStates.length; i++) {
+            auto parserState = parserStates[i];
+            if (parserState.look_ahead_set().cardinality == 0) {
+                emptyLookAheadSets ~= parserState.id;
+            }
             unresolvedSRConflicts += parserState.resolve_shift_reduce_conflicts();
             unresolvedRRConflicts += parserState.resolve_reduce_reduce_conflicts();
         }
