@@ -1,4 +1,12 @@
 #!/usr/bin/rdmd
+// ddpg_bespoke.d
+//
+// Copyright Peter Williams 2013 <pwil3058@bigpond.net.au>.
+//
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          http://www.boost.org/LICENSE_1_0.txt)
+
 import std.stdio;
 import std.getopt;
 import std.file;
