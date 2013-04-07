@@ -339,7 +339,7 @@ class ParserState {
         return reduceReduceConflicts.length;
     }
 
-    Set!TokenSymbol look_ahead_set()
+    Set!TokenSymbol get_look_ahead_set()
     {
         auto lookAheadSet = extract_key_set(shiftList);
         foreach (key; get_reducible_keys(grammarItems).elements) {
@@ -444,6 +444,41 @@ class ParserState {
         codeTextLines ~= format("    throw new Exception(format(\"Malformed goto table: no entry for (%%s , %s)\", ddNonTerminal));", id);
         codeTextLines ~= "}";
         return codeTextLines;
+    }
+
+    string get_description()
+    {
+        auto str = format("State<%s>:\n  Grammar Items:\n", id);
+        foreach (itemKey; extract_key_set(grammarItems).elements) {
+            str ~= format("    %s: %s\n", itemKey, grammarItems[itemKey]);
+        }
+        auto lookAheadSet = get_look_ahead_set();
+        str ~= format("  Parser Action Table:\n");
+        if (lookAheadSet.cardinality== 0) {
+            str ~= "    <empty>\n";
+        } else {
+            auto reducableItemkeys = get_reducible_keys(grammarItems);
+            foreach (token; lookAheadSet.elements) {
+                if (token in shiftList) {
+                    str ~= format("    %s: shift: -> State<%s>\n", token, shiftList[token].id);
+                } else {
+                    foreach (reducibleItemKey; reducableItemkeys.elements) {
+                        if (grammarItems[reducibleItemKey].contains(token)) {
+                            str ~= format("    %s: reduce: %s\n", token, reducibleItemKey.production);
+                        }
+                    }
+                }
+            }
+        }
+        str ~= "  Go To Table:\n";
+        if (gotoTable.length == 0) {
+            str ~= "    <empty>\n";
+        } else {
+            foreach (nonTerminal; extract_key_set(gotoTable).elements) {
+                str ~= format("    %s -> %s\n", nonTerminal, gotoTable[nonTerminal]);
+            }
+        }
+        return str;
     }
 
     override string toString()
@@ -650,7 +685,7 @@ class Grammar {
         }
         for (auto i = 0; i < parserStates.length; i++) {
             auto parserState = parserStates[i];
-            if (parserState.look_ahead_set().cardinality == 0) {
+            if (parserState.get_look_ahead_set().cardinality == 0) {
                 emptyLookAheadSets ~= parserState.id;
             }
             unresolvedSRConflicts += parserState.resolve_shift_reduce_conflicts();
@@ -927,44 +962,11 @@ class Grammar {
         outputFile.close();
     }
 
-    string get_parser_state_description(ParserStateId parserStateId)
-    in {
-        assert(parserStateId < parserStates.length);
-    }
-    body {
-        //TODO: finish ParserState.toString()
-        // Have to do this in grammar to access gotoTable
-        auto str = format("State<%s>:\n  Kernel:\n", parserStateId);
-        with (parserStates[parserStateId]) {
-            foreach (itemKey; extract_key_set(grammarItems).elements) {
-                str ~= format("    %s: %s\n", itemKey, grammarItems[itemKey]);
-            }
-            str ~= "  Shift List:\n";
-            if (shiftList.length == 0) {
-                str ~= "    <empty>\n";
-            } else {
-                foreach (token; extract_key_set(shiftList).elements) {
-                    str ~= format("    %s -> State<%s>\n", token, shiftList[token].id);
-                }
-            }
-            str ~= "  Reduce List:\n";
-            auto reducableItemkeys = get_reducible_keys(grammarItems);
-            if (reducableItemkeys.cardinality == 0) {
-                str ~= "    <empty>\n";
-            } else {
-                foreach (reducableItemKey; reducableItemkeys.elements) {
-                    str ~= format("    %s: %s\n", reducableItemKey, grammarItems[reducableItemKey]);
-                }
-            }
-        }
-        return str;
-    }
-
     string get_parser_states_description()
     {
         string str;
         for (auto i = 0; i < parserStates.length; i++) {
-            str ~= get_parser_state_description(i);
+            str ~= parserStates[i].get_description();
         }
         return str;
     }
