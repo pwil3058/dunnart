@@ -260,6 +260,7 @@ class ParserState {
     mixin UniqueId!(ParserStateId);
     GrammarItemSet grammarItems;
     ParserState[TokenSymbol] shiftList;
+    ParserState[NonTerminalSymbol] gotoTable;
     ParserState errorRecoveryState;
     ProcessedState state;
     ShiftReduceConflict[] shiftReduceConflicts;
@@ -347,7 +348,7 @@ class ParserState {
         return lookAheadSet;
     }
 
-    string[] generate_code_text()
+    string[] generate_action_code_text()
     {
         string[] codeTextLines = ["switch (ddToken) {"];
         string expectedTokensList;
@@ -428,6 +429,19 @@ class ParserState {
         }
         codeTextLines ~= "default:";
         codeTextLines ~= format("    return ddError([%s]);", expectedTokensList);
+        codeTextLines ~= "}";
+        return codeTextLines;
+    }
+
+    string[] generate_goto_code_text()
+    {
+        string[] codeTextLines = ["switch (ddNonTerminal) {"];
+        auto gotoSymbolSet = extract_key_set(gotoTable);
+        foreach (symbol; gotoSymbolSet.elements) {
+            codeTextLines ~= format("case %s: return %s;", symbol.name, gotoTable[symbol].id);
+        }
+        codeTextLines ~= "default:";
+        codeTextLines ~= format("    throw new Exception(format(\"Malformed goto table: no entry for (%%s , %s)\", ddNonTerminal));", id);
         codeTextLines ~= "}";
         return codeTextLines;
     }
@@ -624,13 +638,8 @@ class Grammar {
                     if (symbolX.type == SymbolType.token) {
                         unprocessedState.shiftList[symbolX] = gotoState;
                     } else {
-                        if (symbolX !in gotoTable) {
-                            gotoTable[symbolX] = [gotoState: new Set!(ParserState)(unprocessedState)];
-                        } else if (gotoState !in gotoTable[symbolX]) {
-                            gotoTable[symbolX][gotoState] = new Set!(ParserState)(unprocessedState);
-                        } else {
-                            gotoTable[symbolX][gotoState].add(unprocessedState);
-                        }
+                        assert(symbolX !in unprocessedState.gotoTable);
+                        unprocessedState.gotoTable[symbolX] = gotoState;
                     }
                     if (symbolX.id == SpecialSymbols.parseError) {
                         unprocessedState.errorRecoveryState = gotoState;
@@ -799,11 +808,11 @@ class Grammar {
         codeTextLines ~= "{";
         codeTextLines ~= "    with (DDToken) switch(ddCurrentState) {";
         // Do this in state id order
+        auto indent = "        ";
         for (auto i = 0; i < parserStates.length; i++) {
             auto parserState = parserStates[i];
             codeTextLines ~= format("    case %s:", parserState.id);
-            auto indent = "        ";
-            foreach (line; parserState.generate_code_text()) {
+            foreach (line; parserState.generate_action_code_text()) {
                 auto indented_line = indent ~ line;
                 codeTextLines ~= indented_line;
             }
@@ -822,32 +831,24 @@ class Grammar {
         string[] codeTextLines = [];
         codeTextLines ~= "DDParserState dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
         codeTextLines ~= "{";
-        codeTextLines ~= "    with (DDNonTerminal) switch(ddNonTerminal) {";
-        // Do this in nonTerminal id order
-        auto keySet = extract_key_set(gotoTable);
-        foreach (nonTerminal; keySet.elements) {
-            auto stateGotoData = gotoTable[nonTerminal];
-            codeTextLines ~= format("    case %s:", nonTerminal.name);
-            codeTextLines ~= "        switch(ddCurrentState) {";
-            foreach (gotoState, fromStateSet; stateGotoData) {
-                auto fromStates = fromStateSet.elements;
-                auto caseline = format("        case %s", fromStates[0].id);
-                foreach (token; fromStates[1 .. $]) {
-                    caseline ~= format(", %s", token.id);
-                }
-                caseline ~= ":";
-                codeTextLines ~= caseline;
-                codeTextLines ~= format("            return %s;", gotoState.id);
+        codeTextLines ~= "    with (DDNonTerminal) switch(ddCurrentState) {";
+        // Do this in state id order
+        auto keySet = extract_key_set(parserStates);
+        auto indent = "        ";
+        foreach (key; keySet.elements) {
+            auto parserState = parserStates[key];
+            if (parserState.gotoTable.length == 0) continue;
+            codeTextLines ~= format("    case %s:", parserState.id);
+            foreach (line; parserState.generate_goto_code_text()) {
+                auto indented_line = indent ~ line;
+                codeTextLines ~= indented_line;
             }
-            codeTextLines ~= "        default:";
-            codeTextLines ~= "            throw new Exception(\"Malformed goto table\");";
-            codeTextLines ~= "        }";
             codeTextLines ~= "        break;";
         }
         codeTextLines ~= "    default:";
-        codeTextLines ~= "        throw new Exception(\"Malformed goto table\");";
+        codeTextLines ~= "        throw new Exception(format(\"Malformed goto table: no entry for (%s, %s).\", ddNonTerminal, ddCurrentState));";
         codeTextLines ~= "    }";
-        codeTextLines ~= "    throw new Exception(\"Malformed goto table\");";
+        codeTextLines ~= "    throw new Exception(format(\"Malformed goto table: no entry for (%s, %s).\", ddNonTerminal, ddCurrentState));";
         codeTextLines ~= "}\n";
         return codeTextLines;
     }
