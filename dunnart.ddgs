@@ -97,13 +97,16 @@ error(T...)(const CharLocation locn, const string format, T args)
 
 %%
 specification: preamble definitions "%%" production_rules
-    | %error
-    | %error %lexerror
+    | %error // TODO: handle syntax errors
+    | %error %lexerror // TODO: handle lexical analysis errors
     .
 
 // Preamble
 preamble: !{ \\ no preamble defined so there's nothing to do !}
-    | DCODE !{ grammarSpecification.set_preamble($1.ddMatchedText); !}
+    | DCODE
+        !{
+            grammarSpecification.set_preamble($1.ddMatchedText);
+        !}
     .
 
 definitions : field_definitions token_definitions skip_definitions precedence_definitions .

@@ -42,7 +42,7 @@ int main(string[] args)
                 writefln("\t\tUsed At: %s", usedAt);
             }
         }
-        writeln("Not Terminals:");
+        writeln("Non Terminals:");
         foreach (token; symbolTable.get_non_terminals_ordered()) {
             with (token) {
                 writefln("\t%s: %s:", id, name);
