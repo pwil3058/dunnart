@@ -19,7 +19,6 @@
 
 import std.string;
 
-import ddlib.components;
 import ddlib.lexan;
 import symbols;
 import grammar;

@@ -12,11 +12,11 @@ import std.string;
 import std.regex;
 import std.stdio;
 
-import ddlib.components;
 import symbols;
 import sets;
 import idnumber;
 
+alias uint ProductionId;
 alias string Predicate;
 alias string SemanticAction;
 
@@ -263,6 +263,8 @@ string token_list_string(TokenSymbol[] tokens)
     }
     return str;
 }
+
+alias uint ParserStateId;
 
 class ParserState {
     mixin UniqueId!(ParserStateId);
@@ -818,8 +820,8 @@ class Grammar {
 
     string[] generate_production_data_code_text()
     {
-        string[] textLines = ["DDProductionData"];
-        textLines ~= "dd_get_production_data(DDProduction ddProduction)";
+        string[] textLines = ["alias uint DDProduction;"];
+        textLines ~= "DDProductionData dd_get_production_data(DDProduction ddProduction)";
         textLines ~= "{";
         textLines ~= "    with (DDNonTerminal) switch(ddProduction) {";
         for (auto i = 0; i < spec.productionList.length; i++) {
@@ -882,7 +884,7 @@ class Grammar {
 
     string[] generate_goto_table_code_text()
     {
-        string[] codeTextLines = [];
+        string[] codeTextLines = ["alias uint DDParserState;"];
         codeTextLines ~= "DDParserState dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
         codeTextLines ~= "{";
         codeTextLines ~= "    with (DDNonTerminal) switch(ddCurrentState) {";

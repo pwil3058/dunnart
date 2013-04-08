@@ -15,7 +15,6 @@ import sets;
 import idnumber;
 
 import ddlib.lexan;
-//import ddlib.components;
 
 alias uint SymbolId;
 enum SpecialSymbols : SymbolId { start, end, lexError, parseError };

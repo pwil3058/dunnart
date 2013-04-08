@@ -13,11 +13,8 @@ mixin template DDParserSupport() {
     import std.string;
     import std.stdio;
 
-    import ddc = ddlib.components;
     import ddlexan = ddlib.lexan;
 
-    alias ddc.ProductionId DDProduction;
-    alias ddc.ParserStateId DDParserState;
     alias ddlexan.TokenSpec DDTokenSpec;
     alias ddlexan.CharLocation DDCharLocation;
 
