@@ -16,6 +16,7 @@
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
+module dunnart;
 
 import std.string;
 
@@ -114,8 +115,25 @@ error(T...)(const CharLocation locn, const string format, T args)
 
 %%
 specification: preamble definitions "%%" production_rules
-    | %error // TODO: handle syntax errors
-    | %error %lexerror // TODO: handle lexical analysis errors
+    | %error
+        !{
+            with ($1.ddSyntaxErrorData) {
+                auto symbol = symbolTable.get_symbol(unexpectedToken);
+                TokenSymbol[] expectedSymbols;
+                foreach (tokenId; expectedTokens) {
+                    expectedSymbols ~= symbolTable.get_symbol(tokenId);
+                }
+                if (symbol.pattern[0] == '"') {
+                    error(location, "Syntax error - found %s: expected %s", symbol, expectedSymbols);
+                } else {
+                    error(location, "Syntax error - found %s (%s): expected %s", symbol, matchedText, expectedSymbols);
+                }
+            }
+        !}
+    | %error %lexerror
+        !{
+            error($2.ddLocation, "Unexpected input text: %s:", $2.ddMatchedText);
+        !}
     .
 
 // Preamble

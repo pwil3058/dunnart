@@ -488,6 +488,12 @@ class ParserState {
                 str ~= format("    %s -> %s\n", nonTerminal, gotoTable[nonTerminal]);
             }
         }
+        if (errorRecoveryState is null) {
+            str ~= "  Error Recovery State: <none>\n";
+        } else {
+            str ~= format("  Error Recovery State: State<%s>\n", errorRecoveryState.id);
+            str ~= format("    Look Ahead: %s\n", errorRecoveryState.get_look_ahead_set());
+        }
         return str;
     }
 
