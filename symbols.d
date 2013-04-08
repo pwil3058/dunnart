@@ -109,6 +109,7 @@ struct FieldDefinition {
     string fieldName;
     string fieldType;
     string conversionFunctionName;
+    CharLocation definedAt;
 }
 
 import std.stdio;
@@ -304,7 +305,7 @@ class SymbolTable {
         currentPrecedence--;
     }
 
-    void new_field(string fieldName, string fieldType, string convFuncName = "")
+    void new_field(string fieldName, string fieldType, string convFuncName, CharLocation definedAt)
     in {
         assert(!is_known_field(fieldName));
     }
@@ -396,6 +397,11 @@ class SymbolTable {
             }
         }
         return symbolset.elements;
+    }
+
+    CharLocation get_field_defined_at(string fieldName)
+    {
+        return fieldDefinitions[fieldName].definedAt;
     }
 
     FieldDefinition[] get_field_definitions()

@@ -1,4 +1,10 @@
 
+ddpg: ddpg.d dunnart.d grammar.d sets.d symbols.d ddlib/lexan.d cli.d Makefile
+	dmd ddpg.d dunnart.d grammar.d sets.d symbols.d ddlib/lexan.d cli.d
+
+dunnart.d: ddpg_bespoke dunnart.ddgs
+	./ddpg_bespoke -f -v --module=dunnart dunnart.ddgs
+
 ddpg_bespoke: ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d cli.d Makefile
 	dmd ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d cli.d
 

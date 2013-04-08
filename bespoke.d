@@ -89,14 +89,14 @@ void generate_grammar()
     bespokeGrammarSpecification = new GrammarSpecification(bespokeSymbolTable);
     with (bespokeSymbolTable) with (bespokeGrammarSpecification) {
         set_preamble(bespokePreamble);
-        new_field("stringList", "StringList");
-        new_field("productionTailList", "ProductionTailList");
-        new_field("productionTail", "ProductionTail");
-        new_field("symbolList", "SymbolList");
-        new_field("symbol", "Symbol");
-        new_field("predicate", "Predicate");
-        new_field("semanticAction", "SemanticAction");
-        new_field("associatedPrecedence", "AssociatedPrecedence");
+        new_field("stringList", "StringList", "", plf.next(true));
+        new_field("productionTailList", "ProductionTailList", "", plf.next(true));
+        new_field("productionTail", "ProductionTail", "", plf.next(true));
+        new_field("symbolList", "SymbolList", "", plf.next(true));
+        new_field("symbol", "Symbol", "", plf.next(true));
+        new_field("predicate", "Predicate", "", plf.next(true));
+        new_field("semanticAction", "SemanticAction", "", plf.next(true));
+        new_field("associatedPrecedence", "AssociatedPrecedence", "", plf.next(true));
         auto REGEX = new_token("REGEX", r"(\(.+\)(?=\s))", plf.next(true));
         auto LITERAL = new_token("LITERAL", "(\"\\S+\")", plf.next(true));
         auto TOKEN = new_token("TOKEN", "\"%token\"", plf.next(true));
@@ -171,8 +171,8 @@ void generate_grammar()
         auto field_type = get_symbol("field_type", plf.next(true), true);
         auto field_name = get_symbol("field_name", plf.next(true), true);
         auto field_conversion_function = get_symbol("field_conversion_function", plf.next(true), true);
-        add_production(new Production(field_definition, [FIELD, field_type, field_name], "symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText);"));
-        add_production(new Production(field_definition, [FIELD, field_type, field_name, field_conversion_function], "symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText);"));
+        add_production(new Production(field_definition, [FIELD, field_type, field_name], "symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, \"\", $3.ddLocation);"));
+        add_production(new Production(field_definition, [FIELD, field_type, field_name, field_conversion_function], "symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText, $3.ddLocation);"));
 
         field_type = define_non_terminal("field_type", plf.next(true));
         IDENT = get_symbol("IDENT", plf.next(true));

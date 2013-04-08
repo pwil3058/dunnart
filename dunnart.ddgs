@@ -20,8 +20,9 @@
 import std.string;
 
 import ddlib.components;
-import symbols; // This is only because we're bootstrapping
-import grammar; // This is only because we're bootstrapping
+import ddlib.lexan;
+import symbols;
+import grammar;
 
 SymbolTable symbolTable;
 GrammarSpecification grammarSpecification;
@@ -43,7 +44,7 @@ alias ProductionTail[] ProductionTailList;
 alias Symbol[] SymbolList;
 alias string[] StringList;
 
-this {
+static this() {
     symbolTable = new SymbolTable;
     grammarSpecification = new GrammarSpecification(symbolTable);
 }
@@ -104,6 +105,7 @@ error(T...)(const CharLocation locn, const string format, T args)
 %token  DOT             "."
 %token  IDENT           ([a-zA-Z]+[a-zA-Z0-9_]*)
 %token  FIELDNAME       (<[a-zA-Z]+[a-zA-Z0-9_]*>)
+%token  PREDICATE       (\?\((.|[\n\r])*?\?\))
 %token  ACTION          (!\{(.|[\n\r])*?!\})
 %token  DCODE           (%\{(.|[\n\r])*?%\})
 
@@ -118,7 +120,10 @@ specification: preamble definitions "%%" production_rules
     .
 
 // Preamble
-preamble: !{ \\ no preamble defined so there's nothing to do !}
+preamble:
+        !{
+            // no preamble defined so there's nothing to do
+        !}
     | DCODE
         !{
             grammarSpecification.set_preamble($1.ddMatchedText[2 .. $ - 2]);
@@ -138,19 +143,19 @@ field_definitions : // empty production
 field_definition: "%field" fieldType fieldName
         !{
             if (symbolTable.is_known_field($3.ddMatchedText)) {
-                auto previous = fieldDefinitions[$3.ddMatchedText].declaredAt;
+                auto previous = symbolTable.get_field_defined_at($3.ddMatchedText);
                 error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText);
+                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, "", $3.ddLocation);
             }
         !}
     | "%field" fieldType fieldName fieldConversionFunction
         !{
             if (symbolTable.is_known_field($3.ddMatchedText)) {
-                auto previous = fieldDefinitions[$3.ddMatchedText].declaredAt;
+                auto previous = symbolTable.get_field_defined_at($3.ddMatchedText);
                 error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText);
+                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText, $3.ddLocation);
             }
         !}
     .
@@ -184,7 +189,7 @@ token_definitions : token_definition
 token_definition: "%token" new_token_name pattern
         !{
             if (symbolTable.is_known_symbol($2.ddMatchedText)) {
-                auto previous = fieldDefinitions[$2.ddMatchedText].declaredAt;
+                auto previous = symbolTable.get_declaration_point($2.ddMatchedText);
                 error($2.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
                 symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);
@@ -193,13 +198,13 @@ token_definition: "%token" new_token_name pattern
     | "%token" FIELDNAME new_token_name pattern
         !{
             auto fieldName = $2.ddMatchedText[1 .. $ - 1];
-            if (symbolTable.is_known_field($2.ddMatchedText)) {
-                auto previous = fieldDefinitions[$2.ddMatchedText].declaredAt;
-                error($2.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
-            } else (!symbolTable.is_known_field(fieldName)) {
+            if (symbolTable.is_known_symbol($3.ddMatchedText)) {
+                auto previous = symbolTable.get_declaration_point($3.ddMatchedText);
+                error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
+            } else if (!symbolTable.is_known_field(fieldName)) {
                 error($2.ddLocation, "field name \"%s\" is not known.", fieldName);
                 symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation);
-            }
+            } else {
                 symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation, fieldName);
             }
         !}
@@ -238,7 +243,7 @@ precedence_definitions : // empty production
     | precedence_definitions precedence_definition
     .
 
-precedent_definition: "%left" tag_list
+precedence_definition: "%left" tag_list
         !{
             symbolTable.set_precedences(Associativity.left, $2.symbolList);
         !}
@@ -272,19 +277,19 @@ tag_list: tag
 
 tag: LITERAL
         !{
-            $$.symbol = symbolTable.get_literal_token($1.matchedText, $1.ddLocation);
+            $$.symbol = symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);
             if ($$.symbol is null) {
-                error($1.ddLocation, "Literal \"%s\" is not known.", $1.matchedText);
+                error($1.ddLocation, "Literal \"%s\" is not known.", $1.ddMatchedText);
             }
         !}
     | IDENT ?( symbolTable.is_known_token($1.ddMatchedText) ?)
         !{
-            $$.symbol = symbolTable.get_symbol($1.matchedText, $1.ddLocation);
+            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
         !}
     | IDENT ?( symbolTable.is_known_non_terminal($1.ddMatchedText) ?)
         !{
             $$.symbol = null;
-            error($1.ddLocation, "Non terminal \"%s\" cannot be used as precedence tag.", $1.matchedText);
+            error($1.ddLocation, "Non terminal \"%s\" cannot be used as precedence tag.", $1.ddMatchedText);
         !}
     | IDENT
         !{
@@ -428,11 +433,11 @@ symbol_list: symbol
 
 symbol: IDENT
         !{
-            $$.symbol = symbolTable.get_symbol($1.ddMatchText, $1.ddLocation, true);
+            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation, true);
         !}
     | LITERAL
         !{
-            $$.symbol = symbolTable.get_literal_token($1.ddMatchText, $1.ddLocation);
+            $$.symbol = symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);
             if ($$.symbol is null) {
                 error($1.ddLocation, "%s: unknown literal token", $1.ddMatchedText);
             }
