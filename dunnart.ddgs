@@ -121,7 +121,7 @@ specification: preamble definitions "%%" production_rules
 preamble: !{ \\ no preamble defined so there's nothing to do !}
     | DCODE
         !{
-            grammarSpecification.set_preamble($1.ddMatchedText);
+            grammarSpecification.set_preamble($1.ddMatchedText[2 .. $ - 2]);
         !}
     .
 

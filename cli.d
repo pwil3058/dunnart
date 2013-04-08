@@ -19,6 +19,7 @@ bool force;
 string moduleName;
 string inputFilePath;
 string outputFilePath;
+string prefixPath;
 
 bool process_command_line(string[] args)
 {
@@ -27,18 +28,19 @@ bool process_command_line(string[] args)
         "m|module", &moduleName,
         "v|verbose", &verbose,
         "o|output", &outputFilePath,
+        "p|prefix", &prefixPath,
     );
     if (args.length != 2) {
         print_usage(args[0]);
         return false;
     }
-    auto inputFilePath = args[1];
+    inputFilePath = args[1];
 
     // if the output file path isn't specified then generate it
     if (outputFilePath.length == 0) {
         if (moduleName.length > 0) {
-            outputFilePath = module_file_path(moduleName);
-            if (!isValidFilename(outputFilePath)) {
+            outputFilePath = module_file_path(moduleName, prefixPath);
+            if (!isValidPath(outputFilePath)) {
                 stderr.writefln("%s: is not a valid file path", outputFilePath);
                 return false;
             }
@@ -59,8 +61,13 @@ void print_usage(string command)
     writefln("Usage: %s [--force|-f] [--verbose|-v] [(--module|-m)=<module name>] [(--output|-0)=<output file name>] <input file>", command);
 }
 
-string module_file_path(string moduleName)
+string module_file_path(string moduleName, string prefixPath)
 {
-    static auto split_re = regex(".");
-    return buildPath(split(moduleName, split_re)) ~ ".d";
+    static auto split_re = regex(r"\.");
+    string[] parts;
+    if (prefixPath.length == 0) {
+        return buildPath(split(moduleName, split_re)) ~ ".d";
+    } else {
+        return buildNormalizedPath([prefixPath] ~ split(moduleName, split_re)) ~ ".d";
+    }
 }

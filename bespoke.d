@@ -136,7 +136,7 @@ void generate_grammar()
         preamble = define_non_terminal("preamble", plf.next(true));
         DCODE = get_symbol("DCODE", plf.next(true));
         add_production(new Production(preamble, [], "// do nothing"));
-        add_production(new Production(preamble, [DCODE], "grammarSpecification.set_preamble($1.ddMatchedText);"));
+        add_production(new Production(preamble, [DCODE], "grammarSpecification.set_preamble($1.ddMatchedText[2 .. $ - 2]);"));
 
     //Definitions
         definitions = define_non_terminal("definitions", plf.next(true));

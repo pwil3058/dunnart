@@ -1,6 +1,6 @@
 
-ddpg_bespoke: ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d Makefile
-	dmd ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d
+ddpg_bespoke: ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d cli.d Makefile
+	dmd ddpg_bespoke.d generated.d grammar.d sets.d symbols.d ddlib/lexan.d cli.d
 
 generated.d: bespoke Makefile
 	./bespoke --force --verbose $@ > bespoke_vo

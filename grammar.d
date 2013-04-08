@@ -788,7 +788,7 @@ class Grammar {
         Set!TokenSymbol[string] tokenSets;
         foreach(token; spec.symbolTable.get_tokens_ordered()) {
             if (token.fieldName.length > 0) {
-                if (token.fieldName in tokenSets) {
+                if (token.fieldName !in tokenSets) {
                     tokenSets[token.fieldName] = new Set!TokenSymbol(token);
                 } else {
                     tokenSets[token.fieldName].add(token);

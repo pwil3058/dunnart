@@ -14,32 +14,29 @@ import std.utf;
 
 import generated;
 import grammar;
-
-bool verbose;
+import cli;
 
 int main(string[] args)
 {
-    getopt(args, "v|verbose", &verbose);
-    if (args.length != 2) {
-        print_usage(args[0]);
-        return -1;
+    if (!process_command_line(args)) {
+        return 1;
     }
+
     // Read the text to be parsed
-    auto inputFilePath = args[1];
     string inputText;
     try {
         inputText = readText(inputFilePath);
     } catch (FileException e) {
         writeln(e.errno);
-        return 1;
+        return 2;
     } catch (UTFException e) {
         writeln(e);
-        return 2;
+        return 3;
     }
     // Parse the text and generate the grammar specification
     auto parser = new DDParser;
     if (!parser.parse_text(inputText)) {
-        return 3;
+        return 4;
     }
     if (verbose) {
         writeln("Grammar Specification\n");
@@ -50,16 +47,18 @@ int main(string[] args)
     // Generate the grammar from the specification
     auto grammar = new Grammar(grammarSpecification);
     if (grammar is null || !grammar.is_valid) {
-        return 4;
+        return 5;
     }
     if (verbose) {
         writeln("\nGrammar");
         writeln(grammar.get_parser_states_description());
     }
+    try {
+        auto outputFile = File(outputFilePath, "w");
+        grammar.write_parser_code(outputFile, moduleName);
+    } catch (Exception e) {
+        writeln(e);
+        return 6;
+    }
     return 0;
-}
-
-void print_usage(string command)
-{
-    writefln("Usage: [--verbose|-v] %s <file>", command);
 }
