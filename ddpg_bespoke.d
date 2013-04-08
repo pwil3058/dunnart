@@ -42,25 +42,9 @@ int main(string[] args)
         return 3;
     }
     if (verbose) {
-        writeln("Tokens:");
-        foreach (token; symbolTable.get_tokens_ordered()) {
-            with (token) {
-                writefln("\t%s: %s: %s: %s: %s: %s: %s", id, name, type, pattern, fieldName, associativity, precedence);
-                writefln("\t\tDefined At: %s", definedAt);
-                writefln("\t\tUsed At: %s", usedAt);
-            }
-        }
-        writeln("Non Terminals:");
-        foreach (token; symbolTable.get_non_terminals_ordered()) {
-            with (token) {
-                writefln("\t%s: %s:", id, name);
-                writefln("\t\tDefined At: %s", definedAt);
-                writefln("\t\tUsed At: %s", usedAt);
-            }
-        }
-        writeln("Productions:");
-        for (auto i = 0; i < grammarSpecification.productionList.length; i++) {
-            writefln("\t%s:\t%s", i, grammarSpecification.productionList[i]);
+        writeln("Grammar Specification\n");
+        foreach (textLine; grammarSpecification.get_description()) {
+            writeln(textLine);
         }
     }
     // Generate the grammar from the specification

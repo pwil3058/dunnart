@@ -407,6 +407,61 @@ class SymbolTable {
     {
         return skipRuleList.dup;
     }
+
+    string[] get_description()
+    {
+        auto textLines = ["Fields:"];
+        if (fieldDefinitions.length == 0) {
+            textLines ~= "  <none>";
+        } else {
+            foreach (key; extract_key_set(fieldDefinitions).elements) {
+                with (fieldDefinitions[key]) {
+                    if (conversionFunctionName.length == 0) {
+                        textLines ~= format("  %s: %s: %s to!(%s)(string str)", fieldName, fieldType, fieldType, fieldType);
+                    } else {
+                        textLines ~= format("  %s: %s: %s %s(string str)", fieldName, fieldType, fieldType, conversionFunctionName);
+                    }
+                }
+            }
+        }
+        textLines ~= "Tokens:";
+        if (tokens.length == 0) {
+            textLines ~= "  <none>";
+        } else {
+            foreach (token; get_tokens_ordered()) {
+                with (token) {
+                    textLines ~= format("  %s: %s: %s: %s: %s: %s", id, name, pattern, fieldName, associativity, precedence);
+                    textLines ~= format("    Defined At: %s", definedAt);
+                    textLines ~= format("    Used At: %s", usedAt);
+                }
+            }
+        }
+        textLines ~= "Precedence Tags:";
+        if (tags.length == 0) {
+            textLines ~= "  <none>";
+        } else {
+            foreach (tagKey; extract_key_set(tags).elements) {
+                with (tags[tagKey]) {
+                    textLines ~= format("  %s: %s: %s: %s", id, name, associativity, precedence);
+                    textLines ~= format("    Defined At: %s", definedAt);
+                    textLines ~= format("    Used At: %s", usedAt);
+                }
+            }
+        }
+        textLines ~= "Non Terminal Symbols:";
+        if (nonTerminals.length == 0) {
+            textLines ~= "  <none>";
+        } else {
+            foreach (nonTerminal; get_non_terminals_ordered()) {
+                with (nonTerminal) {
+                    textLines ~= format("  %s: %s:", id, name);
+                    textLines ~= format("    Defined At: %s", definedAt);
+                    textLines ~= format("    Used At: %s", usedAt);
+                }
+            }
+        }
+        return textLines;
+    }
 }
 
 unittest {

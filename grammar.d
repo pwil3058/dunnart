@@ -608,6 +608,17 @@ class GrammarSpecification {
         } while (additions_made);
         return closureSet;
     }
+
+    string[] get_description()
+    {
+        auto textLines = symbolTable.get_description();
+        textLines ~= "Productions:";
+        for (auto i = 0; i < productionList.length; i++) {
+            auto pdn = productionList[i];
+            textLines ~= format("  %s: %s: %s: %s", i, pdn, pdn.associativity, pdn.precedence);
+        }
+        return textLines;
+    }
 }
 
 string quote_raw(string str)

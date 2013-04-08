@@ -6,8 +6,8 @@ Enum Errors { undefinedVariables, divideByZero, syntaxError };
 Set!Errors errors;
 %}
 
-%field  value double
-%field  id string
+%field  double value
+%field  string id
 
 %token          EOL     (\n)
 %token          PLUS    "+"
