@@ -231,7 +231,7 @@ skip_definitions : // empty production
 
 skip_definition: "%skip" REGEX
         !{
-            symbolTable.add_skip_rule($1.ddMatchedText);
+            symbolTable.add_skip_rule($2.ddMatchedText);
         !}
     .
 

@@ -2,8 +2,23 @@
 import std.stdio;
 import sets;
 double[string] variables;
-Enum Errors { undefinedVariables, divideByZero, syntaxError };
-Set!Errors errors;
+enum Errors { undefinedVariables = 1, divideByZero = 2, syntaxError = 3 };
+uint errors;
+
+void report_errors()
+{
+    auto report = "Errors:";
+    if (errors & Errors.undefinedVariables) {
+        report ~= "\"Undefined Variables\"";
+    }
+    if (errors & Errors.divideByZero) {
+        report ~= "\"Divide by Zero\"";
+    }
+    if (errors & Errors.syntaxError) {
+        report ~= "\"Syntax Errors\"";
+    }
+    stderr.writeln(report);
+}
 %}
 
 %field  double value
@@ -28,15 +43,15 @@ Set!Errors errors;
 %left   EOL
 
 %%
-line: setup expr ?(errors.cardinality > 0?) !{stderr.writefln("Errors: %s", errors);!}
+line: setup expr ?(errors > 0?) !{report_errors();!}
     | setup expr !{writeln($2.value);!}
-    | setup ID "=" expr ?(errors.cardinality == 0?) !{variables[$2.id] = $4.value;!}
-    | setup ID "=" expr !{stderr.writefln("Errors: %s", errors);!}
+    | setup ID "=" expr ?(errors == 0?) !{variables[$2.id] = $4.value;!}
+    | setup ID "=" expr !{report_errors();!}
     | line EOL line
     | line EOL
     .
 
-setup: !{errors = new Set!Errors;!}.
+setup: !{errors = 0;!}.
 
 expr: expr "+" expr ?($1.value == 0?) !{$$.value = $3.value;!}
     | expr "+" expr ?($3.value == 0?) !{$$.value = $1.value;!}
@@ -49,15 +64,15 @@ expr: expr "+" expr ?($1.value == 0?) !{$$.value = $3.value;!}
     | expr "*" expr ?($3.value == 1?) !{$$.value = $1.value;!}
     | expr "*" expr !{$$.value = $1.value * $3.value;!}
     | expr "/" expr ?($3.value == 1?) !{$$.value = $1.value;!}
-    | expr "/" expr ?($3.value == 0?) !{errors.add(Errors.divideByZero);!}
+    | expr "/" expr ?($3.value == 0?) !{errors |= Errors.divideByZero;!}
     | expr "/" expr ?($1.value == 0?) !{$$.value = 0;!}
     | expr "/" expr !{$$.value = $1.value / $3.value;!}
     | "(" expr ")" !{$$.value = $2.value;!}
     | "-" expr %prec UMINUS !{$$.value = $2.value;!}
-    | number !{$$.value = $1.value!}
+    | number !{$$.value = $1.value;!}
     | ID ?($1.id in variables?) !{$$.value = variables[$1.id];!}
-    | ID !{errors.add(Errors.undefinedVariable); $$.value = 0;!}
-    | %error !{errors.add(Errors.syntaxError);!}
+    | ID !{errors |= Errors.undefinedVariables; $$.value = 0;!}
+    | %error !{errors |= Errors.syntaxError;!}
     .
 
 number: DIGIT !{$$.value = $1.value;!}
