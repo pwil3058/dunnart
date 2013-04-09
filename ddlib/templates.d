@@ -214,9 +214,12 @@ mixin template DDImplementParser() {
                 skipCount = 0;
             }
             while (true) {
-                for (distanceToViableState = 0; !found && distanceToViableState < stackLength; distanceToViableState++) {
+                distanceToViableState = 0;
+                while (distanceToViableState < stackLength) {
                     auto candidateState = stateStack[stackIndex - distanceToViableState].state;
                     found = candidateState != lastErrorState && dd_error_recovery_ok(candidateState, currentToken);
+                    if (found) break;
+                    distanceToViableState++;
                 }
                 if (found || currentToken == DDToken.ddEND) break;
                 get_next_token();
