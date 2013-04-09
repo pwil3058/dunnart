@@ -864,7 +864,7 @@ class Grammar {
         for (auto i = 0; i < spec.productionList.length; i++) {
             auto production = spec.productionList[i];
             if (production.action.length > 0) {
-                textLines ~= format("    case %s:", i);
+                textLines ~= format("    case %s: // %s", i, production);
                 textLines ~= production.expanded_semantic_action;
                 textLines ~= "        break;";
             }
