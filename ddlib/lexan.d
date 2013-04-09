@@ -10,6 +10,7 @@ module ddlib.lexan;
 
 import std.regex;
 import std.ascii;
+import std.string;
 // TODO: make sure LexicalAnalyser works with UTF-8 Unicode
 
 enum MatchType {literal, regularExpression};
@@ -127,6 +128,15 @@ struct CharLocation {
     size_t lineNumber;
     size_t offset;
     string label; // e.g. name of file that text came from
+
+    const string toString()
+    {
+        if (label.length > 0) {
+            return format("%s:%s(%s)", label, lineNumber, offset);
+        } else {
+            return format("%s(%s)", lineNumber, offset);
+        }
+    }
 }
 
 class CharLocationData {

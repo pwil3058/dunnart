@@ -740,9 +740,22 @@ class Grammar {
         foreach (token; spec.symbolTable.get_special_tokens_ordered()) {
             textLines ~= format("    %s = %s,", token.name, token.id);
         }
-        foreach (token; spec.symbolTable.get_tokens_ordered()) {
+        auto ordered_tokens = spec.symbolTable.get_tokens_ordered();
+        foreach (token; ordered_tokens) {
             textLines ~= format("    %s = %s,", token.name, token.id);
         }
+        textLines ~= "}\n";
+        textLines ~= "string dd_literal_token_string(DDToken ddToken)";
+        textLines ~= "{";
+        textLines ~= "    with (DDToken) switch (ddToken) {";
+        foreach (token; ordered_tokens) {
+            if (token.pattern[0] == '"') {
+                textLines ~= format("    case %s: return %s; break;", token.name, token.pattern);
+            }
+        }
+        textLines ~= "    default:";
+        textLines ~= "    }";
+        textLines ~= "    return null;";
         textLines ~= "}\n";
         textLines ~= "enum DDNonTerminal : DDSymbol {";
         foreach (non_terminal; spec.symbolTable.get_special_non_terminals_ordered()) {

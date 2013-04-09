@@ -55,11 +55,7 @@ uint warningCount;
 void
 message(T...)(const CharLocation locn, const string tag, const string format, T args)
 {
-    if (locn.label.length > 0) {
-        stderr.writef("%s:%s:%s:", locn.label, locn.lineNumber, tag);
-    } else {
-        stderr.writef("%s:%s:", locn.lineNumber, tag);
-    }
+    stderr.writef("%s:%s:", locn, tag);
     stderr.writefln(format, args);
     stderr.flush();
 }
@@ -114,27 +110,7 @@ error(T...)(const CharLocation locn, const string format, T args)
 %skip (\s+)
 
 %%
-specification: preamble definitions "%%" production_rules
-    | %error
-        !{
-            with ($1.ddSyntaxErrorData) {
-                auto symbol = symbolTable.get_symbol(unexpectedToken);
-                TokenSymbol[] expectedSymbols;
-                foreach (tokenId; expectedTokens) {
-                    expectedSymbols ~= symbolTable.get_symbol(tokenId);
-                }
-                if (symbol.pattern[0] == '"') {
-                    error(location, "Syntax error - found %s: expected %s", symbol, expectedSymbols);
-                } else {
-                    error(location, "Syntax error - found %s (%s): expected %s", symbol, matchedText, expectedSymbols);
-                }
-            }
-        !}
-    | %error %lexerror
-        !{
-            error($2.ddLocation, "Unexpected input text: %s:", $2.ddMatchedText);
-        !}
-    .
+specification: preamble definitions "%%" production_rules.
 
 // Preamble
 preamble:

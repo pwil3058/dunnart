@@ -73,9 +73,44 @@ mixin template DDParserSupport() {
 
         override string toString()
         {
-            auto str = format("Line %s: Syntax Error: ", location.lineNumber);
-            str ~= format("found %s (\"%s\"): ", unexpectedToken, matchedText);
-            str ~= format("expected %s.", expectedTokens);
+            string str;
+            if (unexpectedToken == DDToken.ddLEXERROR) {
+                str = format("%s: Unexpected input: %s", location, matchedText);
+            } else {
+                str = format("%s: Syntax Error: ", location.lineNumber);
+                auto literal = dd_literal_token_string(unexpectedToken);
+                if (literal is null) {
+                    str ~= format("found %s (\"%s\"): ", unexpectedToken, matchedText);
+                } else {
+                    str ~= format("found \"%s\": ", literal);
+                }
+                str ~= format("expected %s.", expected_tokens_as_string());
+            }
+            return str;
+        }
+
+        string expected_tokens_as_string()
+        {
+            auto str = dd_literal_token_string(expectedTokens[0]);
+            if (str is null) {
+                str = to!(string)(expectedTokens[0]);
+            }
+            for (auto i = 1; i < expectedTokens.length - 1; i++) {
+                auto literal = dd_literal_token_string(expectedTokens[i]);
+                if (literal is null) {
+                    str ~= format(", %s", to!(string)(expectedTokens[i]));
+                } else {
+                    str ~= format(", \"%s\"", literal);
+                }
+            }
+            if (expectedTokens.length > 1) {
+                auto literal = dd_literal_token_string(expectedTokens[$ - 1]);
+                if (literal is null) {
+                    str ~= format(" or %s", to!(string)(expectedTokens[$ - 1]));
+                } else {
+                    str ~= format(" or \"%s\"", literal);
+                }
+            }
             return str;
         }
     }
