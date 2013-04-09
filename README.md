@@ -1,18 +1,34 @@
 dunnart
 =======
 
-LALR(1) Parser Generator for the D Programming Language
+Enhanced LALR(1) Parser Generator for the D Programming Language.
 
-The primary reason for creating this tool is to become proficient with the
-D Programming Language but it is intended that the result will be a usable
-parser generator (similar to yacc, llama, bison, hinny, etc.) for D.
+This tool is an implementation in D of the LALR(1) parser generators
+described in "Compilers - Principles, Techniques and Tools" (Aho, Sethi
+and Ullman, 1986) with modifications to allow conflict resolution using
+boolean predicates and a built in lexical analyser.  It produces a
+single D file as output.
 
-It will not be a port of any of the above but will be based on the Honours
-Thesis that I wrote when creating hinny (which was an enhanced LALR(1) parser
-generator for Modula-2).  However, as it is heavily influenced by the
-requirement to spit out Modula-2 code, the grammar specification language for
-hinny is not suitable so a language based on bison's will be used in the first
-instance.  However, as there will be a clear seperation between the parsing of
-specifications and the generation of the parser, it should be possible for
-alternative specification languages to be added later.
+The specification language for dunnart (in itself) is described (in the
+specification language for dunnart) in the file dunnart.ddgs which is
+used to implement the ddpg program recursively via a three stage
+bootstrap process.  In summary:
 
+specification: \[preamble\] definitions "%%" production_rules.  
+preamble: "%{" \<arbitrary D code\> "%}".  
+definitions : \[field_definitions\] token_definitions \[skip_definitions\] \[precedence_definitions\].  
+field_definitions: {"%field" \<field type\> \<field name\> \[\<conversion function\>\]}.  
+token_definitions: {"%token" \[\<field name\>\] \<token name\> \<lexical pattern\>}.  
+skip_definitions: {"%skip" \<regular expression\>}.  
+precedence_definitions: {("%left"|"%right"|"%nonassoc") \<token list\>}.  
+production_rules: {left_hand_side ":" right_hand_side {"|" right_hand_side} "."}.  
+right_hand_side: \[\<list of symbols\>\] \["?(" \<predicate\> "?)"\] \["%prec" \<tag\>\] 
+\["!{" \<semantic action D code\> "!}"\].  
+
+Like _flex_, the lexical pattern for tokens has two forms:
+ 1. literal tokens where the text to be matched is placed between double quotes e.g. "+=", and
+ 2. regex tokens where the text to be matched is described by a D std.regex regualar expression
+enclosed in parenthesis e.g. (\[a-zA-Z\]\[a-zA-Z0-9_\]+).
+
+Within the production rules, regex tokens are represented by their names and literal tokens are
+represented by their names or their pattern (at the programmers option).
