@@ -1,6 +1,5 @@
 %{
 import std.stdio;
-import sets;
 double[string] variables;
 enum Errors { undefinedVariables = 1, divideByZero = 2, syntaxError = 3 };
 uint errors;
@@ -9,13 +8,13 @@ void report_errors()
 {
     auto report = "Errors:";
     if (errors & Errors.undefinedVariables) {
-        report ~= "\"Undefined Variables\"";
+        report ~= " \"Undefined Variables\"";
     }
     if (errors & Errors.divideByZero) {
-        report ~= "\"Divide by Zero\"";
+        report ~= " \"Divide by Zero\"";
     }
     if (errors & Errors.syntaxError) {
-        report ~= "\"Syntax Errors\"";
+        report ~= " \"Syntax Errors\"";
     }
     stderr.writeln(report);
 }
