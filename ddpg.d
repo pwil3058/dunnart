@@ -12,7 +12,11 @@ import std.getopt;
 import std.file;
 import std.utf;
 
-import dunnart;
+version (bootstrap) {
+    import bootstrap;
+} else {
+    import dunnart;
+}
 import grammar;
 import cli;
 

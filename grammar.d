@@ -998,7 +998,7 @@ class Grammar {
         foreach (line; generate_lexan_token_code_text()) {
             outputFile.writeln(line);
         }
-        outputFile.writeln("\nmixin DDImplementParser;\n");
+        outputFile.writeln("\nmixin DDImplementParser;");
         outputFile.close();
     }
 
