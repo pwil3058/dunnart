@@ -346,7 +346,7 @@ class SymbolTable {
     {
         NonTerminalSymbol[] undefined_symbols;
         foreach (nts; nonTerminals) {
-            if (nts.definedAt == CharLocation(0,0)) {
+            if (!nts.is_defined) {
                 undefined_symbols ~= nts;
             }
         }
@@ -357,7 +357,7 @@ class SymbolTable {
     {
         Symbol[] unused_symbols;
         foreach (symbol; allSymbols) {
-            if (symbol.usedAt.length == 0 && symbol.id > SpecialSymbols.max) {
+            if (!symbol.is_used && symbol.id > SpecialSymbols.max) {
                 unused_symbols ~= symbol;
             }
         }
