@@ -37,8 +37,8 @@ void report_errors()
 %skip   ([\t\r ]+)
 
 %right  UMINUS
-%left   TIMES DIVIDE
-%left   PLUS MINUS
+%left   "*" "/"
+%left   "+" "-"
 %left   EOL
 
 %%
@@ -67,7 +67,7 @@ expr: expr "+" expr ?($1.value == 0?) !{$$.value = $3.value;!}
     | expr "/" expr ?($1.value == 0?) !{$$.value = 0;!}
     | expr "/" expr !{$$.value = $1.value / $3.value;!}
     | "(" expr ")" !{$$.value = $2.value;!}
-    | "-" expr %prec UMINUS !{$$.value = $2.value;!}
+    | "-" expr %prec UMINUS !{$$.value = -$2.value;!}
     | NUMBER !{$$.value = $1.value;!}
     | ID ?($1.id in variables?) !{$$.value = variables[$1.id];!}
     | ID !{errors |= Errors.undefinedVariables; $$.value = 0;!}
