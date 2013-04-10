@@ -494,6 +494,22 @@ class ParserState {
             str ~= format("  Error Recovery State: State<%s>\n", errorRecoveryState.id);
             str ~= format("    Look Ahead: %s\n", errorRecoveryState.get_look_ahead_set());
         }
+        if (shiftReduceConflicts.length > 0) {
+            str ~= "  Shift/Reduce Conflicts:\n";
+            foreach (src; shiftReduceConflicts) {
+                str ~= format("    %s:\n", src.shiftSymbol);
+                str ~= format("      shift -> State<%s>\n", src.gotoState.id);
+                str ~= format("      reduce %s : %s\n", src.reducibleItem.production, src.lookAheadSet);
+            }
+        }
+        if (reduceReduceConflicts.length > 0) {
+            str ~= "  Reduce/Reduce Conflicts:\n";
+            foreach (rrc; reduceReduceConflicts) {
+                str ~= format("    %s:\n", rrc.lookAheadSetIntersection);
+                str ~= format("      reduce %s : %s\n", rrc.reducibleItem[0].production, grammarItems[rrc.reducibleItem[0]]);
+                str ~= format("      reduce %s : %s\n", rrc.reducibleItem[1].production, grammarItems[rrc.reducibleItem[1]]);
+            }
+        }
         return str;
     }
 
