@@ -33,3 +33,5 @@ enclosed in parenthesis e.g. `([a-zA-Z][a-zA-Z0-9_]+)`.
 
 Within the production rules, regex tokens are represented by their names and literal tokens are
 represented by their names or their pattern (at the programmers option).
+
+See the [wiki pages](http://github.com/pwil3058/dunnart/wiki) for more detail.
