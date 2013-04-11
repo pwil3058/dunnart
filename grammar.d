@@ -57,8 +57,9 @@ class Production {
     string expanded_predicate()
     {
         static auto stackAttr_re = regex(r"\$(\d+)", "g");
+        static auto nextToken_re = regex(r"\$#", "g");
         auto replaceWith = format("ddAttributeStack[$$ - %s + $1]", rightHandSide.length + 1);
-        return replace(predicate, stackAttr_re, replaceWith);
+        return replace(replace(predicate, stackAttr_re, replaceWith), nextToken_re, "ddNextToken");
     }
 
     @property
@@ -360,7 +361,7 @@ class ParserState {
 
     string[] generate_action_code_text()
     {
-        string[] codeTextLines = ["switch (ddToken) {"];
+        string[] codeTextLines = ["switch (ddNextToken) {"];
         string expectedTokensList;
         auto shiftTokenSet = extract_key_set(shiftList);
         foreach (token; shiftTokenSet.elements) {
@@ -895,7 +896,7 @@ class Grammar {
     string[] generate_action_table_code_text()
     {
         string[] codeTextLines = [];
-        codeTextLines ~= "DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, in DDAttributes[] ddAttributeStack)";
+        codeTextLines ~= "DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddNextToken, in DDAttributes[] ddAttributeStack)";
         codeTextLines ~= "{";
         codeTextLines ~= "    with (DDToken) switch(ddCurrentState) {";
         // Do this in state id order
