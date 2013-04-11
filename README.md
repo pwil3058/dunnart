@@ -14,21 +14,23 @@ specification language for dunnart) in the file dunnart.ddgs which is
 used to implement the ddpg program recursively via a three stage
 bootstrap process.  In summary:
 
-specification: \[preamble\] definitions "%%" production_rules.  
-preamble: "%{" \<arbitrary D code\> "%}".  
-definitions : \[field_definitions\] token_definitions \[skip_definitions\] \[precedence_definitions\].  
-field_definitions: {"%field" \<field type\> \<field name\> \[\<conversion function\>\]}.  
-token_definitions: {"%token" \[\<field name\>\] \<token name\> \<lexical pattern\>}.  
-skip_definitions: {"%skip" \<regular expression\>}.  
-precedence_definitions: {("%left"|"%right"|"%nonassoc") \<token list\>}.  
-production_rules: {left_hand_side ":" right_hand_side {"|" right_hand_side} "."}.  
-right_hand_side: \[\<list of symbols\>\] \["?(" \<predicate\> "?)"\] \["%prec" \<tag\>\] 
-\["!{" \<semantic action D code\> "!}"\].  
+```
+specification: [preamble] definitions "%%" production_rules.
+preamble: "%{" <arbitrary D code> "%}".
+definitions : [field_definitions] token_definitions [skip_definitions] [precedence_definitions].
+field_definitions: {"%field" <field type> <field name> [<conversion function>]}.
+token_definitions: {"%token" [<field name>] <token name> <lexical pattern>}.
+skip_definitions: {"%skip" <regular expression>}.
+precedence_definitions: {("%left"|"%right"|"%nonassoc") <token list>}.
+production_rules: {left_hand_side ":" right_hand_side {"|" right_hand_side} "."}.
+right_hand_side: [<list of symbols>] ["?(" <predicate> "?)"] ["%prec" <tag>] 
+["!{" <semantic action D code> "!}"].
+```
 
 Like _flex_, the lexical pattern for tokens has two forms:
- 1. literal tokens where the text to be matched is placed between double quotes e.g. "+=", and
+ 1. literal tokens where the text to be matched is placed between double quotes e.g. `"+="`, and
  2. regex tokens where the text to be matched is described by a D std.regex regualar expression
-enclosed in parenthesis e.g. (\[a-zA-Z\]\[a-zA-Z0-9_\]+).
+enclosed in parenthesis e.g. `([a-zA-Z][a-zA-Z0-9_]+)`.
 
 Within the production rules, regex tokens are represented by their names and literal tokens are
 represented by their names or their pattern (at the programmers option).
