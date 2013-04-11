@@ -23,8 +23,7 @@ token_definitions: {"%token" [<field name>] <token name> <lexical pattern>}.
 skip_definitions: {"%skip" <regular expression>}.
 precedence_definitions: {("%left"|"%right"|"%nonassoc") <token list>}.
 production_rules: {left_hand_side ":" right_hand_side {"|" right_hand_side} "."}.
-right_hand_side: [<list of symbols>] ["?(" <predicate> "?)"] ["%prec" <tag>] 
-["!{" <semantic action D code> "!}"].
+right_hand_side: [<list of symbols>] ["?(" <predicate> "?)"] ["%prec" <tag>] ["!{" <semantic action D code> "!}"].
 ```
 
 Like _flex_, the lexical pattern for tokens has two forms:
