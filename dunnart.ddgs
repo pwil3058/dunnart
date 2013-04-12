@@ -349,9 +349,21 @@ production_tail_list: production_tail
         !}
     .
 
-production_tail: action
+production_tail:
+        !{
+            $$.productionTail = ProductionTail([], AssociatedPrecedence(), null, null);
+        !}
+    | action
         !{
             $$.productionTail = ProductionTail([], AssociatedPrecedence(), null, $1.semanticAction);
+        !}
+    | predicate action
+        !{
+            $$.productionTail = ProductionTail([], AssociatedPrecedence(), $1.predicate, $2.semanticAction);
+        !}
+    | predicate
+        !{
+            $$.productionTail = ProductionTail([], AssociatedPrecedence(), $1.predicate, null);
         !}
     | symbol_list predicate tagged_precedence action
         !{
