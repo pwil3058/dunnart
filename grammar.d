@@ -574,7 +574,7 @@ class GrammarSpecification {
         return tokenSet;
     }
 
-    FirstsData get_firsts_data(Symbol symbol)
+    FirstsData get_firsts_data(ref Symbol symbol)
     {
         if (symbol.firstsData is null ) {
             auto tokenSet = new Set!TokenSymbol;
@@ -589,22 +589,34 @@ class GrammarSpecification {
                     transparent = transparent || (production.length == 0);
                     relevantProductions ~= production;
                 }
-                foreach (production; relevantProductions) {
-                    foreach (rhsSymbol; production.rightHandSide) {
-                        if (rhsSymbol == symbol) {
-                            if (transparent) {
-                                continue;
-                            } else {
+                bool transparencyChanged;
+                do {
+                    // TODO: modify this to only redo those before the change in transparency
+                    transparencyChanged = false;
+                    foreach (production; relevantProductions) {
+                        auto transparentProduction = true;
+                        foreach (rhsSymbol; production.rightHandSide) {
+                            if (rhsSymbol == symbol) {
+                                if (transparent) {
+                                    continue;
+                                } else {
+                                    transparentProduction = false;
+                                    break;
+                                }
+                            }
+                            auto firstsData = get_firsts_data(rhsSymbol);
+                            tokenSet.add(firstsData.tokenset);
+                            if (!firstsData.transparent) {
+                                transparentProduction = false;
                                 break;
                             }
                         }
-                        auto firstsData = get_firsts_data(rhsSymbol);
-                        tokenSet.add(firstsData.tokenset);
-                        if (!firstsData.transparent) {
-                            break;
+                        if (transparentProduction) {
+                            transparencyChanged = !transparent;
+                            transparent = true;
                         }
                     }
-                }
+                } while (transparencyChanged);
             }
             symbol.firstsData = new FirstsData(tokenSet, transparent);
         }
