@@ -15,8 +15,9 @@ used to implement the ddpg program recursively via a three stage
 bootstrap process.  In summary:
 
 ```
-specification: [preamble] definitions "%%" production_rules.
+specification: [preamble] definitions "%%" production_rules [coda].
 preamble: "%{" <arbitrary D code> "%}".
+coda: "%{" <arbitrary D code> "%}".
 definitions : [field_definitions] token_definitions [skip_definitions] [precedence_definitions].
 field_definitions: {"%field" <field type> <field name> [<conversion function>]}.
 token_definitions: {"%token" [<field name>] <token name> <lexical pattern>}.
