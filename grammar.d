@@ -555,6 +555,7 @@ class GrammarSpecification {
     {
         if (newProdn.id == 1) {
             productionList[0].rightHandSide = [newProdn.leftHandSide];
+            newProdn.leftHandSide.usedAt ~= newProdn.leftHandSide.definedAt;
         }
         productionList[newProdn.id] = newProdn;
     }
