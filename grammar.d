@@ -524,6 +524,7 @@ class GrammarSpecification {
     SymbolTable symbolTable;
     Production[ProductionId] productionList;
     string preambleCodeText;
+    string codaCodeText;
 
     this()
     {
@@ -543,6 +544,11 @@ class GrammarSpecification {
     void set_preamble(string preamble)
     {
         preambleCodeText = preamble;
+    }
+
+    void set_coda(string coda)
+    {
+        codaCodeText = coda;
     }
 
     void add_production(Production newProdn)
@@ -787,7 +793,7 @@ class Grammar {
 
     string[] generate_lexan_token_code_text()
     {
-        string[] textLines = ["DDTokenSpec[] ddTokenSpecs;"];
+        string[] textLines = ["static DDTokenSpec[] ddTokenSpecs;"];
         textLines ~= "static this() {";
         textLines ~= "    ddTokenSpecs = [";
         foreach (token; spec.symbolTable.get_tokens_ordered()) {
@@ -796,7 +802,7 @@ class Grammar {
         textLines ~= "    ];";
         textLines ~= "}";
         textLines ~= "";
-        textLines ~= "string[] ddSkipRules = [";
+        textLines ~= "static string[] ddSkipRules = [";
         foreach (rule; spec.symbolTable.get_skip_rules()) {
             textLines ~= format("        %s,", quote_raw(rule));
         }
@@ -1016,6 +1022,7 @@ class Grammar {
             outputFile.writeln(line);
         }
         outputFile.writeln("\nmixin DDImplementParser;");
+        outputFile.writeln(spec.codaCodeText);
         outputFile.close();
     }
 

@@ -109,7 +109,7 @@ error(T...)(const CharLocation locn, const string format, T args)
 %skip (\s+)
 
 %%
-specification: preamble definitions "%%" production_rules.
+specification: preamble definitions "%%" production_rules coda.
 
 // Preamble
 preamble:
@@ -119,6 +119,17 @@ preamble:
     | DCODE
         !{
             grammarSpecification.set_preamble($1.ddMatchedText[2 .. $ - 2]);
+        !}
+    .
+
+// Coda
+coda:
+        !{
+            // no coda defined so there's nothing to do
+        !}
+    | DCODE
+        !{
+            grammarSpecification.set_coda($1.ddMatchedText[2 .. $ - 2]);
         !}
     .
 

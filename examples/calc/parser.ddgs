@@ -1,7 +1,7 @@
 %{
 import std.stdio;
 double[string] variables;
-enum Errors { undefinedVariables = 1, divideByZero = 2, syntaxError = 3 };
+enum Errors { undefinedVariables = 1, divideByZero = 2, syntaxError = 4 };
 uint errors;
 
 void report_errors()
