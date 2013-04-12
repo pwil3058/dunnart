@@ -48,6 +48,7 @@ line: setup expr ?(errors > 0?) !{report_errors();!}
     | setup ID "=" expr !{report_errors();!}
     | line EOL line
     | line EOL
+    | %error !{errors |= Errors.syntaxError;!}
     .
 
 setup: !{errors = 0;!}.
@@ -71,5 +72,4 @@ expr: expr "+" expr ?($1.value == 0?) !{$$.value = $3.value;!}
     | NUMBER !{$$.value = $1.value;!}
     | ID ?($1.id in variables?) !{$$.value = variables[$1.id];!}
     | ID !{errors |= Errors.undefinedVariables; $$.value = 0;!}
-    | %error !{errors |= Errors.syntaxError;!}
     .
