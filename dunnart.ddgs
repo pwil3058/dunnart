@@ -26,9 +26,14 @@ import grammar;
 SymbolTable symbolTable;
 GrammarSpecification grammarSpecification;
 
-struct AssociatedPrecedence {
+class AssociatedPrecedence {
     Associativity associativity;
     Precedence    precedence;
+    this(Associativity associativity, Precedence precedence)
+    {
+        this.associativity = associativity;
+        this.precedence = precedence;
+    }
 }
 
 struct ProductionTail {
@@ -311,8 +316,10 @@ production_group: production_group_head production_tail_list "."
                 auto prodn = new Production($1.symbol, productionTail.rightHandSide);
                 prodn.predicate = productionTail.predicate;
                 prodn.action = productionTail.action;
-                prodn.associativity = productionTail.associatedPrecedence.associativity;
-                prodn.precedence = productionTail.associatedPrecedence.precedence;
+                if (productionTail.associatedPrecedence !is null) {
+                    prodn.associativity = productionTail.associatedPrecedence.associativity;
+                    prodn.precedence = productionTail.associatedPrecedence.precedence;
+                }
                 grammarSpecification.add_production(prodn);
             }
         !}
@@ -351,19 +358,19 @@ production_tail_list: production_tail
 
 production_tail:
         !{
-            $$.productionTail = ProductionTail([], AssociatedPrecedence(), null, null);
+            $$.productionTail = ProductionTail([], null, null, null);
         !}
     | action
         !{
-            $$.productionTail = ProductionTail([], AssociatedPrecedence(), null, $1.semanticAction);
+            $$.productionTail = ProductionTail([], null, null, $1.semanticAction);
         !}
     | predicate action
         !{
-            $$.productionTail = ProductionTail([], AssociatedPrecedence(), $1.predicate, $2.semanticAction);
+            $$.productionTail = ProductionTail([], null, $1.predicate, $2.semanticAction);
         !}
     | predicate
         !{
-            $$.productionTail = ProductionTail([], AssociatedPrecedence(), $1.predicate, null);
+            $$.productionTail = ProductionTail([], null, $1.predicate, null);
         !}
     | symbol_list predicate tagged_precedence action
         !{
@@ -375,11 +382,11 @@ production_tail:
         !}
     | symbol_list predicate action
         !{
-            $$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), $2.predicate, $3.semanticAction);
+            $$.productionTail = ProductionTail($1.symbolList, null, $2.predicate, $3.semanticAction);
         !}
     | symbol_list predicate
         !{
-            $$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), $2.predicate, null);
+            $$.productionTail = ProductionTail($1.symbolList, null, $2.predicate, null);
         !}
     | symbol_list tagged_precedence action
         !{
@@ -391,7 +398,7 @@ production_tail:
         !}
     | symbol_list action
         !{
-            $$.productionTail = ProductionTail($1.symbolList, AssociatedPrecedence(), null, $2.semanticAction);
+            $$.productionTail = ProductionTail($1.symbolList, null, null, $2.semanticAction);
         !}
     | symbol_list
         !{
@@ -416,22 +423,22 @@ tagged_precedence: "%prec" IDENT
             auto symbol = symbolTable.get_symbol($2.ddMatchedText, $2.ddLocation, false);
             if (symbol is null) {
                 error($2.ddLocation, "%s: Unknown symbol.", $2.ddMatchedText);
-                $$.associatedPrecedence = AssociatedPrecedence();
+                $$.associatedPrecedence = null;
             } else if (symbol.type == SymbolType.nonTerminal) {
                 error($2.ddLocation, "%s: Illegal precedence tag (must be Token or Tag).", $2.ddMatchedText);
-                $$.associatedPrecedence = AssociatedPrecedence();
+                $$.associatedPrecedence = null;
             } else {
-                $$.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
+                $$.associatedPrecedence = new AssociatedPrecedence(symbol.associativity, symbol.precedence);
             }
         !}
     | "%prec" LITERAL
         !{
             auto symbol = symbolTable.get_literal_token($2.ddMatchedText, $2.ddLocation);
             if (symbol is null) {
-                $$.associatedPrecedence = AssociatedPrecedence();
+                $$.associatedPrecedence = null;
                 error($2.ddLocation, "%s: Unknown literal token.", $2.ddMatchedText);
             } else {
-                $$.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
+                $$.associatedPrecedence = new AssociatedPrecedence(symbol.associativity, symbol.precedence);
             }
         !}
     .

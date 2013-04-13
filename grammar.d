@@ -29,16 +29,19 @@ class Production {
     Predicate predicate;
     SemanticAction action;
 
-    this()
-    {
-        mixin(set_unique_id);
-    }
-
     this(NonTerminalSymbol lhs, Symbol[] rhs)
     {
-        this();
+        mixin(set_unique_id);
         leftHandSide = lhs;
         rightHandSide = rhs;
+        for (int i = cast(int) rhs.length - 1; i >= 0; i--) {
+            auto symbol = rhs[i];
+            if (symbol.type == SymbolType.token && symbol.precedence != 0) {
+                precedence = symbol.precedence;
+                associativity = symbol.associativity;
+                break;
+            }
+        }
     }
 
     this(NonTerminalSymbol lhs, Symbol[] rhs, SemanticAction action)
@@ -329,6 +332,7 @@ class ParserState {
             foreach (key2; keys[i + 1 .. $]) {
                 auto intersection = set_intersection(grammarItems[key1], grammarItems[key2]);
                 if (intersection.cardinality > 0) {
+                    // TODO: think about whether precedence should be used to resolve reduce/reduce conflicts
                     if (key1.production.precedence < key2.production.precedence) {
                         grammarItems[key1].remove(intersection);
                     } else if (key1.production.precedence > key2.production.precedence) {
@@ -533,9 +537,8 @@ class GrammarSpecification {
 
     this(SymbolTable symbolTable)
     {
-        auto dummyProd = new Production;
+        auto dummyProd = new Production(symbolTable.get_symbol(SpecialSymbols.start), []);
         assert(dummyProd.id == 0);
-        dummyProd.leftHandSide = symbolTable.get_symbol(SpecialSymbols.start);
         // Set the right hand side when start symbol is known.
         productionList[dummyProd.id] = dummyProd;
         this.symbolTable = symbolTable;
