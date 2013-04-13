@@ -130,9 +130,9 @@ class SymbolTable {
         specialSymbols[SpecialSymbols.end] = new Symbol("ddEND", SymbolType.token, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.lexError] = new Symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.parseError] = new Symbol("ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
-        // TODO: think about whether this is the correct FirstsData for ddERROR
-        // It's definitely transparent but should the tokenSet be all tokens or none?
         specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(new Set!Symbol, true);
+        // ddLEXERROR looks like a token except that it's transparent
+        specialSymbols[SpecialSymbols.lexError].firstsData = new FirstsData(new Set!Symbol(specialSymbols[SpecialSymbols.lexError]), true);
         for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
             assert(specialSymbols[i].id == i);
         }

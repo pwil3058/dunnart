@@ -1,5 +1,5 @@
-dunnart
-=======
+Dunnart D Parser Generator (ddpg)
+=================================
 
 Enhanced LALR(1) Parser Generator for the D Programming Language.
 
