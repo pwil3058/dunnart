@@ -60,7 +60,7 @@ bool process_command_line(string[] args)
 
 void print_usage(string command)
 {
-    writefln("Usage: %s [--force|-f] [--verbose|-v] [(--module|-m)=<module name>] [(--output|-0)=<output file name>] <input file>", command);
+    writefln("Usage: %s [--force|-f] [--verbose|-v] [(--module|-m)=<module name>] [(--expect|-e)=<number>] [(--output|-0)=<output file name>] <input file>", command);
 }
 
 string module_file_path(string moduleName, string prefixPath)
