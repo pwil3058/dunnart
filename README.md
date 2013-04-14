@@ -3,36 +3,60 @@ Dunnart D Parser Generator (ddpg)
 
 Enhanced LALR(1) Parser Generator for the D Programming Language.
 
-This tool is an implementation in D of the LALR(1) parser generators
+This (ddgp) tool is an implementation in D of the LALR(1) parser generators
 described in "Compilers - Principles, Techniques and Tools" (Aho, Sethi
-and Ullman, 1986) with modifications to allow conflict resolution using
-boolean predicates and a built in lexical analyser.  It produces a
-single D file as output.
+and Ullman, 1986) (aka the red dragon book) with modifications to allow
+conflict resolution using boolean predicates and a built in lexical
+analyser.  It produces a single D file as output.
 
-The specification language for dunnart (in itself) is described (in the
-specification language for dunnart) in the file dunnart.ddgs which is
+The [specification language](https://github.com/pwil3058/dunnart/wiki/Specification-Language)
+for dunnart (in itself) is described (in the
+specification language for dunnart) in the file dunnart.ddgs which was
 used to implement the ddpg program recursively via a three stage
-bootstrap process.  In summary:
+bootstrap process (one stage now permanently retired).
 
+Building ddgp
+=============
+
+To build __ddgp__ execute the following:
 ```
-specification: [preamble] definitions "%%" production_rules [coda].
-preamble: "%{" <arbitrary D code> "%}".
-coda: "%{" <arbitrary D code> "%}".
-definitions : [field_definitions] token_definitions [skip_definitions] [precedence_definitions].
-field_definitions: {"%field" <field type> <field name> [<conversion function>]}.
-token_definitions: {"%token" [<field name>] <token name> <lexical pattern>}.
-skip_definitions: {"%skip" <regular expression>}.
-precedence_definitions: {("%left"|"%right"|"%nonassoc") <token list>}.
-production_rules: {left_hand_side ":" right_hand_side {"|" right_hand_side} "."}.
-right_hand_side: [<list of symbols>] ["?(" <predicate> "?)"] ["%prec" <tag>] ["!{" <semantic action D code> "!}"].
+$ make
+```
+in the base directory.
+
+Synopsis
+========
+```
+ddgp [<options>] <specification file name>
+Options:
+    -f|--force:
+        overwrite existing output file
+    -m <name> | --module=<name>:
+        insert a "module" statement in the output file using name
+    -v|--verbose:
+        produce a full description of the grammar generated
+    -o <name>|output=<name:
+        write the generated parser code to the named file
+    -p <path>|--prefix=<path>:
+        if using a path name based on the module name prefix it with path
+    -e  <number>|expect=<number>:
+        expect exactly "number" total conflicts
 ```
 
-Like _flex_, the lexical pattern for tokens has two forms:
- 1. literal tokens where the text to be matched is placed between double quotes e.g. `"+="`, and
- 2. regex tokens where the text to be matched is described by a D std.regex regualar expression
-enclosed in parenthesis e.g. `([a-zA-Z][a-zA-Z0-9_]+)`.
+Output File Name
+================
+If the _--module_ option is used the output filename will be derived
+from the module name (prefixed with the argument to the _--prefix_
+option if present) unless it is overruled by the _--output_ option.
+If neither the _--module_ nor _--output_ option are present, the output
+filename will be constructed by replacing the input filename's suffix
+with "d".
 
-Within the production rules, regex tokens are represented by their names and literal tokens are
-represented by their names or their pattern (at the programmers option).
+In no event, will an existing file be overwritten unless the _--force_
+option is used.
 
-See the [wiki pages](http://github.com/pwil3058/dunnart/wiki) for more detail.
+License
+=======
+Dunnart D Parser Generator (ddpg) is licensed under the Boost Software
+License, Version 1.0. (See accompanying file LICENSE_1_0.txt or
+[copy at](http://www.boost.org/LICENSE_1_0.txt)).
