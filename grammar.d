@@ -308,9 +308,7 @@ class ParserState {
         shiftReduceConflicts = [];
         foreach (conflict; conflicts) {
             with (conflict) {
-                if (reducibleItem.production.length == 0) {
-                    grammarItems[reducibleItem].remove(shiftSymbol);
-                } else if (shiftSymbol.precedence < reducibleItem.production.precedence) {
+                if (shiftSymbol.precedence < reducibleItem.production.precedence) {
                     shiftList.remove(shiftSymbol);
                 } else if (shiftSymbol.precedence > reducibleItem.production.precedence) {
                     grammarItems[reducibleItem].remove(shiftSymbol);
@@ -321,6 +319,10 @@ class ParserState {
                 } else if (reducibleItem.production.has_error_recovery_tail) {
                     grammarItems[reducibleItem].remove(shiftSymbol);
                 } else {
+                    // Default: resolve in favour of shift but mark as
+                    // unresolved giving the user the option of accepting
+                    // the resolution or not (down the track)
+                    grammarItems[reducibleItem].remove(shiftSymbol);
                     shiftReduceConflicts ~= conflict;
                 }
             }
@@ -338,22 +340,19 @@ class ParserState {
         for (auto i = 0; i < keys.length - 1; i++) {
             auto key1 = keys[i];
             foreach (key2; keys[i + 1 .. $]) {
+                assert(key1.production.id < key2.production.id);
                 auto intersection = set_intersection(grammarItems[key1], grammarItems[key2]);
-                if (intersection.cardinality > 0) {
-                    // TODO: think about whether precedence should be used to resolve reduce/reduce conflicts
-                    if (key1.production.precedence < key2.production.precedence) {
-                        grammarItems[key1].remove(intersection);
-                    } else if (key1.production.precedence > key2.production.precedence) {
-                        grammarItems[key2].remove(intersection);
-                    } else if (key1.production.id < key2.production.id && !trivially_true(key1.production.predicate)) {
-                        // do nothing: resolved at runtime by evaluating predicate
-                    } else if (key2.production.id < key1.production.id && !trivially_true(key2.production.predicate)) {
-                        // do nothing: resolved at runtime by evaluating predicate
-                    } else if (key1.production.has_error_recovery_tail) {
+                if (intersection.cardinality > 0 && trivially_true(key1.production.predicate)) {
+                    if (key1.production.has_error_recovery_tail) {
                         grammarItems[key1].remove(intersection);
                     } else if (key2.production.has_error_recovery_tail) {
                         grammarItems[key2].remove(intersection);
                     } else {
+                        // Default: resolve in favour of first declared
+                        // production but mark as unresolved giving the
+                        // user the option of accepting the resolution
+                        // or not (down the track)
+                        grammarItems[key2].remove(intersection);
                         reduceReduceConflicts ~= ReduceReduceConflict([key1, key2], intersection);
                     }
                 }
@@ -691,9 +690,9 @@ class Grammar {
     size_t unresolvedRRConflicts;
 
     @property
-    bool is_valid()
+    size_t total_unresolved_conflicts()
     {
-        return unresolvedRRConflicts == 0 && unresolvedSRConflicts == 0;
+        return unresolvedRRConflicts + unresolvedSRConflicts;
     }
 
     this(GrammarSpecification specification)
@@ -1012,7 +1011,6 @@ class Grammar {
     in {
         assert(outputFile.isOpen);
         assert(outputFile.size == 0);
-        assert(is_valid);
     }
     body {
         if (moduleName.length > 0) {

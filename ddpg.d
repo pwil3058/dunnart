@@ -71,19 +71,21 @@ int main(string[] args)
         writeln("\nGrammar");
         writeln(grammar.get_parser_states_description());
     }
-    if (!grammar.is_valid) {
+    if (grammar.total_unresolved_conflicts > 0) {
         for (auto i = 0; i < grammar.parserStates.length; i++) {
             with (grammar.parserStates[i]) {
                 foreach (src; shiftReduceConflicts) {
-                    stderr.writefln("State<%s>: shift/reduce conflict on token: %s", i, src.shiftSymbol);
+                    writefln("State<%s>: shift/reduce conflict on token: %s", i, src.shiftSymbol);
                 }
                 foreach (rrc; reduceReduceConflicts) {
-                    stderr.writefln("State<%s>: reduce/reduce conflict on token(s): %s", i, rrc.lookAheadSetIntersection);
+                    writefln("State<%s>: reduce/reduce conflict on token(s): %s", i, rrc.lookAheadSetIntersection);
                 }
             }
         }
-        stderr.writefln("Too many (%s) conflicts aborting", grammar.unresolvedRRConflicts + grammar.unresolvedSRConflicts);
-        return 7;
+        if (grammar.total_unresolved_conflicts != expectedNumberOfConflicts) {
+            stderr.writefln("Unexpected conflicts (%s) aborting", grammar.total_unresolved_conflicts);
+            return 7;
+        }
     }
     try {
         auto outputFile = File(outputFilePath, "w");

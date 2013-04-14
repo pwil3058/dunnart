@@ -20,6 +20,7 @@ string moduleName;
 string inputFilePath;
 string outputFilePath;
 string prefixPath;
+uint expectedNumberOfConflicts;
 
 bool process_command_line(string[] args)
 {
@@ -29,6 +30,7 @@ bool process_command_line(string[] args)
         "v|verbose", &verbose,
         "o|output", &outputFilePath,
         "p|prefix", &prefixPath,
+        "e|expect", &expectedNumberOfConflicts,
     );
     if (args.length != 2) {
         print_usage(args[0]);
