@@ -88,6 +88,14 @@ class Production {
         }
         return str;
     }
+
+    @property
+    bool has_error_recovery_tail()
+    {
+        if (rightHandSide.length == 0) return false;
+        auto lastSymbolId = rightHandSide[$ - 1].id;
+        return lastSymbolId == SpecialSymbols.parseError || lastSymbolId == SpecialSymbols.lexError;
+    }
 }
 
 class GrammarItemKey {
@@ -310,7 +318,7 @@ class ParserState {
                     shiftList.remove(shiftSymbol);
                 } else if (shiftSymbol.associativity == Associativity.right) {
                     grammarItems[reducibleItem].remove(shiftSymbol);
-                } else if (reducibleItem.production.length && reducibleItem.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
+                } else if (reducibleItem.production.has_error_recovery_tail) {
                     grammarItems[reducibleItem].remove(shiftSymbol);
                 } else {
                     shiftReduceConflicts ~= conflict;
@@ -341,9 +349,9 @@ class ParserState {
                         // do nothing: resolved at runtime by evaluating predicate
                     } else if (key2.production.id < key1.production.id && !trivially_true(key2.production.predicate)) {
                         // do nothing: resolved at runtime by evaluating predicate
-                    } else if (key1.production.length && key1.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
+                    } else if (key1.production.has_error_recovery_tail) {
                         grammarItems[key1].remove(intersection);
-                    } else if (key2.production.length && key2.production.rightHandSide[$ - 1].id == SpecialSymbols.parseError) {
+                    } else if (key2.production.has_error_recovery_tail) {
                         grammarItems[key2].remove(intersection);
                     } else {
                         reduceReduceConflicts ~= ReduceReduceConflict([key1, key2], intersection);
