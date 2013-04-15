@@ -1,0 +1,48 @@
+// parser.ddgs
+//
+// Copyright Peter Williams 2013 <pwil3058@bigpond.net.au>.
+//
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          http://www.boost.org/LICENSE_1_0.txt)
+
+%{
+double evaluate(string text)
+{
+    double result; // leave initislised as NaN
+%}
+
+%field  double value
+
+%token          PLUS    "+"
+%token          MINUS   "-"
+%token          TIMES   "*"
+%token          DIVIDE  "/"
+%token  <value> NUMBER  ([0-9]+(\.[0-9]+){0,1})
+%token          LPR     "("
+%token          RPR     ")"
+
+%skip   (\s+)
+
+%right  UMINUS
+%left   "*" "/"
+%left   "+" "-"
+
+%%
+equation: expr !{result = $1.value;!} .
+
+expr: expr "+" expr !{$$.value = $1.value + $3.value;!}
+    | expr "-" expr !{$$.value = $1.value - $3.value;!}
+    | expr "*" expr !{$$.value = $1.value * $3.value;!}
+    | expr "/" expr !{$$.value = $1.value / $3.value;!}
+    | "(" expr ")" !{$$.value = $2.value;!}
+    | "-" expr %prec UMINUS !{$$.value = -$2.value;!}
+    | NUMBER !{$$.value = $1.value;!}
+    .
+
+%{
+    auto calcp = new DDParser;
+    calcp.parse_text(text);
+    return result;
+}
+%}
