@@ -78,11 +78,15 @@ mixin template DDParserSupport() {
                 str = format("%s: Unexpected input: %s", location, matchedText);
             } else {
                 str = format("%s: Syntax Error: ", location.lineNumber);
-                auto literal = dd_literal_token_string(unexpectedToken);
-                if (literal is null) {
-                    str ~= format("found %s (\"%s\"): ", unexpectedToken, matchedText);
+                if (unexpectedToken == DDToken.ddEND) {
+                    str ~= "unexpected end of input: ";
                 } else {
-                    str ~= format("found \"%s\": ", literal);
+                    auto literal = dd_literal_token_string(unexpectedToken);
+                    if (literal is null) {
+                        str ~= format("found %s (\"%s\"): ", unexpectedToken, matchedText);
+                    } else {
+                        str ~= format("found \"%s\": ", literal);
+                    }
                 }
                 str ~= format("expected %s.", expected_tokens_as_string());
             }
