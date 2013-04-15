@@ -19,6 +19,7 @@ version (bootstrap) {
 }
 import grammar;
 import cli;
+import errors;
 
 int main(string[] args)
 {
@@ -31,10 +32,11 @@ int main(string[] args)
     try {
         inputText = readText(inputFilePath);
     } catch (FileException e) {
-        writeln(e);
+        auto msg = extract_file_exception_msg(e);
+        writeln(msg);
         return 2;
     } catch (UTFException e) {
-        writeln(e);
+        writefln("%s: not a valid text file: %s", inputFilePath, e);
         return 3;
     }
     // Parse the text and generate the grammar specification
