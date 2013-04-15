@@ -534,6 +534,7 @@ class ParserState {
 class GrammarSpecification {
     SymbolTable symbolTable;
     Production[ProductionId] productionList;
+    string headerCodeText;
     string preambleCodeText;
     string codaCodeText;
 
@@ -549,6 +550,11 @@ class GrammarSpecification {
         // Set the right hand side when start symbol is known.
         productionList[dummyProd.id] = dummyProd;
         this.symbolTable = symbolTable;
+    }
+
+    void set_header(string header)
+    {
+        headerCodeText = header;
     }
 
     void set_preamble(string preamble)
@@ -1016,6 +1022,7 @@ class Grammar {
         if (moduleName.length > 0) {
             outputFile.writefln("module %s;\n", moduleName);
         }
+        outputFile.writeln(stripLeft(spec.headerCodeText));
         outputFile.writeln("import ddlib.templates;\n");
         outputFile.writeln("mixin DDParserSupport;\n");
         foreach (line; generate_symbol_enum_code_text()) {

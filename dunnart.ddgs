@@ -125,6 +125,11 @@ preamble:
         !{
             grammarSpecification.set_preamble($1.ddMatchedText[2 .. $ - 2]);
         !}
+    | DCODE DCODE
+        !{
+            grammarSpecification.set_header($1.ddMatchedText[2 .. $ - 2]);
+            grammarSpecification.set_preamble($2.ddMatchedText[2 .. $ - 2]);
+        !}
     .
 
 // Coda
