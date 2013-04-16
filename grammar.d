@@ -279,7 +279,7 @@ string token_list_string(TokenSymbol[] tokens)
 alias uint ParserStateId;
 
 class ParserState {
-    mixin UniqueId!(ParserStateId);
+    mixin IdNumber!(ParserStateId);
     GrammarItemSet grammarItems;
     ParserState[TokenSymbol] shiftList;
     ParserState[NonTerminalSymbol] gotoTable;
@@ -288,9 +288,9 @@ class ParserState {
     ShiftReduceConflict[] shiftReduceConflicts;
     ReduceReduceConflict[] reduceReduceConflicts;
 
-    this(GrammarItemSet kernel)
+    this(ParserStateId id, GrammarItemSet kernel)
     {
-        mixin(set_unique_id);
+        this.id = id;
         grammarItems = kernel;
     }
 
@@ -688,6 +688,7 @@ string quote_raw(string str)
 }
 
 class Grammar {
+    private static ParserStateId next_parser_state_id;
     GrammarSpecification spec;
     ParserState[ParserStateId] parserStates;
     Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;
@@ -701,13 +702,20 @@ class Grammar {
         return unresolvedRRConflicts + unresolvedSRConflicts;
     }
 
+    ParserState new_parser_state(GrammarItemSet kernel)
+    {
+        auto nps = new ParserState(next_parser_state_id++, kernel);
+        parserStates[nps.id] = nps;
+        return nps;
+    }
+
     this(GrammarSpecification specification)
     {
         spec = specification;
         auto startItemKey = new GrammarItemKey(spec.productionList[0]);
         auto startLookAheadSet = new Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
         GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
-        parserStates[0] = new ParserState(startKernel);
+        auto startState = new_parser_state(startKernel);
         assert(parserStates[0].id == 0);
         while (true) {
             // Find a state that needs processing or quit
@@ -735,8 +743,7 @@ class Grammar {
                 auto itemSetX = spec.closure(generate_goto_kernel(unprocessedState.grammarItems, symbolX));
                 auto equivalentState = find_equivalent_state(itemSetX);
                 if (equivalentState is null) {
-                    gotoState = new ParserState(itemSetX);
-                    parserStates[gotoState.id] = gotoState;
+                    gotoState = new_parser_state(itemSetX);
                 } else {
                     foreach (itemKey, lookAheadSet; itemSetX) {
                         if (!equivalentState.grammarItems[itemKey].contains(lookAheadSet)) {
