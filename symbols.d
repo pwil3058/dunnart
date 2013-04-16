@@ -43,12 +43,9 @@ alias uint Precedence;
 
 bool is_allowable_name(string name)
 {
-    return name.length < 2 || toLower(name[0 .. 2]) != "dd";
+    return name.length < 2 || (name[0 .. 2] != "dd" && name[0 .. 2] != "DD");
 }
 
-// TODO: reimplement Symbol generation with a factory so that each
-// TODO: SymbolTable's symbols can be sequential from zero
-// TODO: Or maybe not -- only needed for bootstrapping ??
 class Symbol {
     mixin IdNumber!(SymbolId);
     SymbolType type;
