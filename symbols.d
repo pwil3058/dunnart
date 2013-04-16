@@ -114,7 +114,7 @@ struct FieldDefinition {
 import std.stdio;
 
 class SymbolTable {
-    private static SymbolId next_symbol_id;
+    private SymbolId nextSymbolId;
     private static Symbol[SpecialSymbols.max + 1] specialSymbols;
     private TokenSymbol[string] tokens; // indexed by token name
     private TokenSymbol[string] literalTokens; // indexed by literal string
@@ -125,31 +125,33 @@ class SymbolTable {
     private string[] skipRuleList;
     private auto currentPrecedence = Precedence.max;
 
-    static Symbol new_symbol(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
+    Symbol new_symbol(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
     {
-        return new Symbol(next_symbol_id++, sname, stype, location, isDefinition);
+        return new Symbol(nextSymbolId++, sname, stype, location, isDefinition);
     }
 
     static this()
     {
-        specialSymbols[SpecialSymbols.start] = new_symbol("ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
-        specialSymbols[SpecialSymbols.end] = new_symbol("ddEND", SymbolType.token, CharLocation(0, 0));
-        specialSymbols[SpecialSymbols.lexError] = new_symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
-        specialSymbols[SpecialSymbols.parseError] = new_symbol("ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.start] = new Symbol(SpecialSymbols.start, "ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.end] = new Symbol(SpecialSymbols.end, "ddEND", SymbolType.token, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.lexError] = new Symbol(SpecialSymbols.lexError, "ddLEXERROR", SymbolType.token, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.parseError] = new Symbol(SpecialSymbols.parseError, "ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(new Set!Symbol, true);
         // ddLEXERROR looks like a token except that it's transparent
         specialSymbols[SpecialSymbols.lexError].firstsData = new FirstsData(new Set!Symbol(specialSymbols[SpecialSymbols.lexError]), true);
         for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
             assert(specialSymbols[i].id == i);
         }
-        assert(next_symbol_id == SpecialSymbols.max + 1);
     }
 
     this()
     {
-        foreach (symbol; specialSymbols) {
-            allSymbols[symbol.id] = symbol;
+        for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
+            assert(i == nextSymbolId);
+            allSymbols[i] = specialSymbols[i];
+            nextSymbolId++;
         }
+        assert(nextSymbolId == SpecialSymbols.max + 1);
     }
 
     TokenSymbol new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
