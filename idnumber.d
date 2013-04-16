@@ -8,7 +8,7 @@
 
 module idnumber;
 
-mixin template Id(T) {
+mixin template IdNumber(T) {
     const T id;
 
     override hash_t toHash()
@@ -28,7 +28,7 @@ mixin template Id(T) {
 }
 
 mixin template UniqueId(T) {
-    mixin Id!(T);
+    mixin IdNumber!(T);
     protected static T next_id;
 
     const string set_unique_id = "id = next_id++;";

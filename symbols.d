@@ -50,7 +50,7 @@ bool is_allowable_name(string name)
 // TODO: SymbolTable's symbols can be sequential from zero
 // TODO: Or maybe not -- only needed for bootstrapping ??
 class Symbol {
-    mixin UniqueId!(SymbolId);
+    mixin IdNumber!(SymbolId);
     SymbolType type;
     string name;
     Associativity associativity;
@@ -61,9 +61,9 @@ class Symbol {
     string pattern;
     FirstsData firstsData;
 
-    this(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
+    this(SymbolId id, string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
     {
-        mixin(set_unique_id);
+        this.id = id;
         name = sname;
         type = stype;
         if (type == SymbolType.token) {
@@ -114,6 +114,7 @@ struct FieldDefinition {
 import std.stdio;
 
 class SymbolTable {
+    private static SymbolId next_symbol_id;
     private static Symbol[SpecialSymbols.max + 1] specialSymbols;
     private TokenSymbol[string] tokens; // indexed by token name
     private TokenSymbol[string] literalTokens; // indexed by literal string
@@ -124,19 +125,24 @@ class SymbolTable {
     private string[] skipRuleList;
     private auto currentPrecedence = Precedence.max;
 
+    static Symbol new_symbol(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
+    {
+        return new Symbol(next_symbol_id++, sname, stype, location, isDefinition);
+    }
+
     static this()
     {
-        specialSymbols[SpecialSymbols.start] = new Symbol("ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
-        specialSymbols[SpecialSymbols.end] = new Symbol("ddEND", SymbolType.token, CharLocation(0, 0));
-        specialSymbols[SpecialSymbols.lexError] = new Symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
-        specialSymbols[SpecialSymbols.parseError] = new Symbol("ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.start] = new_symbol("ddSTART", SymbolType.nonTerminal, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.end] = new_symbol("ddEND", SymbolType.token, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.lexError] = new_symbol("ddLEXERROR", SymbolType.token, CharLocation(0, 0));
+        specialSymbols[SpecialSymbols.parseError] = new_symbol("ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(new Set!Symbol, true);
         // ddLEXERROR looks like a token except that it's transparent
         specialSymbols[SpecialSymbols.lexError].firstsData = new FirstsData(new Set!Symbol(specialSymbols[SpecialSymbols.lexError]), true);
         for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
             assert(specialSymbols[i].id == i);
         }
-        assert(Symbol.next_id == SpecialSymbols.max + 1);
+        assert(next_symbol_id == SpecialSymbols.max + 1);
     }
 
     this()
@@ -151,7 +157,7 @@ class SymbolTable {
         assert(!is_known_symbol(newTokenName));
     }
     body {
-        auto token = new TokenSymbol(newTokenName, SymbolType.token, location);
+        auto token = cast(TokenSymbol) new_symbol(newTokenName, SymbolType.token, location);
         token.pattern = pattern;
         token.fieldName = fieldName;
         tokens[newTokenName] = token;
@@ -167,7 +173,7 @@ class SymbolTable {
         assert(!is_known_symbol(newTagName));
     }
     body {
-        auto tag = new TagSymbol(newTagName, SymbolType.tag, location);
+        auto tag = cast(TagSymbol) new_symbol(newTagName, SymbolType.tag, location);
         tags[newTagName] = tag;
         allSymbols[tag.id] = tag;
         return tag;
@@ -235,7 +241,7 @@ class SymbolTable {
             symbol.usedAt ~= location;
         } else if (autoCreate) {
             // if it's referenced without being defined it's a non terminal
-            symbol = new NonTerminalSymbol(symbolName, SymbolType.nonTerminal, location, false);
+            symbol = cast(NonTerminalSymbol) new_symbol(symbolName, SymbolType.nonTerminal, location, false);
             nonTerminals[symbolName] = symbol;
             allSymbols[symbol.id] = symbol;
         }
@@ -335,7 +341,7 @@ class SymbolTable {
         if (symbol !is null) {
             symbol.definedAt = location;
         } else {
-            symbol = new NonTerminalSymbol(symbolName, SymbolType.nonTerminal, location, true);
+            symbol = cast(NonTerminalSymbol) new_symbol(symbolName, SymbolType.nonTerminal, location, true);
             nonTerminals[symbolName] = symbol;
             allSymbols[symbol.id] = symbol;
         }
