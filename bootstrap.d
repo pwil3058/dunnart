@@ -380,12 +380,11 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
     case 39: // production_group: production_group_head production_tail_list "."
 
             foreach (productionTail; ddArgs[2 - 1].productionTailList) {
-                auto prodn = new Production(ddArgs[1 - 1].symbol, productionTail.rightHandSide);
+                auto prodn = grammarSpecification.new_production(ddArgs[1 - 1].symbol, productionTail.rightHandSide);
                 prodn.predicate = productionTail.predicate;
                 prodn.action = productionTail.action;
                 prodn.associativity = productionTail.associatedPrecedence.associativity;
                 prodn.precedence = productionTail.associatedPrecedence.precedence;
-                grammarSpecification.add_production(prodn);
             }
         
         break;

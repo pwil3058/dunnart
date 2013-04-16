@@ -21,7 +21,7 @@ alias string Predicate;
 alias string SemanticAction;
 
 class Production {
-    mixin UniqueId!(ProductionId);
+    mixin IdNumber!(ProductionId);
     NonTerminalSymbol leftHandSide;
     Symbol[] rightHandSide;
     Associativity associativity;
@@ -29,9 +29,9 @@ class Production {
     Predicate predicate;
     SemanticAction action;
 
-    this(NonTerminalSymbol lhs, Symbol[] rhs)
+    this(ProductionId id, NonTerminalSymbol lhs, Symbol[] rhs)
     {
-        mixin(set_unique_id);
+        this.id = id;
         leftHandSide = lhs;
         rightHandSide = rhs;
         for (int i = cast(int) rhs.length - 1; i >= 0; i--) {
@@ -42,12 +42,6 @@ class Production {
                 break;
             }
         }
-    }
-
-    this(NonTerminalSymbol lhs, Symbol[] rhs, SemanticAction action)
-    {
-        this(lhs, rhs);
-        this.action = action;
     }
 
     @property
@@ -532,6 +526,7 @@ class ParserState {
 }
 
 class GrammarSpecification {
+    private ProductionId nextProductionId;
     SymbolTable symbolTable;
     Production[ProductionId] productionList;
     string headerCodeText;
@@ -545,11 +540,21 @@ class GrammarSpecification {
 
     this(SymbolTable symbolTable)
     {
-        auto dummyProd = new Production(symbolTable.get_symbol(SpecialSymbols.start), []);
-        assert(dummyProd.id == 0);
         // Set the right hand side when start symbol is known.
-        productionList[dummyProd.id] = dummyProd;
+        auto dummyProd = new_production(symbolTable.get_symbol(SpecialSymbols.start), []);
+        assert(dummyProd.id == 0);
         this.symbolTable = symbolTable;
+    }
+
+    Production new_production(NonTerminalSymbol lhs, Symbol[] rhs)
+    {
+        auto newProdn = new Production(nextProductionId++, lhs, rhs);
+        productionList[newProdn.id] = newProdn;
+        if (newProdn.id == 1) {
+            productionList[0].rightHandSide = [newProdn.leftHandSide];
+            newProdn.leftHandSide.usedAt ~= newProdn.leftHandSide.definedAt;
+        }
+        return newProdn;
     }
 
     void set_header(string header)
@@ -565,15 +570,6 @@ class GrammarSpecification {
     void set_coda(string coda)
     {
         codaCodeText = coda;
-    }
-
-    void add_production(Production newProdn)
-    {
-        if (newProdn.id == 1) {
-            productionList[0].rightHandSide = [newProdn.leftHandSide];
-            newProdn.leftHandSide.usedAt ~= newProdn.leftHandSide.definedAt;
-        }
-        productionList[newProdn.id] = newProdn;
     }
 
     Set!TokenSymbol FIRST(Symbol[] symbolString, TokenSymbol token)
@@ -688,7 +684,7 @@ string quote_raw(string str)
 }
 
 class Grammar {
-    private static ParserStateId next_parser_state_id;
+    private ParserStateId next_parser_state_id;
     GrammarSpecification spec;
     ParserState[ParserStateId] parserStates;
     Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;

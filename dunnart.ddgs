@@ -318,14 +318,13 @@ production_rules: production_group
 production_group: production_group_head production_tail_list "."
         !{
             foreach (productionTail; $2.productionTailList) {
-                auto prodn = new Production($1.symbol, productionTail.rightHandSide);
+                auto prodn = grammarSpecification.new_production($1.symbol, productionTail.rightHandSide);
                 prodn.predicate = productionTail.predicate;
                 prodn.action = productionTail.action;
                 if (productionTail.associatedPrecedence !is null) {
                     prodn.associativity = productionTail.associatedPrecedence.associativity;
                     prodn.precedence = productionTail.associatedPrecedence.precedence;
                 }
-                grammarSpecification.add_production(prodn);
             }
         !}
     .
