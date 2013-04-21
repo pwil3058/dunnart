@@ -306,10 +306,8 @@ class ParserState {
                     shiftList.remove(shiftSymbol);
                 } else if (shiftSymbol.precedence > reducibleItem.production.precedence) {
                     grammarItems[reducibleItem].remove(shiftSymbol);
-                } else if (shiftSymbol.associativity == Associativity.left) {
+                } else if (reducibleItem.production.associativity == Associativity.left) {
                     shiftList.remove(shiftSymbol);
-                } else if (shiftSymbol.associativity == Associativity.right) {
-                    grammarItems[reducibleItem].remove(shiftSymbol);
                 } else if (reducibleItem.production.has_error_recovery_tail) {
                     grammarItems[reducibleItem].remove(shiftSymbol);
                 } else {
