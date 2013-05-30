@@ -277,11 +277,11 @@ mixin template DDImplementParser() {
 
         void get_next_token()
         {
-            auto mr = lexicalAnalyser.advance();
-            if (mr is null) {
+            if (lexicalAnalyser.empty) {
                 currentToken = DDToken.ddEND;
                 return;
             }
+            auto mr = lexicalAnalyser.front;
             currentTokenAttributes.ddLocation = mr.location;
             currentTokenAttributes.ddMatchedText = mr.matchedText;
             if (mr.is_valid_token) {
@@ -290,6 +290,7 @@ mixin template DDImplementParser() {
             } else {
                 currentToken = DDToken.ddLEXERROR;
             }
+            lexicalAnalyser.popFront();
         }
     }
 }

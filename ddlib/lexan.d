@@ -208,16 +208,16 @@ class MatchResult {
     }
 }
 
-// TODO: add a mechanism for enabling/disabling TokenSpecs at runtime
 class LexicalAnalyser {
     private LiteralMatcher literalMatcher;
-    private TokenSpec[] bracketedTokenSpecs;
     private TokenSpec[string] literalTokenSpecs;
     private TokenSpec[] regexTokenSpecs;
+    private Regex!(char)[] skipReList;
+
     private string inputText;
     private size_t index;
     private CharLocationData charLocationData;
-    private Regex!(char)[] skipReList;
+    private MatchResult currentMatch;
 
     this(TokenSpec[] tokenSpecs, string[] skipPatterns = [])
     {
@@ -241,14 +241,18 @@ class LexicalAnalyser {
         assert(recnt == regexTokenSpecs.length);
     }
 
-    void set_input_text(string text, string label="")
-    {
+    void set_input_text(string text, string label="", bool force=false)
+    in {
+        assert(currentMatch is null || force);
+    }
+    body {
         inputText = text;
         index = 0;
         charLocationData = new CharLocationData(text, label);
+        currentMatch = advance();
     }
 
-    MatchResult advance()
+    private MatchResult advance()
     {
         mainloop: while (index < inputText.length) {
             // skips have highest priority
@@ -292,6 +296,23 @@ class LexicalAnalyser {
 
         return null;
     }
+
+    @property
+    bool empty()
+    {
+        return currentMatch is null;
+    }
+
+    @property
+    MatchResult front()
+    {
+        return currentMatch;
+    }
+
+    void popFront()
+    {
+        currentMatch = advance();
+    }
 }
 
 unittest {
@@ -312,29 +333,29 @@ unittest {
     ];
     auto la = new LexicalAnalyser(tslist, skiplist);
     la.set_input_text("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
-    MatchResult m = la.advance();
+    MatchResult m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IF" && m.matchedText == "if" && m.location.lineNumber == 1);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "iffy" && m.location.lineNumber == 1);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"quoted\"" && m.location.lineNumber == 2);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"if\"" && m.location.lineNumber == 2);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec is null && m.matchedText == "9" && m.location.lineNumber == 3);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec is null && m.matchedText == "$" && m.location.lineNumber == 3);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "name" && m.location.lineNumber == 3);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "BTEXTL" && m.matchedText == "&{ one \n two &}" && m.location.lineNumber == 3);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "and" && m.location.lineNumber == 4);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "so" && m.location.lineNumber == 4);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "PRED" && m.matchedText == "?{on?}" && m.location.lineNumber == 4);
-    assert(la.advance() is null);
+    assert(la.empty);
     la.set_input_text("
     some identifiers
 // a single line comment with \"quote\"
@@ -351,24 +372,24 @@ and some included code %{
     hl;ll
 %}
 ");
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "some" && m.location.lineNumber == 2);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IDENT" && m.matchedText == "identifiers" && m.location.lineNumber == 2);
-    m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
+    m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
     assert(m.tokenSpec is null);
-    m = la.advance();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"+=\"" && m.location.lineNumber == 9);
-    m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
-    m = la.advance();
+    m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"\"\"" && m.location.lineNumber == 10);
-    m = la.advance(); m = la.advance(); m = la.advance();
-    m = la.advance();
+    m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "ACTION" && m.matchedText == "!{ some D code !}" && m.location.lineNumber == 11);
-    m = la.advance(); m = la.advance(); m = la.advance();
-    m = la.advance();
+    m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "PREDICATE" && m.matchedText == "?( a boolean expression ?)" && m.location.lineNumber == 11);
-    m = la.advance(); m = la.advance(); m = la.advance(); m = la.advance();
-    m = la.advance();
+    m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
+    m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "CODE" && m.matchedText == "%{\n    kllkkkl\n    hl;ll\n%}" && m.location.lineNumber == 12);
 }
