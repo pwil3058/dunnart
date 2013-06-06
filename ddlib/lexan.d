@@ -85,16 +85,16 @@ public:
         }
     }
 
-    string get_longest_match(string target, size_t offset=0)
+    string get_longest_match(string target)
     {
-        auto lvm = offset;
+        auto lvm = 0;
         auto lits = literals;
-        for (auto index = offset; index < target.length && target[index] in lits; index++) {
+        for (auto index = 0; index < target.length && target[index] in lits; index++) {
             if (lits[target[index]].validMatch)
                 lvm = index + 1;
             lits = lits[target[index]].tails;
         }
-        return target[offset .. lvm];
+        return target[0 .. lvm];
     }
 }
 
@@ -104,8 +104,8 @@ unittest {
     auto rubbish = "rubbish";
     foreach(test_string; test_strings) {
         assert(lm.get_longest_match(rubbish ~ test_string) == "");
-        assert(lm.get_longest_match(rubbish ~ test_string, rubbish.length) == "");
-        assert(lm.get_longest_match(rubbish ~ test_string ~ rubbish, rubbish.length) == "");
+        assert(lm.get_longest_match((rubbish ~ test_string)[rubbish.length .. $]) == "");
+        assert(lm.get_longest_match((rubbish ~ test_string ~ rubbish)[rubbish.length .. $]) == "");
         assert(lm.get_longest_match(test_string ~ rubbish) == "");
     }
     foreach(test_string; test_strings) {
@@ -116,8 +116,8 @@ unittest {
     }
     foreach(test_string; test_strings ~ []) {
         assert(lm.get_longest_match(rubbish ~ test_string) == "");
-        assert(lm.get_longest_match(rubbish ~ test_string, rubbish.length) == test_string);
-        assert(lm.get_longest_match(rubbish ~ test_string ~ rubbish, rubbish.length) == test_string);
+        assert(lm.get_longest_match((rubbish ~ test_string)[rubbish.length .. $]) == test_string);
+        assert(lm.get_longest_match((rubbish ~ test_string ~ rubbish)[rubbish.length .. $]) == test_string);
         assert(lm.get_longest_match(test_string ~ rubbish) == test_string);
     }
 }
@@ -268,7 +268,7 @@ class LexicalAnalyser {
             auto location = charLocationData.get_char_location(index);
 
             // Find longest match found by literal match or regex
-            auto llm = literalMatcher.get_longest_match(inputText, index);
+            auto llm = literalMatcher.get_longest_match(inputText[index .. $]);
 
             auto lrem = "";
             TokenSpec lremts;
