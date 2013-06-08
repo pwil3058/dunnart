@@ -199,7 +199,7 @@ alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
 
 Set!GrammarItemKey get_kernel_keys(GrammarItemSet itemset)
 {
-    auto keySet = new Set!GrammarItemKey;
+    auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey; itemset.byKey()) {
         if (grammarItemKey.is_kernel_item) {
             keySet.add(grammarItemKey);
@@ -210,7 +210,7 @@ Set!GrammarItemKey get_kernel_keys(GrammarItemSet itemset)
 
 Set!GrammarItemKey get_closable_keys(GrammarItemSet itemset)
 {
-    auto keySet = new Set!GrammarItemKey;
+    auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey; itemset.byKey()) {
         if (grammarItemKey.is_shiftable && grammarItemKey.nextSymbol.type == SymbolType.nonTerminal) {
             keySet.add(grammarItemKey);
@@ -221,7 +221,7 @@ Set!GrammarItemKey get_closable_keys(GrammarItemSet itemset)
 
 Set!GrammarItemKey get_reducible_keys(GrammarItemSet itemset)
 {
-    auto keySet = new Set!GrammarItemKey;
+    auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey, lookAheadSet; itemset) {
         if (!grammarItemKey.is_shiftable) {
             keySet.add(grammarItemKey);
@@ -377,13 +377,13 @@ class ParserState {
         } else {
             struct Pair { Set!TokenSymbol lookAheadSet; Set!GrammarItemKey productionSet; };
             Pair[] pairs;
-            auto combinedLookAhead = new Set!TokenSymbol;
+            auto combinedLookAhead = Set!TokenSymbol();
             foreach (itemKey; itemKeys.elements) {
                 combinedLookAhead.add(grammarItems[itemKey]);
             }
             expectedTokensList = token_list_string(set_union(shiftTokenSet, combinedLookAhead).elements);
             foreach (token; combinedLookAhead.elements) {
-                auto productionSet = new Set!GrammarItemKey;
+                auto productionSet = Set!GrammarItemKey();
                 foreach (itemKey; itemKeys.elements) {
                     if (grammarItems[itemKey].contains(token)) {
                         productionSet.add(itemKey);
@@ -396,7 +396,7 @@ class ParserState {
                 if (i < pairs.length) {
                     pairs[i].lookAheadSet.add(token);
                 } else {
-                    pairs ~= Pair(new Set!TokenSymbol(token), productionSet);
+                    pairs ~= Pair(Set!TokenSymbol(token), productionSet);
                 }
             }
             foreach (pair; pairs) {
@@ -571,7 +571,7 @@ class GrammarSpecification {
 
     Set!TokenSymbol FIRST(Symbol[] symbolString, TokenSymbol token)
     {
-        auto tokenSet = new Set!TokenSymbol;
+        auto tokenSet = Set!TokenSymbol();
         foreach (symbol; symbolString) {
             auto firstsData = get_firsts_data(symbol);
             tokenSet.add(firstsData.tokenset);
@@ -586,7 +586,7 @@ class GrammarSpecification {
     FirstsData get_firsts_data(ref Symbol symbol)
     {
         if (symbol.firstsData is null ) {
-            auto tokenSet = new Set!TokenSymbol;
+            auto tokenSet = Set!TokenSymbol();
             auto transparent = false;
             if (symbol.type == SymbolType.token) {
                 tokenSet.add(symbol);
@@ -706,7 +706,7 @@ class Grammar {
     {
         spec = specification;
         auto startItemKey = new GrammarItemKey(spec.productionList[0]);
-        auto startLookAheadSet = new Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
+        auto startLookAheadSet = Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
         GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
         auto startState = new_parser_state(startKernel);
         assert(parserStates[0].id == 0);
@@ -724,7 +724,7 @@ class Grammar {
 
             auto firstTime = unprocessedState.state == ProcessedState.unProcessed;
             unprocessedState.state = ProcessedState.processed;
-            auto alreadyDone = new Set!Symbol;
+            auto alreadyDone = Set!Symbol();
             // do items in order
             foreach (itemKey; unprocessedState.grammarItems.keys.sort){
                 if (!itemKey.is_shiftable) continue;
@@ -861,7 +861,7 @@ class Grammar {
         foreach(token; spec.symbolTable.get_tokens_ordered()) {
             if (token.fieldName.length > 0) {
                 if (token.fieldName !in tokenSets) {
-                    tokenSets[token.fieldName] = new Set!TokenSymbol(token);
+                    tokenSets[token.fieldName] = Set!TokenSymbol(token);
                 } else {
                     tokenSets[token.fieldName].add(token);
                 }
@@ -987,7 +987,7 @@ class Grammar {
         for (auto i = 0; i < parserStates.length; i++) {
             auto parserState = parserStates[i];
             if (parserState.errorRecoveryState is null) continue;
-            auto errorRecoverySet = new Set!TokenSymbol;
+            auto errorRecoverySet = Set!TokenSymbol();
             foreach (itemKey, lookAheadSet; parserState.errorRecoveryState.grammarItems) {
                 if (itemKey.dot > 0 && itemKey.production.rightHandSide[itemKey.dot - 1].id == SpecialSymbols.parseError) {
                     errorRecoverySet.add(lookAheadSet);

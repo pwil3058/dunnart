@@ -66,7 +66,7 @@ class Symbol {
         type = stype;
         if (type == SymbolType.token) {
             // FIRST() for a token is trivial
-            firstsData = new FirstsData(new Set!TokenSymbol(this), false);
+            firstsData = new FirstsData(Set!TokenSymbol(this), false);
         } else {
             firstsData = null;
         }
@@ -134,9 +134,9 @@ class SymbolTable {
         specialSymbols[SpecialSymbols.end] = new Symbol(SpecialSymbols.end, "ddEND", SymbolType.token, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.lexError] = new Symbol(SpecialSymbols.lexError, "ddLEXERROR", SymbolType.token, CharLocation(0, 0));
         specialSymbols[SpecialSymbols.parseError] = new Symbol(SpecialSymbols.parseError, "ddERROR", SymbolType.nonTerminal, CharLocation(0, 0));
-        specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(new Set!Symbol, true);
+        specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(Set!Symbol(), true);
         // ddLEXERROR looks like a token except that it's transparent
-        specialSymbols[SpecialSymbols.lexError].firstsData = new FirstsData(new Set!Symbol(specialSymbols[SpecialSymbols.lexError]), true);
+        specialSymbols[SpecialSymbols.lexError].firstsData = new FirstsData(Set!Symbol(specialSymbols[SpecialSymbols.lexError]), true);
         for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
             assert(specialSymbols[i].id == i);
         }

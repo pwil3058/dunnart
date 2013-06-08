@@ -9,8 +9,9 @@
 module sets;
 
 import std.string;
+import std.algorithm;
 
-class Set(T) {
+struct Set(T) {
     protected T[] _elements;
     invariant () {
         static if (is(T == class)) {
@@ -38,9 +39,9 @@ class Set(T) {
         return _elements.dup;
     }
 
-    Set!T clone()
+    Set clone()
     {
-        auto cloneSet = new Set!T;
+        auto cloneSet = Set();
         cloneSet._elements = _elements.dup;
         return cloneSet;
     }
@@ -153,15 +154,12 @@ class Set(T) {
         return false;
     }
 
-    override bool opEquals(Object object)
-    in {
-        assert(typeof(object) == typeof(this));
-    }
-    body {
-        return _elements == (cast(typeof(this)) object)._elements;
+    bool opEquals(Set otherSet)
+    {
+        return _elements == otherSet._elements;
     }
 
-    override string toString()
+    string toString()
     {
         if (_elements.length == 0) return "Set{}";
         auto str = format("Set{%s", _elements[0]);
@@ -169,7 +167,7 @@ class Set(T) {
             str ~= format(", %s", element);
         }
         str ~= "}";
-        return str; 
+        return str;
     }
 }
 
@@ -196,18 +194,18 @@ Set!T set_intersection(T)(Set!T a, Set!T b)
             b_i++;
         }
     }
-    auto intersection_a_b = new Set!T;
+    auto intersection_a_b = Set!T();
     intersection_a_b._elements = elements[0 .. e_i].dup;
     return intersection_a_b;
 }
 
 unittest {
     // TODO: write a more thorough Sets unittest
-    auto iset = new Set!int;
+    auto iset = Set!int();
     iset.add(1, 4, 2, 4, 2);
     assert(iset.cardinality == 3);
     assert(iset.elements == [1, 2, 4]);
-    auto xset = new Set!int(4, 2, 1, 4, 2);
+    auto xset = Set!int(4, 2, 1, 4, 2);
     assert(xset.cardinality == 3);
     assert(xset == iset);
     assert(set_union(iset, xset).cardinality == 3);
@@ -237,7 +235,7 @@ unittest {
         }
     }
     Dummy[] dlist = [new Dummy(1), new Dummy(4), new Dummy(2), new Dummy(3)];
-    auto dummyset = new Set!Dummy(dlist);
+    auto dummyset = Set!Dummy(dlist);
 }
 
 // TODO: fix this so const can be used for parameters when T not a class
@@ -305,7 +303,7 @@ unittest {
 
 Set!T extract_key_set(T, G)(G[T] assocArray)
 {
-    return new Set!T(assocArray.keys);
+    return Set!T(assocArray.keys);
 }
 
 unittest {
