@@ -632,9 +632,9 @@ class GrammarSpecification {
         return symbol.firstsData;
     }
 
-    GrammarItemSet closure(GrammarItemSet itemSet)
+    GrammarItemSet closure(GrammarItemSet closureSet)
     {
-        auto closureSet = itemSet.dup;
+        // NB: if called with an lValue arg that lValue will also be modified
         bool additions_made;
         do {
             additions_made = false;
@@ -652,6 +652,7 @@ class GrammarSpecification {
                             closureSet[prospectiveKey] |= firsts;
                             additions_made = additions_made || closureSet[prospectiveKey].cardinality > cardinality;
                         } else {
+                            // NB: need clone to ensure each GrammarItems don't share look ahead sets
                             closureSet[prospectiveKey] = firsts.clone();
                             additions_made = true;
                         }
