@@ -202,7 +202,7 @@ Set!GrammarItemKey get_kernel_keys(GrammarItemSet itemset)
     auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey; itemset.byKey()) {
         if (grammarItemKey.is_kernel_item) {
-            keySet.add(grammarItemKey);
+            keySet += grammarItemKey;
         }
     }
     return keySet;
@@ -213,7 +213,7 @@ Set!GrammarItemKey get_closable_keys(GrammarItemSet itemset)
     auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey; itemset.byKey()) {
         if (grammarItemKey.is_shiftable && grammarItemKey.nextSymbol.type == SymbolType.nonTerminal) {
-            keySet.add(grammarItemKey);
+            keySet += grammarItemKey;
         }
     }
     return keySet;
@@ -224,7 +224,7 @@ Set!GrammarItemKey get_reducible_keys(GrammarItemSet itemset)
     auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey, lookAheadSet; itemset) {
         if (!grammarItemKey.is_shiftable) {
-            keySet.add(grammarItemKey);
+            keySet += grammarItemKey;
         }
     }
     return keySet;
@@ -333,18 +333,18 @@ class ParserState {
             auto key1 = keys[i];
             foreach (key2; keys[i + 1 .. $]) {
                 assert(key1.production.id < key2.production.id);
-                auto intersection = set_intersection(grammarItems[key1], grammarItems[key2]);
+                auto intersection = (grammarItems[key1] & grammarItems[key2]);
                 if (intersection.cardinality > 0 && trivially_true(key1.production.predicate)) {
                     if (key1.production.has_error_recovery_tail) {
-                        grammarItems[key1].remove(intersection);
+                        grammarItems[key1] -= intersection;
                     } else if (key2.production.has_error_recovery_tail) {
-                        grammarItems[key2].remove(intersection);
+                        grammarItems[key2] -= intersection;
                     } else {
                         // Default: resolve in favour of first declared
                         // production but mark as unresolved giving the
                         // user the option of accepting the resolution
                         // or not (down the track)
-                        grammarItems[key2].remove(intersection);
+                        grammarItems[key2] -= intersection;
                         reduceReduceConflicts ~= ReduceReduceConflict([key1, key2], intersection);
                     }
                 }
@@ -357,7 +357,7 @@ class ParserState {
     {
         auto lookAheadSet = extract_key_set(shiftList);
         foreach (key; get_reducible_keys(grammarItems).elements) {
-            lookAheadSet.add(grammarItems[key]);
+            lookAheadSet |= grammarItems[key];
         }
         return lookAheadSet;
     }
@@ -379,14 +379,14 @@ class ParserState {
             Pair[] pairs;
             auto combinedLookAhead = Set!TokenSymbol();
             foreach (itemKey; itemKeys.elements) {
-                combinedLookAhead.add(grammarItems[itemKey]);
+                combinedLookAhead |= grammarItems[itemKey];
             }
-            expectedTokensList = token_list_string(set_union(shiftTokenSet, combinedLookAhead).elements);
+            expectedTokensList = token_list_string((shiftTokenSet | combinedLookAhead).elements);
             foreach (token; combinedLookAhead.elements) {
                 auto productionSet = Set!GrammarItemKey();
                 foreach (itemKey; itemKeys.elements) {
                     if (grammarItems[itemKey].contains(token)) {
-                        productionSet.add(itemKey);
+                        productionSet += itemKey;
                     }
                 }
                 auto i = 0;
@@ -394,7 +394,7 @@ class ParserState {
                     if (pairs[i].productionSet == productionSet) break;
                 }
                 if (i < pairs.length) {
-                    pairs[i].lookAheadSet.add(token);
+                    pairs[i].lookAheadSet += token;
                 } else {
                     pairs ~= Pair(Set!TokenSymbol(token), productionSet);
                 }
@@ -574,12 +574,12 @@ class GrammarSpecification {
         auto tokenSet = Set!TokenSymbol();
         foreach (symbol; symbolString) {
             auto firstsData = get_firsts_data(symbol);
-            tokenSet.add(firstsData.tokenset);
+            tokenSet |= firstsData.tokenset;
             if (!firstsData.transparent) {
                 return tokenSet;
             }
         }
-        tokenSet.add(token);
+        tokenSet += token;
         return tokenSet;
     }
 
@@ -589,7 +589,7 @@ class GrammarSpecification {
             auto tokenSet = Set!TokenSymbol();
             auto transparent = false;
             if (symbol.type == SymbolType.token) {
-                tokenSet.add(symbol);
+                tokenSet += symbol;
             } else if (symbol.type == SymbolType.nonTerminal) {
                 // We need to establish transparency first
                 Production[] relevantProductions;
@@ -614,7 +614,7 @@ class GrammarSpecification {
                                 }
                             }
                             auto firstsData = get_firsts_data(rhsSymbol);
-                            tokenSet.add(firstsData.tokenset);
+                            tokenSet |= firstsData.tokenset;
                             if (!firstsData.transparent) {
                                 transparentProduction = false;
                                 break;
@@ -649,7 +649,7 @@ class GrammarSpecification {
                         auto prospectiveKey = new GrammarItemKey(production);
                         if (prospectiveKey in closureSet) {
                             auto cardinality = closureSet[prospectiveKey].cardinality;
-                            closureSet[prospectiveKey].add(firsts);
+                            closureSet[prospectiveKey] |= firsts;
                             additions_made = additions_made || closureSet[prospectiveKey].cardinality > cardinality;
                         } else {
                             closureSet[prospectiveKey] = firsts.clone();
@@ -731,15 +731,15 @@ class Grammar {
                 ParserState gotoState;
                 auto symbolX = itemKey.nextSymbol;
                 if (alreadyDone.contains(symbolX)) continue;
-                alreadyDone.add(symbolX);
+                alreadyDone += symbolX;
                 auto itemSetX = spec.closure(generate_goto_kernel(unprocessedState.grammarItems, symbolX));
                 auto equivalentState = find_equivalent_state(itemSetX);
                 if (equivalentState is null) {
                     gotoState = new_parser_state(itemSetX);
                 } else {
                     foreach (itemKey, lookAheadSet; itemSetX) {
-                        if (!equivalentState.grammarItems[itemKey].contains(lookAheadSet)) {
-                            equivalentState.grammarItems[itemKey].add(lookAheadSet);
+                        if (!equivalentState.grammarItems[itemKey].is_superset_of(lookAheadSet)) {
+                            equivalentState.grammarItems[itemKey] |= lookAheadSet;
                             if (equivalentState.state == ProcessedState.processed) {
                                 equivalentState.state = ProcessedState.needsReprocessing;
                             }
@@ -863,7 +863,7 @@ class Grammar {
                 if (token.fieldName !in tokenSets) {
                     tokenSets[token.fieldName] = Set!TokenSymbol(token);
                 } else {
-                    tokenSets[token.fieldName].add(token);
+                    tokenSets[token.fieldName] += token;
                 }
             }
         }
@@ -990,7 +990,7 @@ class Grammar {
             auto errorRecoverySet = Set!TokenSymbol();
             foreach (itemKey, lookAheadSet; parserState.errorRecoveryState.grammarItems) {
                 if (itemKey.dot > 0 && itemKey.production.rightHandSide[itemKey.dot - 1].id == SpecialSymbols.parseError) {
-                    errorRecoverySet.add(lookAheadSet);
+                    errorRecoverySet |= lookAheadSet;
                 }
             }
             if (errorRecoverySet.cardinality > 0) {
