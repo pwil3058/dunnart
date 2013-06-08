@@ -263,7 +263,7 @@ bool trivially_true(Predicate predicate)
 string token_list_string(TokenSymbol[] tokens)
 {
     if (tokens.length == 0) return "";
-    auto str = tokens[0].name;
+    string str = tokens[0].name;
     foreach (token; tokens[1 .. $]) {
         str ~= format(", %s", token.name);
     }

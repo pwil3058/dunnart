@@ -49,8 +49,8 @@ bool is_allowable_name(string name)
 
 class Symbol {
     mixin IdNumber!(SymbolId);
-    SymbolType type;
-    string name;
+    const SymbolType type;
+    const string name;
     Associativity associativity;
     Precedence precedence;
     CharLocation definedAt;
