@@ -13,6 +13,7 @@ import std.regex;
 
 import sets;
 import idnumber;
+import workarounds;
 
 import ddlib.lexan;
 
@@ -370,37 +371,70 @@ class SymbolTable {
     }
 
     TokenSymbol[] get_tokens_ordered()
-    {
-        auto tokenset = new Set!TokenSymbol(tokens.values);
-        return tokenset.elements;
+    out (result) {
+        mixin WorkAroundClassLimitations!TokenSymbol;
+        for (auto i = 0; i < result.length; i++) {
+            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            assert(result[i].type == SymbolType.token);
+        }
+        assert(result.length == tokens.length);
+    }
+    body {
+        return tokens.values.sort;
     }
 
     TokenSymbol[] get_special_tokens_ordered()
-    {
-        auto tokenset = new Set!TokenSymbol;
+    out (result) {
+        mixin WorkAroundClassLimitations!TokenSymbol;
+        for (auto i = 0; i < result.length; i++) {
+            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            assert(result[i].type == SymbolType.token);
+            assert(result[i].id >= SpecialSymbols.min);
+            assert(result[i].id <= SpecialSymbols.max);
+        }
+    }
+    body {
+        // specialSymbols is ordered so just pick the tokens
+        TokenSymbol[] special_tokens_ordered;
         foreach (symbol; specialSymbols) {
             if (symbol.type == SymbolType.token) {
-                tokenset.add(symbol);
+                special_tokens_ordered ~= symbol;
             }
         }
-        return tokenset.elements;
+        return special_tokens_ordered;
     }
 
     NonTerminalSymbol[] get_non_terminals_ordered()
-    {
-        auto symbolset = new Set!NonTerminalSymbol(nonTerminals.values);
-        return symbolset.elements;
+    out (result) {
+        mixin WorkAroundClassLimitations!TokenSymbol;
+        for (auto i = 0; i < result.length; i++) {
+            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            assert(result[i].type == SymbolType.nonTerminal);
+        }
+        assert(result.length == nonTerminals.length);
+    }
+    body {
+        return nonTerminals.values.sort;
     }
 
     NonTerminalSymbol[] get_special_non_terminals_ordered()
-    {
-        auto symbolset = new Set!NonTerminalSymbol;
+    out (result) {
+        mixin WorkAroundClassLimitations!TokenSymbol;
+        for (auto i = 0; i < result.length; i++) {
+            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            assert(result[i].type == SymbolType.nonTerminal);
+            assert(result[i].id >= SpecialSymbols.min);
+            assert(result[i].id <= SpecialSymbols.max);
+        }
+    }
+    body {
+        NonTerminalSymbol[] special_non_terminals;
         foreach (symbol; specialSymbols) {
             if (symbol.type == SymbolType.nonTerminal) {
-                symbolset.add(symbol);
+                special_non_terminals ~= symbol;
             }
         }
-        return symbolset.elements;
+        return special_non_terminals;
     }
 
     CharLocation get_field_defined_at(string fieldName)
@@ -424,7 +458,7 @@ class SymbolTable {
         if (fieldDefinitions.length == 0) {
             textLines ~= "  <none>";
         } else {
-            foreach (key; extract_key_set(fieldDefinitions).elements) {
+            foreach (key; fieldDefinitions.keys.sort) {
                 with (fieldDefinitions[key]) {
                     if (conversionFunctionName.length == 0) {
                         textLines ~= format("  %s: %s: %s to!(%s)(string str)", fieldName, fieldType, fieldType, fieldType);
@@ -450,7 +484,7 @@ class SymbolTable {
         if (tags.length == 0) {
             textLines ~= "  <none>";
         } else {
-            foreach (tagKey; extract_key_set(tags).elements) {
+            foreach (tagKey; tags.keys.sort) {
                 with (tags[tagKey]) {
                     textLines ~= format("  %s: %s: %s: %s", id, name, associativity, precedence);
                     textLines ~= format("    Defined At: %s", definedAt);

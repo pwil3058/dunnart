@@ -327,7 +327,7 @@ class ParserState {
         reduceReduceConflicts = [];
         auto reducibleKeySet = get_reducible_keys(grammarItems);
         if (reducibleKeySet.cardinality < 2) return 0;
-        
+
         auto keys = reducibleKeySet.elements;
         for (auto i = 0; i < keys.length - 1; i++) {
             auto key1 = keys[i];
@@ -450,8 +450,7 @@ class ParserState {
     string[] generate_goto_code_text()
     {
         string[] codeTextLines = ["switch (ddNonTerminal) {"];
-        auto gotoSymbolSet = extract_key_set(gotoTable);
-        foreach (symbol; gotoSymbolSet.elements) {
+        foreach (symbol; gotoTable.keys.sort) {
             codeTextLines ~= format("case %s: return %s;", symbol.name, gotoTable[symbol].id);
         }
         codeTextLines ~= "default:";
@@ -463,7 +462,7 @@ class ParserState {
     string get_description()
     {
         auto str = format("State<%s>:\n  Grammar Items:\n", id);
-        foreach (itemKey; extract_key_set(grammarItems).elements) {
+        foreach (itemKey; grammarItems.keys.sort) {
             str ~= format("    %s: %s\n", itemKey, grammarItems[itemKey]);
         }
         auto lookAheadSet = get_look_ahead_set();
@@ -488,7 +487,7 @@ class ParserState {
         if (gotoTable.length == 0) {
             str ~= "    <empty>\n";
         } else {
-            foreach (nonTerminal; extract_key_set(gotoTable).elements) {
+            foreach (nonTerminal; gotoTable.keys.sort) {
                 str ~= format("    %s -> %s\n", nonTerminal, gotoTable[nonTerminal]);
             }
         }
@@ -686,7 +685,7 @@ class Grammar {
     GrammarSpecification spec;
     ParserState[ParserStateId] parserStates;
     Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;
-    ParserStateId[] emptyLookAheadSets; 
+    ParserStateId[] emptyLookAheadSets;
     size_t unresolvedSRConflicts;
     size_t unresolvedRRConflicts;
 
@@ -727,8 +726,7 @@ class Grammar {
             unprocessedState.state = ProcessedState.processed;
             auto alreadyDone = new Set!Symbol;
             // do items in order
-            auto itemKeys = extract_key_set(unprocessedState.grammarItems);
-            foreach (itemKey; itemKeys.elements){
+            foreach (itemKey; unprocessedState.grammarItems.keys.sort){
                 if (!itemKey.is_shiftable) continue;
                 ParserState gotoState;
                 auto symbolX = itemKey.nextSymbol;
@@ -761,7 +759,7 @@ class Grammar {
                     }
                 }
             }
-            
+
         }
         for (auto i = 0; i < parserStates.length; i++) {
             auto parserState = parserStates[i];
@@ -961,9 +959,8 @@ class Grammar {
         codeTextLines ~= "{";
         codeTextLines ~= "    with (DDNonTerminal) switch(ddCurrentState) {";
         // Do this in state id order
-        auto keySet = extract_key_set(parserStates);
         auto indent = "        ";
-        foreach (key; keySet.elements) {
+        foreach (key; parserStates.keys.sort) {
             auto parserState = parserStates[key];
             if (parserState.gotoTable.length == 0) continue;
             codeTextLines ~= format("    case %s:", parserState.id);

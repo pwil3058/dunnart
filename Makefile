@@ -1,4 +1,4 @@
-MSRCS = grammar.d sets.d symbols.d ddlib/lexan.d ddlib/templates.d cli.d errors.d
+MSRCS = grammar.d sets.d symbols.d ddlib/lexan.d ddlib/templates.d cli.d errors.d workarounds.d
 
 ddpg: ddpg.d dunnart.d $(MSRCS) Makefile
 	dmd ddpg.d dunnart.d $(MSRCS)
