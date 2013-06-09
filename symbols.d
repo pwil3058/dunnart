@@ -122,9 +122,33 @@ class SymbolTable {
     private string[] skipRuleList;
     private auto currentPrecedence = Precedence.max;
 
-    Symbol new_symbol(string sname, SymbolType stype, CharLocation location, bool isDefinition=true)
-    {
-        return new Symbol(nextSymbolId++, sname, stype, location, isDefinition);
+    invariant () {
+        import std.stdio;
+        for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
+            assert(specialSymbols[i].id == i);
+        }
+        assert(nextSymbolId == (SpecialSymbols.max + tokens.length + tags.length + nonTerminals.length + 1));
+        foreach (literal; literalTokens.keys) {
+            auto literalToken = literalTokens[literal];
+            assert(literalToken.pattern == literal);
+            assert(tokens[literalToken.name] is literalToken);
+        }
+        foreach (key; tokens.byKey()) {
+            auto token = tokens[key];
+            assert(token.name == key && token.type == SymbolType.token);
+            assert(token.pattern[0] == '"' ? literalTokens[token.pattern] is token : token.pattern !in literalTokens);
+            assert(token.id > SpecialSymbols.max && token.id < nextSymbolId);
+        }
+        foreach (key; tags.byKey()) {
+            auto tag = tags[key];
+            assert(tag.name == key && tag.type == SymbolType.tag);
+            assert(tag.id > SpecialSymbols.max && tag.id < nextSymbolId);
+        }
+        foreach (key; nonTerminals.byKey()) {
+            auto nonTerminal = nonTerminals[key];
+            assert(nonTerminal.name == key && nonTerminal.type == SymbolType.nonTerminal);
+            assert(nonTerminal.id > SpecialSymbols.max && nonTerminal.id < nextSymbolId);
+        }
     }
 
     static this()
@@ -136,18 +160,11 @@ class SymbolTable {
         specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(Set!Symbol(), true);
         // ddLEXERROR looks like a token except that it's transparent
         specialSymbols[SpecialSymbols.lexError].firstsData = new FirstsData(Set!Symbol(specialSymbols[SpecialSymbols.lexError]), true);
-        for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
-            assert(specialSymbols[i].id == i);
-        }
     }
 
     this()
     {
-        for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
-            assert(i == nextSymbolId);
-            nextSymbolId++;
-        }
-        assert(nextSymbolId == SpecialSymbols.max + 1);
+        nextSymbolId = SpecialSymbols.max + 1;
     }
 
     TokenSymbol new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
@@ -155,7 +172,7 @@ class SymbolTable {
         assert(!is_known_symbol(newTokenName));
     }
     body {
-        auto token = cast(TokenSymbol) new_symbol(newTokenName, SymbolType.token, location);
+        auto token = cast(TokenSymbol) new Symbol(nextSymbolId++, newTokenName, SymbolType.token, location);
         token.pattern = pattern;
         token.fieldName = fieldName;
         tokens[newTokenName] = token;
@@ -170,7 +187,7 @@ class SymbolTable {
         assert(!is_known_symbol(newTagName));
     }
     body {
-        auto tag = cast(TagSymbol) new_symbol(newTagName, SymbolType.tag, location);
+        auto tag = cast(TagSymbol) new Symbol(nextSymbolId++, newTagName, SymbolType.tag, location);
         tags[newTagName] = tag;
         return tag;
     }
@@ -237,7 +254,7 @@ class SymbolTable {
             symbol.usedAt ~= location;
         } else if (autoCreate) {
             // if it's referenced without being defined it's a non terminal
-            symbol = cast(NonTerminalSymbol) new_symbol(symbolName, SymbolType.nonTerminal, location, false);
+            symbol = cast(NonTerminalSymbol) new Symbol(nextSymbolId++, symbolName, SymbolType.nonTerminal, location, false);
             nonTerminals[symbolName] = symbol;
         }
         return symbol;
@@ -331,7 +348,7 @@ class SymbolTable {
         if (symbol !is null) {
             symbol.definedAt = location;
         } else {
-            symbol = cast(NonTerminalSymbol) new_symbol(symbolName, SymbolType.nonTerminal, location, true);
+            symbol = cast(NonTerminalSymbol) new Symbol(nextSymbolId++, symbolName, SymbolType.nonTerminal, location, true);
             nonTerminals[symbolName] = symbol;
         }
         return symbol;
