@@ -538,7 +538,7 @@ class GrammarSpecification {
     this(SymbolTable symbolTable)
     {
         // Set the right hand side when start symbol is known.
-        auto dummyProd = new_production(symbolTable.get_symbol(SpecialSymbols.start), []);
+        auto dummyProd = new_production(symbolTable.get_special_symbol(SpecialSymbols.start), []);
         assert(dummyProd.id == 0);
         this.symbolTable = symbolTable;
     }
@@ -707,7 +707,7 @@ class Grammar {
     {
         spec = specification;
         auto startItemKey = new GrammarItemKey(spec.productionList[0]);
-        auto startLookAheadSet = Set!(TokenSymbol)(spec.symbolTable.get_symbol(SpecialSymbols.end));
+        auto startLookAheadSet = Set!(TokenSymbol)(spec.symbolTable.get_special_symbol(SpecialSymbols.end));
         GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
         auto startState = new_parser_state(startKernel);
         assert(parserStates[0].id == 0);

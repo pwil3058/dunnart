@@ -118,7 +118,6 @@ class SymbolTable {
     private TokenSymbol[string] literalTokens; // indexed by literal string
     private TagSymbol[string] tags; // indexed by name
     private NonTerminalSymbol[string] nonTerminals; // indexed by name
-    private Symbol[SymbolId] allSymbols; // indexed by id
     private FieldDefinition[string] fieldDefinitions; // indexed by name
     private string[] skipRuleList;
     private auto currentPrecedence = Precedence.max;
@@ -146,7 +145,6 @@ class SymbolTable {
     {
         for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
             assert(i == nextSymbolId);
-            allSymbols[i] = specialSymbols[i];
             nextSymbolId++;
         }
         assert(nextSymbolId == SpecialSymbols.max + 1);
@@ -161,7 +159,6 @@ class SymbolTable {
         token.pattern = pattern;
         token.fieldName = fieldName;
         tokens[newTokenName] = token;
-        allSymbols[token.id] = token;
         if (pattern[0] == '"') {
             literalTokens[pattern] = token;
         }
@@ -175,7 +172,6 @@ class SymbolTable {
     body {
         auto tag = cast(TagSymbol) new_symbol(newTagName, SymbolType.tag, location);
         tags[newTagName] = tag;
-        allSymbols[tag.id] = tag;
         return tag;
     }
 
@@ -243,14 +239,8 @@ class SymbolTable {
             // if it's referenced without being defined it's a non terminal
             symbol = cast(NonTerminalSymbol) new_symbol(symbolName, SymbolType.nonTerminal, location, false);
             nonTerminals[symbolName] = symbol;
-            allSymbols[symbol.id] = symbol;
         }
         return symbol;
-    }
-
-    Symbol get_symbol(SymbolId symbolId)
-    {
-        return allSymbols.get(symbolId, null);
     }
 
     TokenSymbol get_literal_token(string literal, CharLocation location)
@@ -343,7 +333,6 @@ class SymbolTable {
         } else {
             symbol = cast(NonTerminalSymbol) new_symbol(symbolName, SymbolType.nonTerminal, location, true);
             nonTerminals[symbolName] = symbol;
-            allSymbols[symbol.id] = symbol;
         }
         return symbol;
     }
@@ -362,9 +351,11 @@ class SymbolTable {
     Symbol[] get_unused_symbols()
     {
         Symbol[] unused_symbols;
-        foreach (symbol; allSymbols) {
-            if (!symbol.is_used && symbol.id > SpecialSymbols.max) {
-                unused_symbols ~= symbol;
+        foreach (symbols; [tokens, tags, nonTerminals]) {
+            foreach (symbol; symbols) {
+                if (!symbol.is_used) {
+                    unused_symbols ~= symbol;
+                }
             }
         }
         return unused_symbols;
