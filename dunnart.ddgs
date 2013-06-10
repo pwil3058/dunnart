@@ -25,19 +25,9 @@ import grammar;
 
 GrammarSpecification grammarSpecification;
 
-class AssociatedPrecedence {
-    Associativity associativity;
-    Precedence    precedence;
-    this(Associativity associativity, Precedence precedence)
-    {
-        this.associativity = associativity;
-        this.precedence = precedence;
-    }
-}
-
 struct ProductionTail {
     Symbol[] rightHandSide;
-    AssociatedPrecedence associatedPrecedence;
+    AssociativePrecedence associativePrecedence;
     Predicate predicate;
     SemanticAction action;
 }
@@ -81,7 +71,7 @@ error(T...)(const CharLocation locn, const string format, T args)
 %field  SymbolList symbolList
 %field  Predicate predicate
 %field  SemanticAction semanticAction
-%field  AssociatedPrecedence associatedPrecedence
+%field  AssociativePrecedence associativePrecedence
 %field  ProductionTail productionTail
 %field  ProductionTailList productionTailList
 %field  StringList stringList
@@ -319,9 +309,9 @@ production_group: production_group_head production_tail_list "."
                 auto prodn = grammarSpecification.new_production($1.symbol, productionTail.rightHandSide);
                 prodn.predicate = productionTail.predicate;
                 prodn.action = productionTail.action;
-                if (productionTail.associatedPrecedence !is null) {
-                    prodn.associativity = productionTail.associatedPrecedence.associativity;
-                    prodn.precedence = productionTail.associatedPrecedence.precedence;
+                if (productionTail.associativePrecedence.is_explicitly_set) {
+                    // Only override inherited precedence if it is explicitly set
+                    prodn.associativePrecedence = productionTail.associativePrecedence;
                 }
             }
         !}
@@ -360,47 +350,47 @@ production_tail_list: production_tail
 
 production_tail:
         !{
-            $$.productionTail = ProductionTail([], null, null, null);
+            $$.productionTail = ProductionTail([], AssociativePrecedence(), null, null);
         !}
     | action
         !{
-            $$.productionTail = ProductionTail([], null, null, $1.semanticAction);
+            $$.productionTail = ProductionTail([], AssociativePrecedence(), null, $1.semanticAction);
         !}
     | predicate action
         !{
-            $$.productionTail = ProductionTail([], null, $1.predicate, $2.semanticAction);
+            $$.productionTail = ProductionTail([], AssociativePrecedence(), $1.predicate, $2.semanticAction);
         !}
     | predicate
         !{
-            $$.productionTail = ProductionTail([], null, $1.predicate, null);
+            $$.productionTail = ProductionTail([], AssociativePrecedence(), $1.predicate, null);
         !}
     | symbol_list predicate tagged_precedence action
         !{
-            $$.productionTail = ProductionTail($1.symbolList, $3.associatedPrecedence, $2.predicate, $4.semanticAction);
+            $$.productionTail = ProductionTail($1.symbolList, $3.associativePrecedence, $2.predicate, $4.semanticAction);
         !}
     | symbol_list predicate tagged_precedence
         !{
-            $$.productionTail = ProductionTail($1.symbolList, $3.associatedPrecedence, $2.predicate, null);
+            $$.productionTail = ProductionTail($1.symbolList, $3.associativePrecedence, $2.predicate, null);
         !}
     | symbol_list predicate action
         !{
-            $$.productionTail = ProductionTail($1.symbolList, null, $2.predicate, $3.semanticAction);
+            $$.productionTail = ProductionTail($1.symbolList, AssociativePrecedence(), $2.predicate, $3.semanticAction);
         !}
     | symbol_list predicate
         !{
-            $$.productionTail = ProductionTail($1.symbolList, null, $2.predicate, null);
+            $$.productionTail = ProductionTail($1.symbolList, AssociativePrecedence(), $2.predicate, null);
         !}
     | symbol_list tagged_precedence action
         !{
-            $$.productionTail = ProductionTail($1.symbolList, $2.associatedPrecedence, null, $3.semanticAction);
+            $$.productionTail = ProductionTail($1.symbolList, $2.associativePrecedence, null, $3.semanticAction);
         !}
     | symbol_list tagged_precedence
         !{
-            $$.productionTail = ProductionTail($1.symbolList, $2.associatedPrecedence);
+            $$.productionTail = ProductionTail($1.symbolList, $2.associativePrecedence);
         !}
     | symbol_list action
         !{
-            $$.productionTail = ProductionTail($1.symbolList, null, null, $2.semanticAction);
+            $$.productionTail = ProductionTail($1.symbolList, AssociativePrecedence(), null, $2.semanticAction);
         !}
     | symbol_list
         !{
@@ -425,22 +415,22 @@ tagged_precedence: "%prec" IDENT
             auto symbol = grammarSpecification.symbolTable.get_symbol($2.ddMatchedText, $2.ddLocation, false);
             if (symbol is null) {
                 error($2.ddLocation, "%s: Unknown symbol.", $2.ddMatchedText);
-                $$.associatedPrecedence = null;
+                $$.associativePrecedence = AssociativePrecedence();
             } else if (symbol.type == SymbolType.nonTerminal) {
                 error($2.ddLocation, "%s: Illegal precedence tag (must be Token or Tag).", $2.ddMatchedText);
-                $$.associatedPrecedence = null;
+                $$.associativePrecedence = AssociativePrecedence();
             } else {
-                $$.associatedPrecedence = new AssociatedPrecedence(symbol.associativity, symbol.precedence);
+                $$.associativePrecedence = symbol.associativePrecedence;
             }
         !}
     | "%prec" LITERAL
         !{
             auto symbol = grammarSpecification.symbolTable.get_literal_token($2.ddMatchedText, $2.ddLocation);
             if (symbol is null) {
-                $$.associatedPrecedence = null;
+                $$.associativePrecedence = AssociativePrecedence();
                 error($2.ddLocation, "%s: Unknown literal token.", $2.ddMatchedText);
             } else {
-                $$.associatedPrecedence = new AssociatedPrecedence(symbol.associativity, symbol.precedence);
+                $$.associativePrecedence = symbol.associativePrecedence;
             }
         !}
     .

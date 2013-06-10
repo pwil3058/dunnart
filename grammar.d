@@ -24,8 +24,7 @@ class Production {
     mixin IdNumber!(ProductionId);
     NonTerminalSymbol leftHandSide;
     Symbol[] rightHandSide;
-    Associativity associativity;
-    Precedence    precedence;
+    AssociativePrecedence associativePrecedence;
     Predicate predicate;
     SemanticAction action;
 
@@ -36,12 +35,24 @@ class Production {
         rightHandSide = rhs;
         for (int i = cast(int) rhs.length - 1; i >= 0; i--) {
             auto symbol = rhs[i];
-            if (symbol.type == SymbolType.token && symbol.precedence != 0) {
-                precedence = symbol.precedence;
-                associativity = symbol.associativity;
+            if (symbol.type == SymbolType.token && symbol.associativePrecedence.is_explicitly_set) {
+                // We only inherit precedence/associativity if it's been explicitly set for the token
+                associativePrecedence = symbol.associativePrecedence;
                 break;
             }
         }
+    }
+
+    @property
+    Associativity associativity()
+    {
+        return associativePrecedence.associativity;
+    }
+
+    @property
+    Precedence precedence()
+    {
+        return associativePrecedence.precedence;
     }
 
     @property

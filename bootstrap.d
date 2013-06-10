@@ -15,14 +15,9 @@ import grammar;
 
 GrammarSpecification grammarSpecification;
 
-struct AssociatedPrecedence {
-    Associativity associativity;
-    Precedence    precedence;
-}
-
 struct ProductionTail {
     Symbol[] rightHandSide;
-    AssociatedPrecedence associatedPrecedence;
+    AssociativePrecedence associativePrecedence;
     Predicate predicate;
     SemanticAction action;
 }
@@ -381,8 +376,10 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
                 auto prodn = grammarSpecification.new_production(ddArgs[1 - 1].symbol, productionTail.rightHandSide);
                 prodn.predicate = productionTail.predicate;
                 prodn.action = productionTail.action;
-                prodn.associativity = productionTail.associatedPrecedence.associativity;
-                prodn.precedence = productionTail.associatedPrecedence.precedence;
+                if (productionTail.associativePrecedence.is_explicitly_set) {
+                    // Only override inherited precedence if it is explicitly set
+                    prodn.associativePrecedence = productionTail.associativePrecedence;
+                }
             }
 
         break;
@@ -420,42 +417,42 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
         break;
     case 45: // production_tail: action
 
-            ddLhs.productionTail = ProductionTail([], AssociatedPrecedence(), null, ddArgs[1 - 1].semanticAction);
+            ddLhs.productionTail = ProductionTail([], AssociativePrecedence(), null, ddArgs[1 - 1].semanticAction);
 
         break;
     case 46: // production_tail: symbol_list predicate tagged_precedence action
 
-            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[3 - 1].associatedPrecedence, ddArgs[2 - 1].predicate, ddArgs[4 - 1].semanticAction);
+            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[3 - 1].associativePrecedence, ddArgs[2 - 1].predicate, ddArgs[4 - 1].semanticAction);
 
         break;
     case 47: // production_tail: symbol_list predicate tagged_precedence
 
-            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[3 - 1].associatedPrecedence, ddArgs[2 - 1].predicate, null);
+            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[3 - 1].associativePrecedence, ddArgs[2 - 1].predicate, null);
 
         break;
     case 48: // production_tail: symbol_list predicate action
 
-            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociatedPrecedence(), ddArgs[2 - 1].predicate, ddArgs[3 - 1].semanticAction);
+            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociativePrecedence(), ddArgs[2 - 1].predicate, ddArgs[3 - 1].semanticAction);
 
         break;
     case 49: // production_tail: symbol_list predicate
 
-            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociatedPrecedence(), ddArgs[2 - 1].predicate, null);
+            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociativePrecedence(), ddArgs[2 - 1].predicate, null);
 
         break;
     case 50: // production_tail: symbol_list tagged_precedence action
 
-            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[2 - 1].associatedPrecedence, null, ddArgs[3 - 1].semanticAction);
+            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[2 - 1].associativePrecedence, null, ddArgs[3 - 1].semanticAction);
 
         break;
     case 51: // production_tail: symbol_list tagged_precedence
 
-            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[2 - 1].associatedPrecedence);
+            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[2 - 1].associativePrecedence);
 
         break;
     case 52: // production_tail: symbol_list action
 
-            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociatedPrecedence(), null, ddArgs[2 - 1].semanticAction);
+            ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociativePrecedence(), null, ddArgs[2 - 1].semanticAction);
 
         break;
     case 53: // production_tail: symbol_list
@@ -478,12 +475,12 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
             auto symbol = grammarSpecification.symbolTable.get_symbol(ddArgs[2 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation, false);
             if (symbol is null) {
                 error(ddArgs[2 - 1].ddLocation, "%s: Unknown symbol.", ddArgs[2 - 1].ddMatchedText);
-                ddLhs.associatedPrecedence = AssociatedPrecedence();
+                ddLhs.associativePrecedence = AssociativePrecedence();
             } else if (symbol.type == SymbolType.nonTerminal) {
                 error(ddArgs[2 - 1].ddLocation, "%s: Illegal precedence tag (must be Token or Tag).", ddArgs[2 - 1].ddMatchedText);
-                ddLhs.associatedPrecedence = AssociatedPrecedence();
+                ddLhs.associativePrecedence = AssociativePrecedence();
             } else {
-                ddLhs.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
+                ddLhs.associativePrecedence = symbol.associativePrecedence;
             }
 
         break;
@@ -491,10 +488,10 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
 
             auto symbol = grammarSpecification.symbolTable.get_literal_token(ddArgs[2 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation);
             if (symbol is null) {
-                ddLhs.associatedPrecedence = AssociatedPrecedence();
+                ddLhs.associativePrecedence = AssociativePrecedence();
                 error(ddArgs[2 - 1].ddLocation, "%s: Unknown literal token.", ddArgs[2 - 1].ddMatchedText);
             } else {
-                ddLhs.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
+                ddLhs.associativePrecedence = symbol.associativePrecedence;
             }
 
         break;
@@ -543,7 +540,7 @@ struct DDAttributes {
         DDSyntaxErrorData ddSyntaxErrorData;
         Symbol symbol;
         SemanticAction semanticAction;
-        AssociatedPrecedence associatedPrecedence;
+        AssociativePrecedence associativePrecedence;
         ProductionTail productionTail;
         SymbolList symbolList;
         Predicate predicate;

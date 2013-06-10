@@ -23,6 +23,17 @@ enum SpecialSymbols : SymbolId { start, end, lexError, parseError };
 enum SymbolType {token, tag, nonTerminal};
 
 enum Associativity {nonassoc, left, right};
+alias uint Precedence;
+struct AssociativePrecedence {
+    Associativity associativity;
+    Precedence    precedence;
+
+    @property
+    bool is_explicitly_set()
+    {
+        return precedence != 0;
+    }
+}
 
 class FirstsData {
     Set!TokenSymbol tokenset;
@@ -40,8 +51,6 @@ class FirstsData {
     }
 }
 
-alias uint Precedence;
-
 bool is_allowable_name(string name)
 {
     return name.length < 2 || (name[0 .. 2] != "dd" && name[0 .. 2] != "DD");
@@ -51,8 +60,7 @@ class Symbol {
     mixin IdNumber!(SymbolId);
     const SymbolType type;
     const string name;
-    Associativity associativity;
-    Precedence precedence;
+    AssociativePrecedence associativePrecedence;
     CharLocation definedAt;
     CharLocation[] usedAt;
     string fieldName;
@@ -75,6 +83,18 @@ class Symbol {
         } else {
             usedAt ~= location;
         }
+    }
+
+    @property
+    Associativity associativity()
+    {
+        return associativePrecedence.associativity;
+    }
+
+    @property
+    Precedence precedence()
+    {
+        return associativePrecedence.precedence;
     }
 
     @property
@@ -298,8 +318,7 @@ struct SymbolTable {
             if (symbol is null) {
                 symbol = new_tag(symbolName, location);
             }
-            symbol.associativity = assoc;
-            symbol.precedence = currentPrecedence;
+            symbol.associativePrecedence = AssociativePrecedence(assoc, currentPrecedence);
         }
         currentPrecedence--;
     }
@@ -312,8 +331,7 @@ struct SymbolTable {
     }
     body {
         foreach (symbol; symbols) {
-            symbol.associativity = assoc;
-            symbol.precedence = currentPrecedence;
+            symbol.associativePrecedence = AssociativePrecedence(assoc, currentPrecedence);
         }
         currentPrecedence--;
     }
