@@ -305,16 +305,16 @@ class ParserState {
                 if (shiftSymbol.precedence < reducibleItem.production.precedence) {
                     shiftList.remove(shiftSymbol);
                 } else if (shiftSymbol.precedence > reducibleItem.production.precedence) {
-                    grammarItems[reducibleItem].remove(shiftSymbol);
+                    grammarItems[reducibleItem] -= shiftSymbol;
                 } else if (reducibleItem.production.associativity == Associativity.left) {
                     shiftList.remove(shiftSymbol);
                 } else if (reducibleItem.production.has_error_recovery_tail) {
-                    grammarItems[reducibleItem].remove(shiftSymbol);
+                    grammarItems[reducibleItem] -= shiftSymbol;
                 } else {
                     // Default: resolve in favour of shift but mark as
                     // unresolved giving the user the option of accepting
                     // the resolution or not (down the track)
-                    grammarItems[reducibleItem].remove(shiftSymbol);
+                    grammarItems[reducibleItem] -= shiftSymbol;
                     shiftReduceConflicts ~= conflict;
                 }
             }
