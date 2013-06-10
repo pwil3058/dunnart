@@ -1,3 +1,10 @@
+// bootstrap.d
+//
+// Copyright Peter Williams 2013 <pwil3058@bigpond.net.au>.
+//
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          http://www.boost.org/LICENSE_1_0.txt)
 
 import ddlib.templates;
 
@@ -458,14 +465,6 @@ bool dd_error_recovery_ok(DDParserState ddParserState, DDToken ddToken)
     return false;
 }
 
-
-// dunnart.d
-//
-// Copyright Peter Williams 2013 <pwil3058@bigpond.net.au>.
-//
-// Distributed under the Boost Software License, Version 1.0.
-//    (See accompanying file LICENSE_1_0.txt or copy at
-//          http://www.boost.org/LICENSE_1_0.txt)
 
 import std.string;
 
@@ -1461,4 +1460,3 @@ DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddNextTok
 
 
 mixin DDImplementParser;
-
