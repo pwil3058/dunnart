@@ -71,11 +71,29 @@ class Production {
     }
 
     @property
-    string expanded_semantic_action()
+    string[] expanded_semantic_action()
     {
         static auto lhs_re = regex(r"\$\$", "g");
         static auto stackAttr_re = regex(r"\$(\d+)", "g");
-        return replace(replace(action, lhs_re, "ddLhs"), stackAttr_re, "ddArgs[$1 - 1]");
+        size_t lastNonBlankLineIndex = 0;
+        size_t firstNonBlankLineIndex = 0;
+        auto nonBlankLineSeen = false;
+        string[] firstPassLines;
+        foreach (index, line; replace(replace(action, lhs_re, "ddLhs"), stackAttr_re, "ddArgs[$1 - 1]").splitLines) {
+            auto strippedLine = line.stripRight.detab(4);
+            if (strippedLine.length > 0) {
+                lastNonBlankLineIndex = index;
+                if (!nonBlankLineSeen) firstNonBlankLineIndex = index;
+                nonBlankLineSeen = true;
+            }
+            firstPassLines ~= strippedLine;
+        }
+        auto requiredIndent = "        ";
+        string[] secondPassLines;
+        foreach (line; firstPassLines[firstNonBlankLineIndex .. lastNonBlankLineIndex + 1].outdent) {
+            secondPassLines ~= requiredIndent ~ line;
+        }
+        return secondPassLines;
     }
 
     override string toString()
