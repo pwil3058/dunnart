@@ -124,8 +124,10 @@ class SymbolTable {
 
     invariant () {
         import std.stdio;
+        auto checkSum = 0; // Sum of arithmetic series
         for (auto i = SpecialSymbols.min; i <= SpecialSymbols.max; i++) {
             assert(specialSymbols[i].id == i);
+            checkSum += i;
         }
         assert(nextSymbolId == (SpecialSymbols.max + tokens.length + tags.length + nonTerminals.length + 1));
         foreach (literal; literalTokens.keys) {
@@ -138,17 +140,21 @@ class SymbolTable {
             assert(token.name == key && token.type == SymbolType.token);
             assert(token.pattern[0] == '"' ? literalTokens[token.pattern] is token : token.pattern !in literalTokens);
             assert(token.id > SpecialSymbols.max && token.id < nextSymbolId);
+            checkSum += token.id;
         }
         foreach (key; tags.byKey()) {
             auto tag = tags[key];
             assert(tag.name == key && tag.type == SymbolType.tag);
             assert(tag.id > SpecialSymbols.max && tag.id < nextSymbolId);
+            checkSum += tag.id;
         }
         foreach (key; nonTerminals.byKey()) {
             auto nonTerminal = nonTerminals[key];
             assert(nonTerminal.name == key && nonTerminal.type == SymbolType.nonTerminal);
             assert(nonTerminal.id > SpecialSymbols.max && nonTerminal.id < nextSymbolId);
+            checkSum += nonTerminal.id;
         }
+        assert(checkSum == ((nextSymbolId * (nextSymbolId - 1)) / 2));
     }
 
     static this()
