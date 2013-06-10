@@ -23,7 +23,6 @@ import ddlib.lexan;
 import symbols;
 import grammar;
 
-SymbolTable symbolTable;
 GrammarSpecification grammarSpecification;
 
 class AssociatedPrecedence {
@@ -49,8 +48,7 @@ alias Symbol[] SymbolList;
 alias string[] StringList;
 
 static this() {
-    symbolTable = new SymbolTable;
-    grammarSpecification = new GrammarSpecification(symbolTable);
+    grammarSpecification = new GrammarSpecification();
 }
 
 uint errorCount;
@@ -155,20 +153,20 @@ field_definitions : // empty production
 
 field_definition: "%field" fieldType fieldName
         !{
-            if (symbolTable.is_known_field($3.ddMatchedText)) {
-                auto previous = symbolTable.get_field_defined_at($3.ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_field($3.ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_field_defined_at($3.ddMatchedText);
                 error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, "", $3.ddLocation);
+                grammarSpecification.symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, "", $3.ddLocation);
             }
         !}
     | "%field" fieldType fieldName fieldConversionFunction
         !{
-            if (symbolTable.is_known_field($3.ddMatchedText)) {
-                auto previous = symbolTable.get_field_defined_at($3.ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_field($3.ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_field_defined_at($3.ddMatchedText);
                 error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText, $3.ddLocation);
+                grammarSpecification.symbolTable.new_field($3.ddMatchedText, $2.ddMatchedText, $4.ddMatchedText, $3.ddLocation);
             }
         !}
     .
@@ -201,24 +199,24 @@ token_definitions : token_definition
 
 token_definition: "%token" new_token_name pattern
         !{
-            if (symbolTable.is_known_symbol($2.ddMatchedText)) {
-                auto previous = symbolTable.get_declaration_point($2.ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_symbol($2.ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_declaration_point($2.ddMatchedText);
                 error($2.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);
+                grammarSpecification.symbolTable.new_token($2.ddMatchedText, $3.ddMatchedText, $2.ddLocation);
             }
-        !} 
+        !}
     | "%token" FIELDNAME new_token_name pattern
         !{
             auto fieldName = $2.ddMatchedText[1 .. $ - 1];
-            if (symbolTable.is_known_symbol($3.ddMatchedText)) {
-                auto previous = symbolTable.get_declaration_point($3.ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_symbol($3.ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_declaration_point($3.ddMatchedText);
                 error($3.ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
-            } else if (!symbolTable.is_known_field(fieldName)) {
+            } else if (!grammarSpecification.symbolTable.is_known_field(fieldName)) {
                 error($2.ddLocation, "field name \"%s\" is not known.", fieldName);
-                symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation);
+                grammarSpecification.symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation);
             } else {
-                symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation, fieldName);
+                grammarSpecification.symbolTable.new_token($3.ddMatchedText, $4.ddMatchedText, $3.ddLocation, fieldName);
             }
         !}
     .
@@ -244,7 +242,7 @@ skip_definitions : // empty production
 
 skip_definition: "%skip" REGEX
         !{
-            symbolTable.add_skip_rule($2.ddMatchedText);
+            grammarSpecification.symbolTable.add_skip_rule($2.ddMatchedText);
         !}
     .
 
@@ -258,15 +256,15 @@ precedence_definitions : // empty production
 
 precedence_definition: "%left" tag_list
         !{
-            symbolTable.set_precedences(Associativity.left, $2.symbolList);
+            grammarSpecification.symbolTable.set_precedences(Associativity.left, $2.symbolList);
         !}
     | "%right" tag_list
         !{
-            symbolTable.set_precedences(Associativity.right, $2.symbolList);
+            grammarSpecification.symbolTable.set_precedences(Associativity.right, $2.symbolList);
         !}
     | "%nonassoc" tag_list
         !{
-            symbolTable.set_precedences(Associativity.nonassoc, $2.symbolList);
+            grammarSpecification.symbolTable.set_precedences(Associativity.nonassoc, $2.symbolList);
         !}
     .
 
@@ -290,23 +288,23 @@ tag_list: tag
 
 tag: LITERAL
         !{
-            $$.symbol = symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);
+            $$.symbol = grammarSpecification.symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);
             if ($$.symbol is null) {
                 error($1.ddLocation, "Literal \"%s\" is not known.", $1.ddMatchedText);
             }
         !}
-    | IDENT ?( symbolTable.is_known_token($1.ddMatchedText) ?)
+    | IDENT ?( grammarSpecification.symbolTable.is_known_token($1.ddMatchedText) ?)
         !{
-            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
+            $$.symbol = grammarSpecification.symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
         !}
-    | IDENT ?( symbolTable.is_known_non_terminal($1.ddMatchedText) ?)
+    | IDENT ?( grammarSpecification.symbolTable.is_known_non_terminal($1.ddMatchedText) ?)
         !{
             $$.symbol = null;
             error($1.ddLocation, "Non terminal \"%s\" cannot be used as precedence tag.", $1.ddMatchedText);
         !}
     | IDENT
         !{
-            $$.symbol = symbolTable.new_tag($1.ddMatchedText, $1.ddLocation);
+            $$.symbol = grammarSpecification.symbolTable.new_tag($1.ddMatchedText, $1.ddLocation);
         !}
     .
 
@@ -329,24 +327,24 @@ production_group: production_group_head production_tail_list "."
         !}
     .
 
-production_group_head: IDENT ":" ?( symbolTable.is_known_token($1.ddMatchedText) ?)
+production_group_head: IDENT ":" ?( grammarSpecification.symbolTable.is_known_token($1.ddMatchedText) ?)
         !{
-            auto lineNo = symbolTable.get_declaration_point($1.ddMatchedText).lineNumber;
+            auto lineNo = grammarSpecification.symbolTable.get_declaration_point($1.ddMatchedText).lineNumber;
             error($1.ddLocation, "%s: token (defined at line %s) cannot be used as left hand side", $1.ddMatchedText, lineNo);
-            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
+            $$.symbol = grammarSpecification.symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
         !}
-    | IDENT ":" ?( symbolTable.is_known_tag($1.ddMatchedText) ?)
+    | IDENT ":" ?( grammarSpecification.symbolTable.is_known_tag($1.ddMatchedText) ?)
         !{
-            auto lineNo = symbolTable.get_declaration_point($1.ddMatchedText).lineNumber;
+            auto lineNo = grammarSpecification.symbolTable.get_declaration_point($1.ddMatchedText).lineNumber;
             error($1.ddLocation, "%s: precedence tag (defined at line %s) cannot be used as left hand side", $1.ddMatchedText, lineNo);
-            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
+            $$.symbol = grammarSpecification.symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation);
         !}
     | IDENT ":"
         !{
             if (!is_allowable_name($1.ddMatchedText)) {
                 warning($1.ddLocation, "non terminal symbol name \"%s\" may clash with generated code", $1.ddMatchedText);
             }
-            $$.symbol = symbolTable.define_non_terminal($1.ddMatchedText, $1.ddLocation);
+            $$.symbol = grammarSpecification.symbolTable.define_non_terminal($1.ddMatchedText, $1.ddLocation);
         !}
     .
 
@@ -424,7 +422,7 @@ predicate: PREDICATE
 
 tagged_precedence: "%prec" IDENT
         !{
-            auto symbol = symbolTable.get_symbol($2.ddMatchedText, $2.ddLocation, false);
+            auto symbol = grammarSpecification.symbolTable.get_symbol($2.ddMatchedText, $2.ddLocation, false);
             if (symbol is null) {
                 error($2.ddLocation, "%s: Unknown symbol.", $2.ddMatchedText);
                 $$.associatedPrecedence = null;
@@ -437,7 +435,7 @@ tagged_precedence: "%prec" IDENT
         !}
     | "%prec" LITERAL
         !{
-            auto symbol = symbolTable.get_literal_token($2.ddMatchedText, $2.ddLocation);
+            auto symbol = grammarSpecification.symbolTable.get_literal_token($2.ddMatchedText, $2.ddLocation);
             if (symbol is null) {
                 $$.associatedPrecedence = null;
                 error($2.ddLocation, "%s: Unknown literal token.", $2.ddMatchedText);
@@ -459,21 +457,21 @@ symbol_list: symbol
 
 symbol: IDENT
         !{
-            $$.symbol = symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation, true);
+            $$.symbol = grammarSpecification.symbolTable.get_symbol($1.ddMatchedText, $1.ddLocation, true);
         !}
     | LITERAL
         !{
-            $$.symbol = symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);
+            $$.symbol = grammarSpecification.symbolTable.get_literal_token($1.ddMatchedText, $1.ddLocation);
             if ($$.symbol is null) {
                 error($1.ddLocation, "%s: unknown literal token", $1.ddMatchedText);
             }
         !}
     | "%error"
         !{
-            $$.symbol = symbolTable.get_special_symbol(SpecialSymbols.parseError);
+            $$.symbol = grammarSpecification.symbolTable.get_special_symbol(SpecialSymbols.parseError);
         !}
     | "%lexerror"
         !{
-            $$.symbol = symbolTable.get_special_symbol(SpecialSymbols.lexError);;
+            $$.symbol = grammarSpecification.symbolTable.get_special_symbol(SpecialSymbols.lexError);;
         !}
     .

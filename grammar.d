@@ -532,15 +532,10 @@ class GrammarSpecification {
 
     this()
     {
-        this(new SymbolTable);
-    }
-
-    this(SymbolTable symbolTable)
-    {
+        symbolTable = SymbolTable();
         // Set the right hand side when start symbol is known.
         auto dummyProd = new_production(symbolTable.get_special_symbol(SpecialSymbols.start), []);
         assert(dummyProd.id == 0);
-        this.symbolTable = symbolTable;
     }
 
     Production new_production(NonTerminalSymbol lhs, Symbol[] rhs)

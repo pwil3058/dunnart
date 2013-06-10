@@ -111,8 +111,8 @@ struct FieldDefinition {
 
 import std.stdio;
 
-class SymbolTable {
-    private SymbolId nextSymbolId;
+struct SymbolTable {
+    private SymbolId nextSymbolId = SpecialSymbols.max + 1;
     private static Symbol[SpecialSymbols.max + 1] specialSymbols;
     private TokenSymbol[string] tokens; // indexed by token name
     private TokenSymbol[string] literalTokens; // indexed by literal string
@@ -166,11 +166,6 @@ class SymbolTable {
         specialSymbols[SpecialSymbols.parseError].firstsData = new FirstsData(Set!Symbol(), true);
         // ddLEXERROR looks like a token except that it's transparent
         specialSymbols[SpecialSymbols.lexError].firstsData = new FirstsData(Set!Symbol(specialSymbols[SpecialSymbols.lexError]), true);
-    }
-
-    this()
-    {
-        nextSymbolId = SpecialSymbols.max + 1;
     }
 
     TokenSymbol new_token(string newTokenName, string pattern, CharLocation location, string fieldName = "")
@@ -523,5 +518,6 @@ class SymbolTable {
 }
 
 unittest {
-    auto st = new SymbolTable;
+    auto st = SymbolTable();
+    assert(st.get_special_symbol(SpecialSymbols.start).name == "ddSTART");
 }

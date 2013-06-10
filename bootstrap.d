@@ -13,7 +13,6 @@ import ddlib.lexan;
 import symbols;
 import grammar;
 
-SymbolTable symbolTable;
 GrammarSpecification grammarSpecification;
 
 struct AssociatedPrecedence {
@@ -34,8 +33,7 @@ alias Symbol[] SymbolList;
 alias string[] StringList;
 
 static this() {
-    symbolTable = new SymbolTable;
-    grammarSpecification = new GrammarSpecification(symbolTable);
+    grammarSpecification = new GrammarSpecification();
 }
 
 uint errorCount;
@@ -229,111 +227,111 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
     case 2: // preamble: <empty>
 
             // no preamble defined so there's nothing to do
-        
+
         break;
     case 3: // preamble: DCODE
 
             grammarSpecification.set_preamble(ddArgs[1 - 1].ddMatchedText[2 .. $ - 2]);
-        
+
         break;
     case 5: // field_definitions: <empty>
 
             // do nothing
-        
+
         break;
     case 7: // field_definition: "%field" fieldType fieldName
 
-            if (symbolTable.is_known_field(ddArgs[3 - 1].ddMatchedText)) {
-                auto previous = symbolTable.get_field_defined_at(ddArgs[3 - 1].ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_field(ddArgs[3 - 1].ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_field_defined_at(ddArgs[3 - 1].ddMatchedText);
                 error(ddArgs[3 - 1].ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_field(ddArgs[3 - 1].ddMatchedText, ddArgs[2 - 1].ddMatchedText, "", ddArgs[3 - 1].ddLocation);
+                grammarSpecification.symbolTable.new_field(ddArgs[3 - 1].ddMatchedText, ddArgs[2 - 1].ddMatchedText, "", ddArgs[3 - 1].ddLocation);
             }
-        
+
         break;
     case 8: // field_definition: "%field" fieldType fieldName fieldConversionFunction
 
-            if (symbolTable.is_known_field(ddArgs[3 - 1].ddMatchedText)) {
-                auto previous = symbolTable.get_field_defined_at(ddArgs[3 - 1].ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_field(ddArgs[3 - 1].ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_field_defined_at(ddArgs[3 - 1].ddMatchedText);
                 error(ddArgs[3 - 1].ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_field(ddArgs[3 - 1].ddMatchedText, ddArgs[2 - 1].ddMatchedText, ddArgs[4 - 1].ddMatchedText, ddArgs[3 - 1].ddLocation);
+                grammarSpecification.symbolTable.new_field(ddArgs[3 - 1].ddMatchedText, ddArgs[2 - 1].ddMatchedText, ddArgs[4 - 1].ddMatchedText, ddArgs[3 - 1].ddLocation);
             }
-        
+
         break;
     case 9: // fieldType: IDENT ?(  !is_allowable_name($1.ddMatchedText)  ?)
 
             warning(ddArgs[1 - 1].ddLocation, "field type name \"%s\" may clash with generated code", ddArgs[1 - 1].ddMatchedText);
-        
+
         break;
     case 11: // fieldName: IDENT ?(  !is_allowable_name($1.ddMatchedText)  ?)
 
             warning(ddArgs[1 - 1].ddLocation, "field name \"%s\" may clash with generated code", ddArgs[1 - 1].ddMatchedText);
-        
+
         break;
     case 13: // fieldConversionFunction: IDENT ?(  !is_allowable_name($1.ddMatchedText)  ?)
 
             warning(ddArgs[1 - 1].ddLocation, "field conversion function name \"%s\" may clash with generated code", ddArgs[1 - 1].ddMatchedText);
-        
+
         break;
     case 17: // token_definition: "%token" new_token_name pattern
 
-            if (symbolTable.is_known_symbol(ddArgs[2 - 1].ddMatchedText)) {
-                auto previous = symbolTable.get_declaration_point(ddArgs[2 - 1].ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_symbol(ddArgs[2 - 1].ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_declaration_point(ddArgs[2 - 1].ddMatchedText);
                 error(ddArgs[2 - 1].ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
             } else {
-                symbolTable.new_token(ddArgs[2 - 1].ddMatchedText, ddArgs[3 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation);
+                grammarSpecification.symbolTable.new_token(ddArgs[2 - 1].ddMatchedText, ddArgs[3 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation);
             }
-        
+
         break;
     case 18: // token_definition: "%token" FIELDNAME new_token_name pattern
 
             auto fieldName = ddArgs[2 - 1].ddMatchedText[1 .. $ - 1];
-            if (symbolTable.is_known_symbol(ddArgs[3 - 1].ddMatchedText)) {
-                auto previous = symbolTable.get_declaration_point(ddArgs[3 - 1].ddMatchedText);
+            if (grammarSpecification.symbolTable.is_known_symbol(ddArgs[3 - 1].ddMatchedText)) {
+                auto previous = grammarSpecification.symbolTable.get_declaration_point(ddArgs[3 - 1].ddMatchedText);
                 error(ddArgs[3 - 1].ddLocation, "\"%s\" already declared at line %s.", previous.lineNumber);
-            } else if (!symbolTable.is_known_field(fieldName)) {
+            } else if (!grammarSpecification.symbolTable.is_known_field(fieldName)) {
                 error(ddArgs[2 - 1].ddLocation, "field name \"%s\" is not known.", fieldName);
-                symbolTable.new_token(ddArgs[3 - 1].ddMatchedText, ddArgs[4 - 1].ddMatchedText, ddArgs[3 - 1].ddLocation);
+                grammarSpecification.symbolTable.new_token(ddArgs[3 - 1].ddMatchedText, ddArgs[4 - 1].ddMatchedText, ddArgs[3 - 1].ddLocation);
             } else {
-                symbolTable.new_token(ddArgs[3 - 1].ddMatchedText, ddArgs[4 - 1].ddMatchedText, ddArgs[3 - 1].ddLocation, fieldName);
+                grammarSpecification.symbolTable.new_token(ddArgs[3 - 1].ddMatchedText, ddArgs[4 - 1].ddMatchedText, ddArgs[3 - 1].ddLocation, fieldName);
             }
-        
+
         break;
     case 19: // new_token_name: IDENT ?(  !is_allowable_name($1.ddMatchedText)  ?)
 
             warning(ddArgs[1 - 1].ddLocation, "token name \"%s\" may clash with generated code", ddArgs[1 - 1].ddMatchedText);
-        
+
         break;
     case 23: // skip_definitions: <empty>
 
             // do nothing
-        
+
         break;
     case 25: // skip_definition: "%skip" REGEX
 
-            symbolTable.add_skip_rule(ddArgs[2 - 1].ddMatchedText);
-        
+            grammarSpecification.symbolTable.add_skip_rule(ddArgs[2 - 1].ddMatchedText);
+
         break;
     case 26: // precedence_definitions: <empty>
 
             // do nothing
-        
+
         break;
     case 28: // precedence_definition: "%left" tag_list
 
-            symbolTable.set_precedences(Associativity.left, ddArgs[2 - 1].symbolList);
-        
+            grammarSpecification.symbolTable.set_precedences(Associativity.left, ddArgs[2 - 1].symbolList);
+
         break;
     case 29: // precedence_definition: "%right" tag_list
 
-            symbolTable.set_precedences(Associativity.right, ddArgs[2 - 1].symbolList);
-        
+            grammarSpecification.symbolTable.set_precedences(Associativity.right, ddArgs[2 - 1].symbolList);
+
         break;
     case 30: // precedence_definition: "%nonassoc" tag_list
 
-            symbolTable.set_precedences(Associativity.nonassoc, ddArgs[2 - 1].symbolList);
-        
+            grammarSpecification.symbolTable.set_precedences(Associativity.nonassoc, ddArgs[2 - 1].symbolList);
+
         break;
     case 31: // tag_list: tag
 
@@ -342,7 +340,7 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
             } else {
                 ddLhs.symbolList = [ddArgs[1 - 1].symbol];
             }
-        
+
         break;
     case 32: // tag_list: tag_list tag
 
@@ -351,31 +349,31 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
             } else {
                 ddLhs.symbolList = ddArgs[1 - 1].symbolList ~ ddArgs[2 - 1].symbol;
             }
-        
+
         break;
     case 33: // tag: LITERAL
 
-            ddLhs.symbol = symbolTable.get_literal_token(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
+            ddLhs.symbol = grammarSpecification.symbolTable.get_literal_token(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
             if (ddLhs.symbol is null) {
                 error(ddArgs[1 - 1].ddLocation, "Literal \"%s\" is not known.", ddArgs[1 - 1].ddMatchedText);
             }
-        
+
         break;
     case 34: // tag: IDENT ?(  symbolTable.is_known_token($1.ddMatchedText)  ?)
 
-            ddLhs.symbol = symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
+
         break;
     case 35: // tag: IDENT ?(  symbolTable.is_known_non_terminal($1.ddMatchedText)  ?)
 
             ddLhs.symbol = null;
             error(ddArgs[1 - 1].ddLocation, "Non terminal \"%s\" cannot be used as precedence tag.", ddArgs[1 - 1].ddMatchedText);
-        
+
         break;
     case 36: // tag: IDENT
 
-            ddLhs.symbol = symbolTable.new_tag(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.new_tag(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
+
         break;
     case 39: // production_group: production_group_head production_tail_list "."
 
@@ -386,98 +384,98 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
                 prodn.associativity = productionTail.associatedPrecedence.associativity;
                 prodn.precedence = productionTail.associatedPrecedence.precedence;
             }
-        
+
         break;
     case 40: // production_group_head: IDENT ":" ?(  symbolTable.is_known_token($1.ddMatchedText)  ?)
 
-            auto lineNo = symbolTable.get_declaration_point(ddArgs[1 - 1].ddMatchedText).lineNumber;
+            auto lineNo = grammarSpecification.symbolTable.get_declaration_point(ddArgs[1 - 1].ddMatchedText).lineNumber;
             error(ddArgs[1 - 1].ddLocation, "%s: token (defined at line %s) cannot be used as left hand side", ddArgs[1 - 1].ddMatchedText, lineNo);
-            ddLhs.symbol = symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
+
         break;
     case 41: // production_group_head: IDENT ":" ?(  symbolTable.is_known_tag($1.ddMatchedText)  ?)
 
-            auto lineNo = symbolTable.get_declaration_point(ddArgs[1 - 1].ddMatchedText).lineNumber;
+            auto lineNo = grammarSpecification.symbolTable.get_declaration_point(ddArgs[1 - 1].ddMatchedText).lineNumber;
             error(ddArgs[1 - 1].ddLocation, "%s: precedence tag (defined at line %s) cannot be used as left hand side", ddArgs[1 - 1].ddMatchedText, lineNo);
-            ddLhs.symbol = symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
+
         break;
     case 42: // production_group_head: IDENT ":"
 
             if (!is_allowable_name(ddArgs[1 - 1].ddMatchedText)) {
                 warning(ddArgs[1 - 1].ddLocation, "non terminal symbol name \"%s\" may clash with generated code", ddArgs[1 - 1].ddMatchedText);
             }
-            ddLhs.symbol = symbolTable.define_non_terminal(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.define_non_terminal(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
+
         break;
     case 43: // production_tail_list: production_tail
 
             ddLhs.productionTailList = [ddArgs[1 - 1].productionTail];
-        
+
         break;
     case 44: // production_tail_list: production_tail_list "|" production_tail
 
             ddLhs.productionTailList = ddArgs[1 - 1].productionTailList ~ ddArgs[3 - 1].productionTail;
-        
+
         break;
     case 45: // production_tail: action
 
             ddLhs.productionTail = ProductionTail([], AssociatedPrecedence(), null, ddArgs[1 - 1].semanticAction);
-        
+
         break;
     case 46: // production_tail: symbol_list predicate tagged_precedence action
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[3 - 1].associatedPrecedence, ddArgs[2 - 1].predicate, ddArgs[4 - 1].semanticAction);
-        
+
         break;
     case 47: // production_tail: symbol_list predicate tagged_precedence
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[3 - 1].associatedPrecedence, ddArgs[2 - 1].predicate, null);
-        
+
         break;
     case 48: // production_tail: symbol_list predicate action
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociatedPrecedence(), ddArgs[2 - 1].predicate, ddArgs[3 - 1].semanticAction);
-        
+
         break;
     case 49: // production_tail: symbol_list predicate
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociatedPrecedence(), ddArgs[2 - 1].predicate, null);
-        
+
         break;
     case 50: // production_tail: symbol_list tagged_precedence action
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[2 - 1].associatedPrecedence, null, ddArgs[3 - 1].semanticAction);
-        
+
         break;
     case 51: // production_tail: symbol_list tagged_precedence
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, ddArgs[2 - 1].associatedPrecedence);
-        
+
         break;
     case 52: // production_tail: symbol_list action
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList, AssociatedPrecedence(), null, ddArgs[2 - 1].semanticAction);
-        
+
         break;
     case 53: // production_tail: symbol_list
 
             ddLhs.productionTail = ProductionTail(ddArgs[1 - 1].symbolList);
-        
+
         break;
     case 54: // action: ACTION
 
             ddLhs.semanticAction = ddArgs[1 - 1].ddMatchedText[2 .. $ - 2];
-        
+
         break;
     case 55: // predicate: PREDICATE
 
             ddLhs.predicate = ddArgs[1 - 1].ddMatchedText[2 .. $ - 2];
-        
+
         break;
     case 56: // tagged_precedence: "%prec" IDENT
 
-            auto symbol = symbolTable.get_symbol(ddArgs[2 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation, false);
+            auto symbol = grammarSpecification.symbolTable.get_symbol(ddArgs[2 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation, false);
             if (symbol is null) {
                 error(ddArgs[2 - 1].ddLocation, "%s: Unknown symbol.", ddArgs[2 - 1].ddMatchedText);
                 ddLhs.associatedPrecedence = AssociatedPrecedence();
@@ -487,51 +485,51 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
             } else {
                 ddLhs.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
             }
-        
+
         break;
     case 57: // tagged_precedence: "%prec" LITERAL
 
-            auto symbol = symbolTable.get_literal_token(ddArgs[2 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation);
+            auto symbol = grammarSpecification.symbolTable.get_literal_token(ddArgs[2 - 1].ddMatchedText, ddArgs[2 - 1].ddLocation);
             if (symbol is null) {
                 ddLhs.associatedPrecedence = AssociatedPrecedence();
                 error(ddArgs[2 - 1].ddLocation, "%s: Unknown literal token.", ddArgs[2 - 1].ddMatchedText);
             } else {
                 ddLhs.associatedPrecedence = AssociatedPrecedence(symbol.associativity, symbol.precedence);
             }
-        
+
         break;
     case 58: // symbol_list: symbol
 
             ddLhs.symbolList = [ddArgs[1 - 1].symbol];
-        
+
         break;
     case 59: // symbol_list: symbol_list symbol
 
             ddLhs.symbolList = ddArgs[1 - 1].symbolList ~ ddArgs[2 - 1].symbol;
-        
+
         break;
     case 60: // symbol: IDENT
 
-            ddLhs.symbol = symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation, true);
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.get_symbol(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation, true);
+
         break;
     case 61: // symbol: LITERAL
 
-            ddLhs.symbol = symbolTable.get_literal_token(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
+            ddLhs.symbol = grammarSpecification.symbolTable.get_literal_token(ddArgs[1 - 1].ddMatchedText, ddArgs[1 - 1].ddLocation);
             if (ddLhs.symbol is null) {
                 error(ddArgs[1 - 1].ddLocation, "%s: unknown literal token", ddArgs[1 - 1].ddMatchedText);
             }
-        
+
         break;
     case 62: // symbol: "%error"
 
-            ddLhs.symbol = symbolTable.get_special_symbol(SpecialSymbols.parseError);
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.get_special_symbol(SpecialSymbols.parseError);
+
         break;
     case 63: // symbol: "%lexerror"
 
-            ddLhs.symbol = symbolTable.get_special_symbol(SpecialSymbols.lexError);;
-        
+            ddLhs.symbol = grammarSpecification.symbolTable.get_special_symbol(SpecialSymbols.lexError);;
+
         break;
     default:
         // Do nothing
@@ -1075,9 +1073,9 @@ DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, 
     case 34:
         switch (ddToken) {
         case LITERAL, ERROR, LEXERROR, IDENT, ACTION:
-            if ( symbolTable.is_known_token(ddAttributeStack[$ - 3 + 1].ddMatchedText) ) {
+            if ( grammarSpecification.symbolTable.is_known_token(ddAttributeStack[$ - 3 + 1].ddMatchedText) ) {
                 return ddReduce(40); // production_group_head: IDENT ":" ?(  symbolTable.is_known_token($1.ddMatchedText)  ?)
-            } else if ( symbolTable.is_known_tag(ddAttributeStack[$ - 3 + 1].ddMatchedText) ) {
+            } else if ( grammarSpecification.symbolTable.is_known_tag(ddAttributeStack[$ - 3 + 1].ddMatchedText) ) {
                 return ddReduce(41); // production_group_head: IDENT ":" ?(  symbolTable.is_known_tag($1.ddMatchedText)  ?)
             } else {
                 return ddReduce(42); // production_group_head: IDENT ":"
@@ -1381,9 +1379,9 @@ DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddToken, 
     case 69:
         switch (ddToken) {
         case LITERAL, LEFT, RIGHT, NONASSOC, NEWSECTION, IDENT:
-            if ( symbolTable.is_known_token(ddAttributeStack[$ - 2 + 1].ddMatchedText) ) {
+            if ( grammarSpecification.symbolTable.is_known_token(ddAttributeStack[$ - 2 + 1].ddMatchedText) ) {
                 return ddReduce(34); // tag: IDENT ?(  symbolTable.is_known_token($1.ddMatchedText)  ?)
-            } else if ( symbolTable.is_known_non_terminal(ddAttributeStack[$ - 2 + 1].ddMatchedText) ) {
+            } else if ( grammarSpecification.symbolTable.is_known_non_terminal(ddAttributeStack[$ - 2 + 1].ddMatchedText) ) {
                 return ddReduce(35); // tag: IDENT ?(  symbolTable.is_known_non_terminal($1.ddMatchedText)  ?)
             } else {
                 return ddReduce(36); // tag: IDENT
