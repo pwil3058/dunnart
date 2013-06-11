@@ -24,21 +24,27 @@ class Production {
     mixin IdNumber!(ProductionId);
     NonTerminalSymbol leftHandSide;
     Symbol[] rightHandSide;
-    AssociativePrecedence associativePrecedence;
     Predicate predicate;
     SemanticAction action;
+    AssociativePrecedence associativePrecedence;
 
-    this(ProductionId id, NonTerminalSymbol lhs, Symbol[] rhs)
+    this(ProductionId id, NonTerminalSymbol lhs, Symbol[] rhs, Predicate pred, SemanticAction actn, AssociativePrecedence aprec)
     {
         this.id = id;
         leftHandSide = lhs;
         rightHandSide = rhs;
-        for (int i = cast(int) rhs.length - 1; i >= 0; i--) {
-            auto symbol = rhs[i];
-            if (symbol.type == SymbolType.token && symbol.associativePrecedence.is_explicitly_set) {
-                // We only inherit precedence/associativity if it's been explicitly set for the token
-                associativePrecedence = symbol.associativePrecedence;
-                break;
+        predicate = pred;
+        action = actn;
+        if (aprec.is_explicitly_set) {
+            associativePrecedence = aprec;
+        } else {
+            for (int i = cast(int) rhs.length - 1; i >= 0; i--) {
+                auto symbol = rhs[i];
+                if (symbol.type == SymbolType.token && symbol.associativePrecedence.is_explicitly_set) {
+                    // We only inherit precedence/associativity if it's been explicitly set for the token
+                    associativePrecedence = symbol.associativePrecedence;
+                    break;
+                }
             }
         }
     }
@@ -566,7 +572,7 @@ class GrammarSpecification {
     {
         symbolTable = SymbolTable();
         // Set the right hand side when start symbol is known.
-        auto dummyProd = new_production(symbolTable.get_special_symbol(SpecialSymbols.start), []);
+        auto dummyProd = new_production(symbolTable.get_special_symbol(SpecialSymbols.start), [], null, null);
         assert(dummyProd.id == 0);
     }
 
@@ -576,9 +582,9 @@ class GrammarSpecification {
         return cast(ProductionId) productionList.length;
     }
 
-    Production new_production(NonTerminalSymbol lhs, Symbol[] rhs)
+    Production new_production(NonTerminalSymbol lhs, Symbol[] rhs, Predicate pred, SemanticAction actn, AssociativePrecedence aprec=AssociativePrecedence())
     {
-        auto newProdn = new Production(nextProductionId, lhs, rhs);
+        auto newProdn = new Production(nextProductionId, lhs, rhs, pred, actn, aprec);
         productionList ~= newProdn;
         if (newProdn.id == 1) {
             productionList[0].rightHandSide = [newProdn.leftHandSide];

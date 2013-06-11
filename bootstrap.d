@@ -636,13 +636,7 @@ dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttri
         break;
     case 42: // production_group: production_group_head production_tail_list "."
         foreach (productionTail; ddArgs[2 - 1].productionTailList) {
-            auto prodn = grammarSpecification.new_production(ddArgs[1 - 1].symbol, productionTail.rightHandSide);
-            prodn.predicate = productionTail.predicate;
-            prodn.action = productionTail.action;
-            if (productionTail.associativePrecedence.is_explicitly_set) {
-                // Only override inherited precedence if it is explicitly set
-                prodn.associativePrecedence = productionTail.associativePrecedence;
-            }
+            grammarSpecification.new_production(ddArgs[1 - 1].symbol, productionTail.rightHandSide, productionTail.predicate, productionTail.action, productionTail.associativePrecedence);
         }
         break;
     case 43: // production_group_head: IDENT ":" ?(  grammarSpecification.symbolTable.is_known_token($1.ddMatchedText)  ?)
