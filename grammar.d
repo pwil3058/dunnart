@@ -552,12 +552,15 @@ class ParserState {
 }
 
 class GrammarSpecification {
-    private ProductionId nextProductionId;
     SymbolTable symbolTable;
-    Production[ProductionId] productionList;
+    Production[] productionList;
     string headerCodeText;
     string preambleCodeText;
     string codaCodeText;
+
+    invariant () {
+        for (auto i = 0; i < productionList.length; i++) assert(productionList[i].id == i);
+    }
 
     this()
     {
@@ -567,10 +570,16 @@ class GrammarSpecification {
         assert(dummyProd.id == 0);
     }
 
+    @property
+    ProductionId nextProductionId()
+    {
+        return cast(ProductionId) productionList.length;
+    }
+
     Production new_production(NonTerminalSymbol lhs, Symbol[] rhs)
     {
-        auto newProdn = new Production(nextProductionId++, lhs, rhs);
-        productionList[newProdn.id] = newProdn;
+        auto newProdn = new Production(nextProductionId, lhs, rhs);
+        productionList ~= newProdn;
         if (newProdn.id == 1) {
             productionList[0].rightHandSide = [newProdn.leftHandSide];
             newProdn.leftHandSide.usedAt ~= newProdn.leftHandSide.definedAt;
@@ -691,9 +700,8 @@ class GrammarSpecification {
     {
         auto textLines = symbolTable.get_description();
         textLines ~= "Productions:";
-        for (auto i = 0; i < productionList.length; i++) {
-            auto pdn = productionList[i];
-            textLines ~= format("  %s: %s: %s: %s", i, pdn, pdn.associativity, pdn.precedence);
+        foreach (pdn; productionList) {
+            textLines ~= format("  %s: %s: %s: %s", pdn.id, pdn, pdn.associativity, pdn.precedence);
         }
         return textLines;
     }
@@ -919,9 +927,8 @@ class Grammar {
         textLines ~= "DDProductionData dd_get_production_data(DDProduction ddProduction)";
         textLines ~= "{";
         textLines ~= "    with (DDNonTerminal) switch(ddProduction) {";
-        for (auto i = 0; i < spec.productionList.length; i++) {
-            auto production = spec.productionList[i];
-            textLines ~= format("    case %s: return DDProductionData(%s, %s);", i, production.leftHandSide.name, production.rightHandSide.length);
+        foreach (production; spec.productionList) {
+            textLines ~= format("    case %s: return DDProductionData(%s, %s);", production.id, production.leftHandSide.name, production.rightHandSide.length);
         }
         textLines ~= "    default:";
         textLines ~= "        throw new Exception(\"Malformed production data table\");";
@@ -937,10 +944,9 @@ class Grammar {
         textLines ~= "dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttributes[] ddArgs)";
         textLines ~= "{";
         textLines ~= "    switch(ddProduction) {";
-        for (auto i = 0; i < spec.productionList.length; i++) {
-            auto production = spec.productionList[i];
+        foreach (production; spec.productionList) {
             if (production.action.length > 0) {
-                textLines ~= format("    case %s: // %s", i, production);
+                textLines ~= format("    case %s: // %s", production.id, production);
                 textLines ~= production.expanded_semantic_action;
                 textLines ~= "        break;";
             }
