@@ -360,7 +360,7 @@ class ParserState {
     size_t resolve_reduce_reduce_conflicts()
     {
         reduceReduceConflicts = [];
-        auto reducibleKeySet = get_reducible_keys(grammarItems);
+        auto reducibleKeySet = grammarItems.get_reducible_keys();
         if (reducibleKeySet.cardinality < 2) return 0;
 
         auto keys = reducibleKeySet.elements;
@@ -391,7 +391,7 @@ class ParserState {
     Set!TokenSymbol get_look_ahead_set()
     {
         auto lookAheadSet = extract_key_set(shiftList);
-        foreach (key; get_reducible_keys(grammarItems).elements) {
+        foreach (key; grammarItems.get_reducible_keys().elements) {
             lookAheadSet |= grammarItems[key];
         }
         return lookAheadSet;
@@ -405,7 +405,7 @@ class ParserState {
         foreach (token; shiftTokenSet.elements) {
             codeTextLines ~= format("case %s: return ddShift(%s);", token.name, shiftList[token].id);
         }
-        auto itemKeys = get_reducible_keys(grammarItems);
+        auto itemKeys = grammarItems.get_reducible_keys();
         if (itemKeys.cardinality == 0) {
             assert(shiftTokenSet.cardinality > 0);
             expectedTokensList = token_list_string(shiftTokenSet.elements);
@@ -505,7 +505,7 @@ class ParserState {
         if (lookAheadSet.cardinality== 0) {
             str ~= "    <empty>\n";
         } else {
-            auto reducableItemkeys = get_reducible_keys(grammarItems);
+            auto reducableItemkeys = grammarItems.get_reducible_keys();
             foreach (token; lookAheadSet.elements) {
                 if (token in shiftList) {
                     str ~= format("    %s: shift: -> State<%s>\n", token, shiftList[token].id);
@@ -677,7 +677,7 @@ class GrammarSpecification {
         bool additions_made;
         do {
             additions_made = false;
-            auto closableItemKeys = get_closable_keys(closureSet);
+            auto closableItemKeys = closureSet.get_closable_keys();
             foreach (closableItemKey; closableItemKeys.elements) {
                 auto prospectiveLhs = closableItemKey.nextSymbol;
                 auto lookAheadSet = closureSet[closableItemKey];
@@ -771,7 +771,7 @@ class Grammar {
                 auto symbolX = itemKey.nextSymbol;
                 if (alreadyDone.contains(symbolX)) continue;
                 alreadyDone += symbolX;
-                auto itemSetX = spec.closure(generate_goto_kernel(unprocessedState.grammarItems, symbolX));
+                auto itemSetX = spec.closure(unprocessedState.grammarItems.generate_goto_kernel(symbolX));
                 auto equivalentState = find_equivalent_state(itemSetX);
                 if (equivalentState is null) {
                     gotoState = new_parser_state(itemSetX);
@@ -810,12 +810,12 @@ class Grammar {
         }
     }
 
-    ParserState find_equivalent_state(GrammarItemSet kernel)
+    ParserState find_equivalent_state(GrammarItemSet grammarItemSet)
     {
         // TODO: check if this needs to use only kernel keys
-        auto targetKeySet = get_kernel_keys(kernel);
+        auto targetKeySet = grammarItemSet.get_kernel_keys();
         foreach (parserState; parserStates.byValue()) {
-            if (targetKeySet == get_kernel_keys(parserState.grammarItems)) {
+            if (targetKeySet == parserState.grammarItems.get_kernel_keys()) {
                 return parserState;
             }
         }
