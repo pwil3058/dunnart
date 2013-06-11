@@ -11,6 +11,7 @@ module sets;
 import std.string;
 import std.algorithm;
 import std.array;
+import std.range;
 
 import workarounds;
 
@@ -95,7 +96,11 @@ struct Set(T) {
         mixin WorkAroundClassLimitations!T;
         auto result = binary_search(_elements, newElement);
         if (!result.found) {
-            _elements.insertInPlace(result.index, WACL_ECAST(newElement));
+            _elements ~= WACL_ECAST(newElement);
+            if (_elements.length > 1 && result.index < _elements.length - 1) {
+                copy(retro(_elements[result.index .. $ - 1]), retro(_elements[result.index + 1 .. $]));
+                _elements[result.index] = WACL_ECAST(newElement);
+            }
         }
         return this;
     }
