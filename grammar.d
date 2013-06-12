@@ -127,33 +127,36 @@ class Production {
     }
 }
 
-class GrammarItemKey {
+struct GrammarItemKey {
     Production production;
     uint dot;
     invariant () {
         assert(dot <= production.length);
     }
 
-    this(Production production)
+    this(Production production, uint dot=0)
     {
         this.production = production;
+        this.dot = dot;
     }
 
     GrammarItemKey
     clone_shifted()
-    {
-        if (dot > production.length) {
-            return null;
-        }
-        auto cloned = new GrammarItemKey(production);
-        cloned.dot = dot + 1;
-        return cloned;
+    in {
+        assert(dot < production.length);
+    }
+    out (result) {
+        assert(result.dot == dot + 1);
+        assert(result.production is production);
+    }
+    body {
+        return GrammarItemKey(production, dot + 1);
     }
 
     @property
-    bool is_shiftable()
+    bool is_reducible()
     {
-        return dot < production.length;
+        return dot == production.length;
     }
 
     @property
@@ -163,9 +166,15 @@ class GrammarItemKey {
     }
 
     @property
+    bool is_closable()
+    {
+        return dot < production.length && production.rightHandSide[dot].type == SymbolType.nonTerminal;
+    }
+
+    @property
     Symbol nextSymbol()
     in {
-        assert(is_shiftable);
+        assert(dot < production.length);
     }
     body {
         return production.rightHandSide[dot];
@@ -174,7 +183,7 @@ class GrammarItemKey {
     @property
     Symbol[] tail()
     in {
-        assert(is_shiftable);
+        assert(dot < production.length);
     }
     body {
         return production.rightHandSide[dot + 1 .. $];
@@ -182,30 +191,28 @@ class GrammarItemKey {
 
     bool next_symbol_is(Symbol symbol)
     {
-        return is_shiftable && nextSymbol == symbol;
+        return dot < production.length && production.rightHandSide[dot] == symbol;
     }
 
-    override hash_t toHash()
+    hash_t toHash() const
     {
         return production.id * (dot + 1);
     }
 
-    override bool opEquals(Object o)
+    bool opEquals(const GrammarItemKey other) const
     {
-        GrammarItemKey other = cast(GrammarItemKey) o;
         return production.id == other.production.id && dot == other.dot;
     }
 
-    override int opCmp(Object o)
+    int opCmp(const GrammarItemKey other) const
     {
-        GrammarItemKey other = cast(GrammarItemKey) o;
         if (production.id == other.production.id) {
             return dot - other.dot;
         }
         return production.id - other.production.id;
     }
 
-    override string toString()
+    string toString()
     {
         with (production) {
             // This is just for use in debugging
@@ -247,7 +254,7 @@ Set!GrammarItemKey get_closable_keys(GrammarItemSet itemset)
 {
     auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey; itemset.byKey()) {
-        if (grammarItemKey.is_shiftable && grammarItemKey.nextSymbol.type == SymbolType.nonTerminal) {
+        if (grammarItemKey.is_closable) {
             keySet += grammarItemKey;
         }
     }
@@ -258,7 +265,7 @@ Set!GrammarItemKey get_reducible_keys(GrammarItemSet itemset)
 {
     auto keySet = Set!GrammarItemKey();
     foreach (grammarItemKey, lookAheadSet; itemset) {
-        if (!grammarItemKey.is_shiftable) {
+        if (grammarItemKey.is_reducible) {
             keySet += grammarItemKey;
         }
     }
@@ -329,7 +336,7 @@ class ParserState {
         ShiftReduceConflict[] conflicts;
         foreach(shiftSymbol, gotoState; shiftList) {
             foreach (item, lookAheadSet; grammarItems) {
-                if (!item.is_shiftable && lookAheadSet.contains(shiftSymbol)) {
+                if (item.is_reducible && lookAheadSet.contains(shiftSymbol)) {
                     conflicts ~= ShiftReduceConflict(shiftSymbol, gotoState, item, lookAheadSet);
                 }
             }
@@ -685,7 +692,7 @@ class GrammarSpecification {
                     auto firsts = FIRST(closableItemKey.tail, lookAheadSymbol);
                     foreach (production; productionList) {
                         if (prospectiveLhs != production.leftHandSide) continue;
-                        auto prospectiveKey = new GrammarItemKey(production);
+                        auto prospectiveKey = GrammarItemKey(production);
                         if (prospectiveKey in closureSet) {
                             auto cardinality = closureSet[prospectiveKey].cardinality;
                             closureSet[prospectiveKey] |= firsts;
@@ -744,7 +751,7 @@ class Grammar {
     this(GrammarSpecification specification)
     {
         spec = specification;
-        auto startItemKey = new GrammarItemKey(spec.productionList[0]);
+        auto startItemKey = GrammarItemKey(spec.productionList[0]);
         auto startLookAheadSet = Set!(TokenSymbol)(spec.symbolTable.get_special_symbol(SpecialSymbols.end));
         GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
         auto startState = new_parser_state(startKernel);
@@ -766,7 +773,7 @@ class Grammar {
             auto alreadyDone = Set!Symbol();
             // do items in order
             foreach (itemKey; unprocessedState.grammarItems.keys.sort){
-                if (!itemKey.is_shiftable) continue;
+                if (itemKey.is_reducible) continue;
                 ParserState gotoState;
                 auto symbolX = itemKey.nextSymbol;
                 if (alreadyDone.contains(symbolX)) continue;
