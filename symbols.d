@@ -399,9 +399,9 @@ struct SymbolTable {
 
     TokenSymbol[] get_tokens_ordered()
     out (result) {
-        mixin WorkAroundClassLimitations!TokenSymbol;
+        mixin WorkAroundClassCmpLimitations!TokenSymbol;
         for (auto i = 0; i < result.length; i++) {
-            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            if (i > 0) assert(WA_CMP_ECAST(result[i -1]) < WA_CMP_ECAST(result[i]));
             assert(result[i].type == SymbolType.token);
         }
         assert(result.length == tokens.length);
@@ -412,9 +412,9 @@ struct SymbolTable {
 
     TokenSymbol[] get_special_tokens_ordered()
     out (result) {
-        mixin WorkAroundClassLimitations!TokenSymbol;
+        mixin WorkAroundClassCmpLimitations!TokenSymbol;
         for (auto i = 0; i < result.length; i++) {
-            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            if (i > 0) assert(WA_CMP_ECAST(result[i -1]) < WA_CMP_ECAST(result[i]));
             assert(result[i].type == SymbolType.token);
             assert(result[i].id >= SpecialSymbols.min);
             assert(result[i].id <= SpecialSymbols.max);
@@ -433,9 +433,9 @@ struct SymbolTable {
 
     NonTerminalSymbol[] get_non_terminals_ordered()
     out (result) {
-        mixin WorkAroundClassLimitations!TokenSymbol;
+        mixin WorkAroundClassCmpLimitations!TokenSymbol;
         for (auto i = 0; i < result.length; i++) {
-            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            if (i > 0) assert(WA_CMP_ECAST(result[i -1]) < WA_CMP_ECAST(result[i]));
             assert(result[i].type == SymbolType.nonTerminal);
         }
         assert(result.length == nonTerminals.length);
@@ -446,9 +446,9 @@ struct SymbolTable {
 
     NonTerminalSymbol[] get_special_non_terminals_ordered()
     out (result) {
-        mixin WorkAroundClassLimitations!TokenSymbol;
+        mixin WorkAroundClassCmpLimitations!TokenSymbol;
         for (auto i = 0; i < result.length; i++) {
-            if (i > 0) assert(WACL_ECAST(result[i -1]) < WACL_ECAST(result[i]));
+            if (i > 0) assert(WA_CMP_ECAST(result[i -1]) < WA_CMP_ECAST(result[i]));
             assert(result[i].type == SymbolType.nonTerminal);
             assert(result[i].id >= SpecialSymbols.min);
             assert(result[i].id <= SpecialSymbols.max);

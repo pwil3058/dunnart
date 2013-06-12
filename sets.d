@@ -15,6 +15,18 @@ import std.range;
 
 import workarounds;
 
+mixin template WorkAroundConstLimitations(T) {
+    import std.traits: isAssignable;
+    static if (!isAssignable!(T, const(T))) {
+        // WORKAROUND: problems with const classes (e.g. opCmp signature)
+        auto WA_ASSIGN_ECAST = (const T x) => cast(T)x;
+        auto WA_ASSIGN_ACAST = (const T[] x) => cast(T[])x;
+    } else {
+        auto WA_ASSIGN_ECAST = (const T x) => x;
+        auto WA_ASSIGN_ACAST = (const T[] x) => x;
+    }
+}
+
 struct Set(T) {
     protected T[] _elements;
     invariant () {
@@ -27,11 +39,8 @@ struct Set(T) {
         assert(contains(initialElements));
     }
     body {
-        static if (is(T == class)) {
-            _elements = (cast(T[])initialElements).dup.sort.remove_adj_dups();
-        } else {
-            _elements = initialElements.dup.sort.remove_adj_dups();
-        }
+        mixin WorkAroundConstLimitations!T;
+        _elements = WA_ASSIGN_ACAST(initialElements).dup.sort.remove_adj_dups();
     }
 
     @property
@@ -55,8 +64,8 @@ struct Set(T) {
         assert(result == _elements);
     }
     body {
-        mixin WorkAroundClassLimitations!T;
-        return  WACL_ACAST(_elements).dup;
+        mixin WorkAroundConstLimitations!T;
+        return  WA_ASSIGN_ACAST(_elements).dup;
     }
 
     Set clone() const
@@ -65,9 +74,9 @@ struct Set(T) {
         assert(result == this);
     }
     body {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundConstLimitations!T;
         auto cloneSet = Set();
-        cloneSet._elements = WACL_ACAST(_elements).dup;
+        cloneSet._elements = WA_ASSIGN_ACAST(_elements).dup;
         return cloneSet;
     }
 
@@ -93,13 +102,13 @@ struct Set(T) {
         assert(newElement in this);
     }
     body {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundConstLimitations!T;
         auto result = binary_search(_elements, newElement);
         if (!result.found) {
-            _elements ~= WACL_ECAST(newElement);
+            _elements ~= WA_ASSIGN_ECAST(newElement);
             if (_elements.length > 1 && result.index < _elements.length - 1) {
                 copy(retro(_elements[result.index .. $ - 1]), retro(_elements[result.index + 1 .. $]));
-                _elements[result.index] = WACL_ECAST(newElement);
+                _elements[result.index] = WA_ASSIGN_ECAST(newElement);
             }
         }
         return this;
@@ -136,25 +145,26 @@ struct Set(T) {
         assert(result.cardinality <= cardinality + otherSet.cardinality);
     }
     body {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundClassCmpLimitations!T;
+        mixin WorkAroundConstLimitations!T;
         auto set_union = Set();
         set_union._elements.reserve(_elements.length + otherSet._elements.length);
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
-            if (WACL_ECAST(_elements[this_i]) < WACL_ECAST(otherSet._elements[os_i])) {
-                set_union._elements ~= WACL_ECAST(_elements[this_i++]);
-            } else if (WACL_ECAST(otherSet._elements[os_i]) < WACL_ECAST(_elements[this_i])) {
-                set_union._elements ~= WACL_ECAST(otherSet._elements[os_i++]);
+            if (WA_CMP_ECAST(_elements[this_i]) < WA_CMP_ECAST(otherSet._elements[os_i])) {
+                set_union._elements ~= WA_ASSIGN_ECAST(_elements[this_i++]);
+            } else if (WA_CMP_ECAST(otherSet._elements[os_i]) < WA_CMP_ECAST(_elements[this_i])) {
+                set_union._elements ~= WA_ASSIGN_ECAST(otherSet._elements[os_i++]);
             } else {
-                set_union._elements ~= WACL_ECAST(_elements[this_i++]);
+                set_union._elements ~= WA_ASSIGN_ECAST(_elements[this_i++]);
                 os_i++;
             }
         }
         // Add the (one or less) tail if any
         if (this_i < _elements.length) {
-            set_union._elements ~= WACL_ACAST(_elements[this_i .. $]);
+            set_union._elements ~= WA_ASSIGN_ACAST(_elements[this_i .. $]);
         } else if (os_i < otherSet._elements.length) {
-            set_union._elements ~= WACL_ACAST(otherSet._elements[os_i .. $]);
+            set_union._elements ~= WA_ASSIGN_ACAST(otherSet._elements[os_i .. $]);
         }
         return set_union;
     }
@@ -170,14 +180,15 @@ struct Set(T) {
         }
     }
     body {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundClassCmpLimitations!T;
+        mixin WorkAroundConstLimitations!T;
         auto set_difference = Set();
         set_difference._elements.reserve(_elements.length);
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
-            if (WACL_ECAST(_elements[this_i]) < WACL_ECAST(otherSet._elements[os_i])) {
-                set_difference._elements ~= WACL_ECAST(_elements[this_i++]);
-            } else if (WACL_ECAST(otherSet._elements[os_i]) < WACL_ECAST(_elements[this_i])) {
+            if (WA_CMP_ECAST(_elements[this_i]) < WA_CMP_ECAST(otherSet._elements[os_i])) {
+                set_difference._elements ~= WA_ASSIGN_ECAST(_elements[this_i++]);
+            } else if (WA_CMP_ECAST(otherSet._elements[os_i]) < WA_CMP_ECAST(_elements[this_i])) {
                 os_i++;
             } else {
                 this_i++;
@@ -185,7 +196,7 @@ struct Set(T) {
             }
         }
         if (this_i < _elements.length) {
-            set_difference._elements ~= WACL_ACAST(_elements[this_i .. $]);
+            set_difference._elements ~= WA_ASSIGN_ACAST(_elements[this_i .. $]);
         }
         return set_difference;
     }
@@ -205,16 +216,17 @@ struct Set(T) {
         }
     }
     body {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundClassCmpLimitations!T;
+        mixin WorkAroundConstLimitations!T;
         auto symetric_set_difference = Set();
         symetric_set_difference._elements.reserve(_elements.length + otherSet._elements.length);
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
-            if (WACL_ECAST(_elements[this_i]) < WACL_ECAST(cast(T)otherSet._elements[os_i])) {
-                symetric_set_difference._elements ~= WACL_ECAST(_elements[this_i]);
+            if (WA_CMP_ECAST(_elements[this_i]) < WA_CMP_ECAST(cast(T)otherSet._elements[os_i])) {
+                symetric_set_difference._elements ~= WA_ASSIGN_ECAST(_elements[this_i]);
                 this_i++;
-            } else if (WACL_ECAST(otherSet._elements[os_i]) < WACL_ECAST(_elements[this_i])) {
-                symetric_set_difference._elements ~= WACL_ECAST(otherSet._elements[os_i]);
+            } else if (WA_CMP_ECAST(otherSet._elements[os_i]) < WA_CMP_ECAST(_elements[this_i])) {
+                symetric_set_difference._elements ~= WA_ASSIGN_ECAST(otherSet._elements[os_i]);
                 os_i++;
             } else {
                 this_i++;
@@ -223,9 +235,9 @@ struct Set(T) {
         }
         // Add the (one or less) tail if any
         if (this_i < _elements.length) {
-            symetric_set_difference._elements ~= WACL_ACAST(_elements[this_i .. $]);
+            symetric_set_difference._elements ~= WA_ASSIGN_ACAST(_elements[this_i .. $]);
         } else if (os_i < otherSet._elements.length) {
-            symetric_set_difference._elements ~= WACL_ACAST(otherSet._elements[os_i .. $]);
+            symetric_set_difference._elements ~= WA_ASSIGN_ACAST(otherSet._elements[os_i .. $]);
         }
         return symetric_set_difference;
     }
@@ -245,17 +257,18 @@ struct Set(T) {
         }
     }
     body {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundClassCmpLimitations!T;
+        mixin WorkAroundConstLimitations!T;
         auto set_intersection = Set();
         set_intersection._elements.reserve(min(_elements.length, otherSet._elements.length));
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
-            if (WACL_ECAST(_elements[this_i]) < WACL_ECAST(otherSet._elements[os_i])) {
+            if (WA_CMP_ECAST(_elements[this_i]) < WA_CMP_ECAST(otherSet._elements[os_i])) {
                 this_i++;
-            } else if (WACL_ECAST(otherSet._elements[os_i]) < WACL_ECAST(_elements[this_i])) {
+            } else if (WA_CMP_ECAST(otherSet._elements[os_i]) < WA_CMP_ECAST(_elements[this_i])) {
                 os_i++;
             } else {
-                set_intersection._elements ~= WACL_ECAST(_elements[this_i]);
+                set_intersection._elements ~= WA_ASSIGN_ECAST(_elements[this_i]);
                 this_i++;
                 os_i++;
             }
@@ -280,14 +293,14 @@ struct Set(T) {
 
     private bool _simple_superset_of(in Set otherSet) const
     {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundClassCmpLimitations!T;
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
             if ((_elements.length - this_i) < (otherSet._elements.length - os_i))
                 return false;
-            if (WACL_ECAST(_elements[this_i]) < WACL_ECAST(otherSet._elements[os_i])) {
+            if (WA_CMP_ECAST(_elements[this_i]) < WA_CMP_ECAST(otherSet._elements[os_i])) {
                 this_i++;
-            } else if (WACL_ECAST(otherSet._elements[os_i]) < WACL_ECAST(_elements[this_i])) {
+            } else if (WA_CMP_ECAST(otherSet._elements[os_i]) < WA_CMP_ECAST(_elements[this_i])) {
                 return false;
             } else {
                 this_i++;
@@ -347,12 +360,12 @@ struct Set(T) {
         assert(result ? count == 0 : count > 0);
     }
     body {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundClassCmpLimitations!T;
         size_t this_i, os_i;
         while (this_i < _elements.length && os_i < otherSet._elements.length) {
-            if (WACL_ECAST(_elements[this_i]) < WACL_ECAST(otherSet._elements[os_i])) {
+            if (WA_CMP_ECAST(_elements[this_i]) < WA_CMP_ECAST(otherSet._elements[os_i])) {
                 this_i++;
-            } else if (WACL_ECAST(otherSet._elements[os_i]) < WACL_ECAST(_elements[this_i])) {
+            } else if (WA_CMP_ECAST(otherSet._elements[os_i]) < WA_CMP_ECAST(_elements[this_i])) {
                 os_i++;
             } else {
                 return false;
@@ -368,11 +381,11 @@ struct Set(T) {
 
     string toString() const
     {
-        mixin WorkAroundClassLimitations!T;
+        mixin WorkAroundConstLimitations!T;
         if (_elements.length == 0) return "Set{}";
-        auto str = format("Set{%s", WACL_ECAST(_elements[0]));
+        auto str = format("Set{%s", WA_ASSIGN_ECAST(_elements[0]));
         foreach (element; _elements[1 .. $]) {
-            str ~= format(", %s", WACL_ECAST(element));
+            str ~= format(", %s", WA_ASSIGN_ECAST(element));
         }
         str ~= "}";
         return str;
@@ -485,9 +498,9 @@ private bool distinct_element_arrays(T)(const Set!T s1, const Set!T s2)
 
 private bool is_ordered_no_dups(T)(in T[] list)
 {
-    mixin WorkAroundClassLimitations!T;
+    mixin WorkAroundClassCmpLimitations!T;
     for (auto j = 1; j < list.length; j++) {
-        if (WACL_ECAST(list[j - 1]) >= WACL_ECAST(list[j]))
+        if (WA_CMP_ECAST(list[j - 1]) >= WA_CMP_ECAST(list[j]))
             return false;
     }
     return true;
@@ -541,27 +554,27 @@ in {
     assert(is_ordered_no_dups(list));
 }
 out (result) {
-    mixin WorkAroundClassLimitations!T;
+    mixin WorkAroundClassCmpLimitations!T;
     if (result.found) {
-        assert(WACL_ECAST(list[result.index]) == WACL_ECAST(item));
+        assert(WA_CMP_ECAST(list[result.index]) == WA_CMP_ECAST(item));
     } else {
-        assert(result.index == list.length || WACL_ECAST(list[result.index]) > WACL_ECAST(item));
-        assert(result.index == 0 || WACL_ECAST(list[result.index - 1]) < WACL_ECAST(item));
+        assert(result.index == list.length || WA_CMP_ECAST(list[result.index]) > WA_CMP_ECAST(item));
+        assert(result.index == 0 || WA_CMP_ECAST(list[result.index - 1]) < WA_CMP_ECAST(item));
     }
 }
 body {
-    mixin WorkAroundClassLimitations!T;
+    mixin WorkAroundClassCmpLimitations!T;
     // unsigned array indices make this prudent or imax could go out of range
-    if (list.length == 0 || WACL_ECAST(item) < WACL_ECAST(list[0]))
+    if (list.length == 0 || WA_CMP_ECAST(item) < WA_CMP_ECAST(list[0]))
         return BinarySearchResult(false, 0);
     auto imax = list.length - 1;
     typeof(imax) imin = 0;
 
     while (imax >= imin) {
         typeof(imax) imid = (imin + imax) / 2;
-        if (WACL_ECAST(list[imid]) < WACL_ECAST(item)) {
+        if (WA_CMP_ECAST(list[imid]) < WA_CMP_ECAST(item)) {
             imin = imid + 1;
-        } else if (WACL_ECAST(list[imid]) > WACL_ECAST(item)) {
+        } else if (WA_CMP_ECAST(list[imid]) > WA_CMP_ECAST(item)) {
             imax = imid - 1;
         } else {
             return BinarySearchResult(true, imid);
