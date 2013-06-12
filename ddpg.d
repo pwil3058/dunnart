@@ -74,14 +74,12 @@ int main(string[] args)
         writeln(grammar.get_parser_states_description());
     }
     if (grammar.total_unresolved_conflicts > 0) {
-        for (auto i = 0; i < grammar.parserStates.length; i++) {
-            with (grammar.parserStates[i]) {
-                foreach (src; shiftReduceConflicts) {
-                    writefln("State<%s>: shift/reduce conflict on token: %s", i, src.shiftSymbol);
-                }
-                foreach (rrc; reduceReduceConflicts) {
-                    writefln("State<%s>: reduce/reduce conflict on token(s): %s", i, rrc.lookAheadSetIntersection);
-                }
+        foreach (parserState; grammar.parserStates) {
+            foreach (src; parserState.shiftReduceConflicts) {
+                writefln("State<%s>: shift/reduce conflict on token: %s", parserState.id, src.shiftSymbol);
+            }
+            foreach (rrc; parserState.reduceReduceConflicts) {
+                writefln("State<%s>: reduce/reduce conflict on token(s): %s", parserState.id, rrc.lookAheadSetIntersection);
             }
         }
         if (grammar.total_unresolved_conflicts != expectedNumberOfConflicts) {

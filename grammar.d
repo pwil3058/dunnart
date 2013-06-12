@@ -727,13 +727,16 @@ string quote_raw(string str)
 }
 
 class Grammar {
-    private ParserStateId next_parser_state_id;
     GrammarSpecification spec;
-    ParserState[ParserStateId] parserStates;
+    ParserState[] parserStates;
     Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;
     ParserStateId[] emptyLookAheadSets;
     size_t unresolvedSRConflicts;
     size_t unresolvedRRConflicts;
+
+    invariant () {
+        for (auto i = 0; i < parserStates.length; i++) assert(parserStates[i].id == i);
+    }
 
     @property
     size_t total_unresolved_conflicts()
@@ -741,10 +744,16 @@ class Grammar {
         return unresolvedRRConflicts + unresolvedSRConflicts;
     }
 
+    @property
+    ParserStateId next_parser_state_id()
+    {
+        return cast(ParserStateId) parserStates.length;
+    }
+
     ParserState new_parser_state(GrammarItemSet kernel)
     {
-        auto nps = new ParserState(next_parser_state_id++, kernel);
-        parserStates[nps.id] = nps;
+        auto nps = new ParserState(next_parser_state_id, kernel);
+        parserStates ~= nps;
         return nps;
     }
 
@@ -755,14 +764,13 @@ class Grammar {
         auto startLookAheadSet = Set!(TokenSymbol)(spec.symbolTable.get_special_symbol(SpecialSymbols.end));
         GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
         auto startState = new_parser_state(startKernel);
-        assert(parserStates[0].id == 0);
         while (true) {
             // Find a state that needs processing or quit
             ParserState unprocessedState = null;
             // Go through states in id order
-            for (auto i = 0; i < parserStates.length; i++) {
-                if (parserStates[i].state != ProcessedState.processed) {
-                    unprocessedState = parserStates[i];
+            foreach (parserState; parserStates) {
+                if (parserState.state != ProcessedState.processed) {
+                    unprocessedState = parserState;
                     break;
                 }
             }
@@ -807,8 +815,7 @@ class Grammar {
             }
 
         }
-        for (auto i = 0; i < parserStates.length; i++) {
-            auto parserState = parserStates[i];
+        foreach (parserState; parserStates) {
             if (parserState.get_look_ahead_set().cardinality == 0) {
                 emptyLookAheadSets ~= parserState.id;
             }
@@ -821,7 +828,7 @@ class Grammar {
     {
         // TODO: check if this needs to use only kernel keys
         auto targetKeySet = grammarItemSet.get_kernel_keys();
-        foreach (parserState; parserStates.byValue()) {
+        foreach (parserState; parserStates) {
             if (targetKeySet == parserState.grammarItems.get_kernel_keys()) {
                 return parserState;
             }
@@ -979,8 +986,7 @@ class Grammar {
         codeTextLines ~= "    with (DDToken) switch(ddCurrentState) {";
         // Do this in state id order
         auto indent = "        ";
-        for (auto i = 0; i < parserStates.length; i++) {
-            auto parserState = parserStates[i];
+        foreach (parserState; parserStates) {
             codeTextLines ~= format("    case %s:", parserState.id);
             foreach (line; parserState.generate_action_code_text()) {
                 auto indented_line = indent ~ line;
@@ -1004,8 +1010,7 @@ class Grammar {
         codeTextLines ~= "    with (DDNonTerminal) switch(ddCurrentState) {";
         // Do this in state id order
         auto indent = "        ";
-        foreach (key; parserStates.keys.sort) {
-            auto parserState = parserStates[key];
+        foreach (parserState; parserStates) {
             if (parserState.gotoTable.length == 0) continue;
             codeTextLines ~= format("    case %s:", parserState.id);
             foreach (line; parserState.generate_goto_code_text()) {
@@ -1028,8 +1033,7 @@ class Grammar {
         codeTextLines ~= "{";
         codeTextLines ~= "    with (DDToken) switch(ddParserState) {";
         // Do this in state id order
-        for (auto i = 0; i < parserStates.length; i++) {
-            auto parserState = parserStates[i];
+        foreach (parserState; parserStates) {
             if (parserState.errorRecoveryState is null) continue;
             auto errorRecoverySet = Set!TokenSymbol();
             foreach (itemKey, lookAheadSet; parserState.errorRecoveryState.grammarItems) {
@@ -1100,8 +1104,8 @@ class Grammar {
     string get_parser_states_description()
     {
         string str;
-        for (auto i = 0; i < parserStates.length; i++) {
-            str ~= parserStates[i].get_description();
+        foreach (parserState; parserStates) {
+            str ~= parserState.get_description();
         }
         return str;
     }
