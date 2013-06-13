@@ -136,7 +136,7 @@ mixin template DDImplementParser() {
     class DDLexicalAnalyser: ddlexan.LexicalAnalyser {
         this()
         {
-            super(ddTokenSpecs, ddSkipRules);
+            super(ddLexicalAnalyserSpecification);
         }
     }
 
@@ -224,7 +224,7 @@ mixin template DDImplementParser() {
             push(DDNonTerminal.ddSTART, 0);
             while (true) {
                 auto next_action = dd_get_next_action(currentState, currentToken, attrStack[0 .. stackLength]);
-                with (DDParseActionType) final switch (next_action.action) {
+                final switch (next_action.action) with (DDParseActionType) {
                 case shift:
                     do_shift(next_action.next_state);
                     break;

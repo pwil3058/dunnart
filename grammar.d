@@ -874,20 +874,20 @@ class Grammar {
 
     string[] generate_lexan_token_code_text()
     {
-        string[] textLines = ["static DDTokenSpec[] ddTokenSpecs;"];
+        string[] textLines = ["ddlexan.LexicalAnalyserSpecification ddLexicalAnalyserSpecification;"];
         textLines ~= "static this() {";
-        textLines ~= "    ddTokenSpecs = [";
+        textLines ~= "    DDTokenSpec[] ddTokenSpecs = [";
         foreach (token; spec.symbolTable.get_tokens_ordered()) {
             textLines ~= format("        new DDTokenSpec(%s, %s),", quote_raw(token.name), quote_raw(token.pattern));
         }
-        textLines ~= "    ];";
-        textLines ~= "}";
-        textLines ~= "";
-        textLines ~= "static string[] ddSkipRules = [";
+        textLines ~= "    ];\n";
+        textLines ~= "    string[] ddSkipRules = [";
         foreach (rule; spec.symbolTable.get_skip_rules()) {
             textLines ~= format("        %s,", quote_raw(rule));
         }
         textLines ~= "    ];\n";
+        textLines ~= "    ddLexicalAnalyserSpecification = new ddlexan.LexicalAnalyserSpecification(ddTokenSpecs, ddSkipRules);";
+        textLines ~= "}\n";
         return textLines;
     }
 

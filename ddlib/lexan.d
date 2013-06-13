@@ -208,37 +208,43 @@ class MatchResult {
     }
 }
 
-class LexicalAnalyser {
+class LexicalAnalyserSpecification {
     private LiteralMatcher literalMatcher;
     private TokenSpec[string] literalTokenSpecs;
     private TokenSpec[] regexTokenSpecs;
     private Regex!(char)[] skipReList;
 
-    private string inputText;
-    private size_t index;
-    private CharLocationData charLocationData;
-    private MatchResult currentMatch;
-
     this(TokenSpec[] tokenSpecs, string[] skipPatterns = [])
-    {
+    out {
+        assert((literalTokenSpecs.length + regexTokenSpecs.length) == tokenSpecs.length);
+        assert(skipReList.length == skipPatterns.length);
+    }
+    body {
         literalMatcher = new LiteralMatcher;
-        auto lcnt = 0;
-        auto recnt = 0;
         foreach (ts; tokenSpecs) {
             if (ts.matchType == MatchType.literal) {
                 literalTokenSpecs[ts.pattern] = ts;
                 literalMatcher.add_literal(ts.pattern);
-                lcnt++;
             } else if (ts.matchType == MatchType.regularExpression) {
                 regexTokenSpecs ~= ts;
-                recnt++;
             }
         }
         foreach (skipPat; skipPatterns) {
             skipReList ~= regex("^" ~ skipPat);
         }
-        assert(lcnt == literalTokenSpecs.length);
-        assert(recnt == regexTokenSpecs.length);
+    }
+}
+
+class LexicalAnalyser {
+    LexicalAnalyserSpecification specification;
+    private string inputText;
+    private size_t index;
+    private CharLocationData charLocationData;
+    private MatchResult currentMatch;
+
+    this (LexicalAnalyserSpecification specification)
+    {
+        this.specification = specification;
     }
 
     void set_input_text(string text, string label="", bool force=false)
@@ -256,7 +262,7 @@ class LexicalAnalyser {
     {
         mainloop: while (index < inputText.length) {
             // skips have highest priority
-            foreach (skipRe; skipReList) {
+            foreach (skipRe; specification.skipReList) {
                 auto m = match(inputText[index .. $], skipRe);
                 if (!m.empty) {
                     index += m.hit.length;
@@ -268,11 +274,11 @@ class LexicalAnalyser {
             auto location = charLocationData.get_char_location(index);
 
             // Find longest match found by literal match or regex
-            auto llm = literalMatcher.get_longest_match(inputText[index .. $]);
+            auto llm = specification.literalMatcher.get_longest_match(inputText[index .. $]);
 
             auto lrem = "";
             TokenSpec lremts;
-            foreach (tspec; regexTokenSpecs) {
+            foreach (tspec; specification.regexTokenSpecs) {
                 auto m = match(inputText[index .. $], tspec.re);
                 if (m && m.hit.length > lrem.length) {
                     lrem = m.hit;
@@ -283,7 +289,7 @@ class LexicalAnalyser {
             if (llm.length && llm.length >= lrem.length) {
                 // if the matches are of equal length literal wins
                 index += llm.length;
-                return new MatchResult(literalTokenSpecs[llm], llm, location);
+                return new MatchResult(specification.literalTokenSpecs[llm], llm, location);
             } else if (lrem.length) {
                 index += lrem.length;
                 return new MatchResult(lremts, lrem, location);
@@ -331,7 +337,7 @@ unittest {
         r"(//[^\n\r]*)", // D EOL comment
         r"(\s+)", // White space
     ];
-    auto la = new LexicalAnalyser(tslist, skiplist);
+    auto la = new LexicalAnalyser(new LexicalAnalyserSpecification(tslist, skiplist));
     la.set_input_text("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
     MatchResult m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IF" && m.matchedText == "if" && m.location.lineNumber == 1);
