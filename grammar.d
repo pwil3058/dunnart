@@ -250,17 +250,6 @@ Set!GrammarItemKey get_kernel_keys(GrammarItemSet itemset)
     return keySet;
 }
 
-Set!GrammarItemKey get_closable_keys(GrammarItemSet itemset)
-{
-    auto keySet = Set!GrammarItemKey();
-    foreach (grammarItemKey; itemset.byKey()) {
-        if (grammarItemKey.is_closable) {
-            keySet += grammarItemKey;
-        }
-    }
-    return keySet;
-}
-
 Set!GrammarItemKey get_reducible_keys(GrammarItemSet itemset)
 {
     auto keySet = Set!GrammarItemKey();
@@ -684,10 +673,11 @@ class GrammarSpecification {
         bool additions_made;
         do {
             additions_made = false;
-            foreach (closableItemKey; closureSet.get_closable_keys()) {
-                auto prospectiveLhs = closableItemKey.nextSymbol;
-                foreach (lookAheadSymbol; closureSet[closableItemKey]) {
-                    auto firsts = FIRST(closableItemKey.tail, lookAheadSymbol);
+            foreach (itemKey, lookAheadSet; closureSet) {
+                if (!itemKey.is_closable) continue;
+                auto prospectiveLhs = itemKey.nextSymbol;
+                foreach (lookAheadSymbol; lookAheadSet) {
+                    auto firsts = FIRST(itemKey.tail, lookAheadSymbol);
                     foreach (production; productionList) {
                         if (prospectiveLhs != production.leftHandSide) continue;
                         auto prospectiveKey = GrammarItemKey(production);
