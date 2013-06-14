@@ -49,7 +49,7 @@ struct Set(T) {
         return _elements.length;
     }
 
-    int opApply(int delegate(const T) dg) const
+    int opApply(int delegate(T) dg)
     {
         foreach (element; _elements) {
             auto result = dg(element);

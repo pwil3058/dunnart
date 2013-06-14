@@ -398,7 +398,7 @@ class ParserState {
     Set!TokenSymbol get_look_ahead_set()
     {
         auto lookAheadSet = extract_key_set(shiftList);
-        foreach (key; grammarItems.get_reducible_keys().elements) {
+        foreach (key; grammarItems.get_reducible_keys()) {
             lookAheadSet |= grammarItems[key];
         }
         return lookAheadSet;
@@ -409,7 +409,7 @@ class ParserState {
         string[] codeTextLines = ["switch (ddNextToken) {"];
         string expectedTokensList;
         auto shiftTokenSet = extract_key_set(shiftList);
-        foreach (token; shiftTokenSet.elements) {
+        foreach (token; shiftTokenSet) {
             codeTextLines ~= format("case %s: return ddShift(%s);", token.name, shiftList[token].id);
         }
         auto itemKeys = grammarItems.get_reducible_keys();
@@ -420,13 +420,13 @@ class ParserState {
             struct Pair { Set!TokenSymbol lookAheadSet; Set!GrammarItemKey productionSet; };
             Pair[] pairs;
             auto combinedLookAhead = Set!TokenSymbol();
-            foreach (itemKey; itemKeys.elements) {
+            foreach (itemKey; itemKeys) {
                 combinedLookAhead |= grammarItems[itemKey];
             }
             expectedTokensList = token_list_string((shiftTokenSet | combinedLookAhead).elements);
-            foreach (token; combinedLookAhead.elements) {
+            foreach (token; combinedLookAhead) {
                 auto productionSet = Set!GrammarItemKey();
-                foreach (itemKey; itemKeys.elements) {
+                foreach (itemKey; itemKeys) {
                     if (grammarItems[itemKey].contains(token)) {
                         productionSet += itemKey;
                     }
@@ -513,11 +513,11 @@ class ParserState {
             str ~= "    <empty>\n";
         } else {
             auto reducableItemkeys = grammarItems.get_reducible_keys();
-            foreach (token; lookAheadSet.elements) {
+            foreach (token; lookAheadSet) {
                 if (token in shiftList) {
                     str ~= format("    %s: shift: -> State<%s>\n", token, shiftList[token].id);
                 } else {
-                    foreach (reducibleItemKey; reducableItemkeys.elements) {
+                    foreach (reducibleItemKey; reducableItemkeys) {
                         if (grammarItems[reducibleItemKey].contains(token)) {
                             str ~= format("    %s: reduce: %s\n", token, reducibleItemKey.production);
                         }
@@ -684,11 +684,9 @@ class GrammarSpecification {
         bool additions_made;
         do {
             additions_made = false;
-            auto closableItemKeys = closureSet.get_closable_keys();
-            foreach (closableItemKey; closableItemKeys.elements) {
+            foreach (closableItemKey; closureSet.get_closable_keys()) {
                 auto prospectiveLhs = closableItemKey.nextSymbol;
-                auto lookAheadSet = closureSet[closableItemKey];
-                foreach (lookAheadSymbol; lookAheadSet.elements) {
+                foreach (lookAheadSymbol; closureSet[closableItemKey]) {
                     auto firsts = FIRST(closableItemKey.tail, lookAheadSymbol);
                     foreach (production; productionList) {
                         if (prospectiveLhs != production.leftHandSide) continue;
