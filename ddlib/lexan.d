@@ -233,6 +233,11 @@ class LexicalAnalyserSpecification {
             skipReList ~= regex("^" ~ skipPat);
         }
     }
+
+    LexicalAnalyser new_analyser(string text, string label="")
+    {
+        return new LexicalAnalyser(this, text, label);
+    }
 }
 
 class LexicalAnalyser {
@@ -242,16 +247,9 @@ class LexicalAnalyser {
     private CharLocationData charLocationData;
     private MatchResult currentMatch;
 
-    this (LexicalAnalyserSpecification specification)
+    this (LexicalAnalyserSpecification specification, string text, string label="")
     {
         this.specification = specification;
-    }
-
-    void set_input_text(string text, string label="", bool force=false)
-    in {
-        assert(currentMatch is null || force);
-    }
-    body {
         inputText = text;
         index = 0;
         charLocationData = new CharLocationData(text, label);
@@ -337,8 +335,8 @@ unittest {
         r"(//[^\n\r]*)", // D EOL comment
         r"(\s+)", // White space
     ];
-    auto la = new LexicalAnalyser(new LexicalAnalyserSpecification(tslist, skiplist));
-    la.set_input_text("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
+    auto laspec = new LexicalAnalyserSpecification(tslist, skiplist);
+    auto la = laspec.new_analyser("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
     MatchResult m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "IF" && m.matchedText == "if" && m.location.lineNumber == 1);
     m = la.front(); la.popFront();
@@ -362,7 +360,7 @@ unittest {
     m = la.front(); la.popFront();
     assert(m.tokenSpec.name == "PRED" && m.matchedText == "?{on?}" && m.location.lineNumber == 4);
     assert(la.empty);
-    la.set_input_text("
+    la = laspec.new_analyser("
     some identifiers
 // a single line comment with \"quote\"
 some more identifiers.

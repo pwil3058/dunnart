@@ -133,13 +133,6 @@ mixin template DDImplementParser() {
         return str;
     }
 
-    class DDLexicalAnalyser: ddlexan.LexicalAnalyser {
-        this()
-        {
-            super(ddLexicalAnalyserSpecification);
-        }
-    }
-
     class DDParser {
         struct StackElement {
             DDSymbol symbolId;
@@ -151,16 +144,11 @@ mixin template DDImplementParser() {
         size_t stackLength;
         DDAttributes currentTokenAttributes;
         DDToken currentToken;
-        DDLexicalAnalyser lexicalAnalyser;
+        ddlexan.LexicalAnalyser lexicalAnalyser;
         // Error handling data
         bool shifted;
         DDParserState lastErrorState;
         uint skipCount;
-
-        this()
-        {
-            lexicalAnalyser = new DDLexicalAnalyser;
-        }
 
         private @property
         size_t stackIndex()
@@ -216,10 +204,10 @@ mixin template DDImplementParser() {
             dd_do_semantic_action(attrStack[stackIndex], productionId, attrs);
         }
 
-        bool parse_text(string text)
+        bool parse_text(string text, string label="")
         {
             stackLength = 0;
-            lexicalAnalyser.set_input_text(text);
+            lexicalAnalyser = ddLexicalAnalyserSpecification.new_analyser(text, label);
             get_next_token();
             push(DDNonTerminal.ddSTART, 0);
             while (true) {

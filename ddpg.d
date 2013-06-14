@@ -41,7 +41,7 @@ int main(string[] args)
     }
     // Parse the text and generate the grammar specification
     auto parser = new DDParser;
-    if (!parser.parse_text(inputText)) {
+    if (!parser.parse_text(inputText, inputFilePath)) {
         return 4;
     }
     if (verbose) {
