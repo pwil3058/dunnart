@@ -15,17 +15,17 @@ import std.string;
 
 enum MatchType {literal, regularExpression};
 
-class TokenSpec {
-    immutable string name;
+class TokenSpec(H) {
+    immutable H handle;
     immutable MatchType matchType;
     union {
         immutable string pattern;
         Regex!(char) re;
     }
 
-    this(string nm, string specdef)
+    this(H handle, string specdef)
     {
-        name = nm;
+        this.handle = handle;
         if (specdef[0] == '"' && specdef[$ - 1] == '"') {
             matchType = MatchType.literal;
             pattern = specdef[1 .. $ - 1];
@@ -37,14 +37,18 @@ class TokenSpec {
 }
 
 unittest {
-    auto ts = new TokenSpec("TEST", "\"test\"");
-    assert(ts.name == "TEST");
+    auto ts = new TokenSpec!string("TEST", "\"test\"");
+    assert(ts.handle == "TEST");
     assert(ts.matchType == MatchType.literal);
     assert(ts.pattern == "test");
-    ts = new TokenSpec("TESTRE", "[a-zA-Z]+");
-    assert(ts.name == "TESTRE");
+    ts = new TokenSpec!string("TESTRE", "[a-zA-Z]+");
+    assert(ts.handle == "TESTRE");
     assert(ts.matchType == MatchType.regularExpression);
     assert(!ts.re.empty);
+    auto ti = new TokenSpec!int(5, "[a-zA-Z]+");
+    assert(ti.handle == 5);
+    assert(ti.matchType == MatchType.regularExpression);
+    assert(!ti.re.empty);
 }
 
 class LiteralMatchNode {
@@ -182,12 +186,12 @@ class CharLocationData {
     }
 }
 
-class MatchResult {
-    TokenSpec tokenSpec;
+class MatchResult(H) {
+    TokenSpec!(H) tokenSpec;
     string matchedText;
     CharLocation location;
 
-    this(TokenSpec spec, string text, CharLocation locn)
+    this(TokenSpec!(H) spec, string text, CharLocation locn)
     {
         tokenSpec = spec;
         matchedText = text;
@@ -208,13 +212,21 @@ class MatchResult {
     }
 }
 
-class LexicalAnalyserSpecification {
+class LexicalAnalyserSpecification(H) {
     private LiteralMatcher literalMatcher;
-    private TokenSpec[string] literalTokenSpecs;
-    private TokenSpec[] regexTokenSpecs;
+    private TokenSpec!(H)[string] literalTokenSpecs;
+    private TokenSpec!(H)[] regexTokenSpecs;
     private Regex!(char)[] skipReList;
 
-    this(TokenSpec[] tokenSpecs, string[] skipPatterns = [])
+    this(TokenSpec!(H)[] tokenSpecs, string[] skipPatterns = [])
+    in {
+        // Unique handles and out will check unique patterns
+        foreach (i; 0 .. tokenSpecs.length) {
+            foreach (j; i + 1 .. tokenSpecs.length) {
+                assert(tokenSpecs[i].handle != tokenSpecs[j].handle);
+            }
+        }
+    }
     out {
         assert((literalTokenSpecs.length + regexTokenSpecs.length) == tokenSpecs.length);
         assert(skipReList.length == skipPatterns.length);
@@ -234,20 +246,20 @@ class LexicalAnalyserSpecification {
         }
     }
 
-    LexicalAnalyser new_analyser(string text, string label="")
+    LexicalAnalyser!(H) new_analyser(string text, string label="")
     {
-        return new LexicalAnalyser(this, text, label);
+        return new LexicalAnalyser!(H)(this, text, label);
     }
 }
 
-class LexicalAnalyser {
-    LexicalAnalyserSpecification specification;
+class LexicalAnalyser(H) {
+    LexicalAnalyserSpecification!(H) specification;
     private string inputText;
     private size_t index;
     private CharLocationData charLocationData;
-    private MatchResult currentMatch;
+    private MatchResult!(H) currentMatch;
 
-    this (LexicalAnalyserSpecification specification, string text, string label="")
+    this (LexicalAnalyserSpecification!(H) specification, string text, string label="")
     {
         this.specification = specification;
         inputText = text;
@@ -256,7 +268,7 @@ class LexicalAnalyser {
         currentMatch = advance();
     }
 
-    private MatchResult advance()
+    private MatchResult!(H) advance()
     {
         mainloop: while (index < inputText.length) {
             // skips have highest priority
@@ -275,7 +287,7 @@ class LexicalAnalyser {
             auto llm = specification.literalMatcher.get_longest_match(inputText[index .. $]);
 
             auto lrem = "";
-            TokenSpec lremts;
+            TokenSpec!(H) lremts;
             foreach (tspec; specification.regexTokenSpecs) {
                 auto m = match(inputText[index .. $], tspec.re);
                 if (m && m.hit.length > lrem.length) {
@@ -287,14 +299,14 @@ class LexicalAnalyser {
             if (llm.length && llm.length >= lrem.length) {
                 // if the matches are of equal length literal wins
                 index += llm.length;
-                return new MatchResult(specification.literalTokenSpecs[llm], llm, location);
+                return new MatchResult!(H)(specification.literalTokenSpecs[llm], llm, location);
             } else if (lrem.length) {
                 index += lrem.length;
-                return new MatchResult(lremts, lrem, location);
+                return new MatchResult!(H)(lremts, lrem, location);
             } else {
                 // Failure: send back the offending character and its location
                 index += 1;
-                return new MatchResult(inputText[index - 1 .. index], location);
+                return new MatchResult!(H)(inputText[index - 1 .. index], location);
             }
         }
 
@@ -308,7 +320,7 @@ class LexicalAnalyser {
     }
 
     @property
-    MatchResult front()
+    MatchResult!(H) front()
     {
         return currentMatch;
     }
@@ -320,45 +332,45 @@ class LexicalAnalyser {
 }
 
 unittest {
-    TokenSpec[] tslist = [
-        new TokenSpec("IF", "\"if\""),
-        new TokenSpec("IDENT", "[a-zA-Z]+[\\w_]*"),
-        new TokenSpec("BTEXTL", r"&\{(.|[\n\r])*&\}"),
-        new TokenSpec("PRED", r"\?\{(.|[\n\r])*\?\}"),
-        new TokenSpec("LITERAL", "(\"\\S+\")"),
-        new TokenSpec("ACTION", r"(!\{(.|[\n\r])*?!\})"),
-        new TokenSpec("PREDICATE", r"(\?\((.|[\n\r])*?\?\))"),
-        new TokenSpec("CODE", r"(%\{(.|[\n\r])*?%\})"),
+    auto tslist = [
+        new TokenSpec!string("IF", "\"if\""),
+        new TokenSpec!string("IDENT", "[a-zA-Z]+[\\w_]*"),
+        new TokenSpec!string("BTEXTL", r"&\{(.|[\n\r])*&\}"),
+        new TokenSpec!string("PRED", r"\?\{(.|[\n\r])*\?\}"),
+        new TokenSpec!string("LITERAL", "(\"\\S+\")"),
+        new TokenSpec!string("ACTION", r"(!\{(.|[\n\r])*?!\})"),
+        new TokenSpec!string("PREDICATE", r"(\?\((.|[\n\r])*?\?\))"),
+        new TokenSpec!string("CODE", r"(%\{(.|[\n\r])*?%\})"),
     ];
-    string[] skiplist = [
+    auto skiplist = [
         r"(/\*(.|[\n\r])*?\*/)", // D multi line comment
         r"(//[^\n\r]*)", // D EOL comment
         r"(\s+)", // White space
     ];
-    auto laspec = new LexicalAnalyserSpecification(tslist, skiplist);
+    auto laspec = new LexicalAnalyserSpecification!string(tslist, skiplist);
     auto la = laspec.new_analyser("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
-    MatchResult m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "IF" && m.matchedText == "if" && m.location.lineNumber == 1);
+    auto m = la.front(); la.popFront();
+    assert(m.tokenSpec.handle == "IF" && m.matchedText == "if" && m.location.lineNumber == 1);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "iffy" && m.location.lineNumber == 1);
+    assert(m.tokenSpec.handle == "IDENT" && m.matchedText == "iffy" && m.location.lineNumber == 1);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"quoted\"" && m.location.lineNumber == 2);
+    assert(m.tokenSpec.handle == "LITERAL" && m.matchedText == "\"quoted\"" && m.location.lineNumber == 2);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"if\"" && m.location.lineNumber == 2);
+    assert(m.tokenSpec.handle == "LITERAL" && m.matchedText == "\"if\"" && m.location.lineNumber == 2);
     m = la.front(); la.popFront();
     assert(m.tokenSpec is null && m.matchedText == "9" && m.location.lineNumber == 3);
     m = la.front(); la.popFront();
     assert(m.tokenSpec is null && m.matchedText == "$" && m.location.lineNumber == 3);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "name" && m.location.lineNumber == 3);
+    assert(m.tokenSpec.handle == "IDENT" && m.matchedText == "name" && m.location.lineNumber == 3);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "BTEXTL" && m.matchedText == "&{ one \n two &}" && m.location.lineNumber == 3);
+    assert(m.tokenSpec.handle == "BTEXTL" && m.matchedText == "&{ one \n two &}" && m.location.lineNumber == 3);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "and" && m.location.lineNumber == 4);
+    assert(m.tokenSpec.handle == "IDENT" && m.matchedText == "and" && m.location.lineNumber == 4);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "so" && m.location.lineNumber == 4);
+    assert(m.tokenSpec.handle == "IDENT" && m.matchedText == "so" && m.location.lineNumber == 4);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "PRED" && m.matchedText == "?{on?}" && m.location.lineNumber == 4);
+    assert(m.tokenSpec.handle == "PRED" && m.matchedText == "?{on?}" && m.location.lineNumber == 4);
     assert(la.empty);
     la = laspec.new_analyser("
     some identifiers
@@ -377,23 +389,41 @@ and some included code %{
 %}
 ");
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "some" && m.location.lineNumber == 2);
+    assert(m.tokenSpec.handle == "IDENT" && m.matchedText == "some" && m.location.lineNumber == 2);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "IDENT" && m.matchedText == "identifiers" && m.location.lineNumber == 2);
+    assert(m.tokenSpec.handle == "IDENT" && m.matchedText == "identifiers" && m.location.lineNumber == 2);
     m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
     assert(m.tokenSpec is null);
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"+=\"" && m.location.lineNumber == 9);
+    assert(m.tokenSpec.handle == "LITERAL" && m.matchedText == "\"+=\"" && m.location.lineNumber == 9);
     m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "LITERAL" && m.matchedText == "\"\"\"" && m.location.lineNumber == 10);
+    assert(m.tokenSpec.handle == "LITERAL" && m.matchedText == "\"\"\"" && m.location.lineNumber == 10);
     m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "ACTION" && m.matchedText == "!{ some D code !}" && m.location.lineNumber == 11);
+    assert(m.tokenSpec.handle == "ACTION" && m.matchedText == "!{ some D code !}" && m.location.lineNumber == 11);
     m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "PREDICATE" && m.matchedText == "?( a boolean expression ?)" && m.location.lineNumber == 11);
+    assert(m.tokenSpec.handle == "PREDICATE" && m.matchedText == "?( a boolean expression ?)" && m.location.lineNumber == 11);
     m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront(); m = la.front(); la.popFront();
     m = la.front(); la.popFront();
-    assert(m.tokenSpec.name == "CODE" && m.matchedText == "%{\n    kllkkkl\n    hl;ll\n%}" && m.location.lineNumber == 12);
+    assert(m.tokenSpec.handle == "CODE" && m.matchedText == "%{\n    kllkkkl\n    hl;ll\n%}" && m.location.lineNumber == 12);
+    auto tilist = [
+        new TokenSpec!int(0, "\"if\""),
+        new TokenSpec!int(1, "[a-zA-Z]+[\\w_]*"),
+        new TokenSpec!int(2, r"&\{(.|[\n\r])*&\}"),
+        new TokenSpec!int(3, r"\?\{(.|[\n\r])*\?\}"),
+        new TokenSpec!int(4, "(\"\\S+\")"),
+        new TokenSpec!int(5, r"(!\{(.|[\n\r])*?!\})"),
+        new TokenSpec!int(6, r"(\?\((.|[\n\r])*?\?\))"),
+        new TokenSpec!int(7, r"(%\{(.|[\n\r])*?%\})"),
+    ];
+    auto ilaspec = new LexicalAnalyserSpecification!int(tilist, skiplist);
+    auto ila = ilaspec.new_analyser("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
+    auto im = ila.front(); ila.popFront();
+    assert(im.tokenSpec.handle == 0 && im.matchedText == "if" && im.location.lineNumber == 1);
+    im = ila.front(); ila.popFront();
+    assert(im.tokenSpec.handle == 1 && im.matchedText == "iffy" && im.location.lineNumber == 1);
+    im = ila.front(); ila.popFront();
+    assert(im.tokenSpec.handle == 4 && im.matchedText == "\"quoted\"" && im.location.lineNumber == 2);
 }

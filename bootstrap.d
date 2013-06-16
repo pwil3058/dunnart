@@ -92,9 +92,9 @@ enum DDNonTerminal : DDSymbol {
     symbol = 52,
 }
 
-static ddlexan.LexicalAnalyserSpecification ddLexicalAnalyserSpecification;
+static ddlexan.LexicalAnalyserSpecification!string ddLexicalAnalyserSpecification;
 static this() {
-    DDTokenSpec[] ddTokenSpecs = [
+    auto ddTokenSpecs = [
         new DDTokenSpec(`REGEX`, `(\(.+\)(?=\s))`),
         new DDTokenSpec(`LITERAL`, `("\S+")`),
         new DDTokenSpec(`TOKEN`, `"%token"`),
@@ -123,7 +123,7 @@ static this() {
         `(\s+)`,
     ];
 
-    ddLexicalAnalyserSpecification = new ddlexan.LexicalAnalyserSpecification(ddTokenSpecs, ddSkipRules);
+    ddLexicalAnalyserSpecification = new ddlexan.LexicalAnalyserSpecification!string(ddTokenSpecs, ddSkipRules);
 }
 
 alias uint DDProduction;
