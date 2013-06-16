@@ -862,7 +862,7 @@ class Grammar {
 
     string[] generate_lexan_token_code_text()
     {
-        string[] textLines = ["static ddlexan.LexicalAnalyserSpecification!DDToken ddLexicalAnalyserSpecification;"];
+        string[] textLines = ["static DDLexicalAnalyserSpecification ddLexicalAnalyserSpecification;"];
         textLines ~= "static this() {";
         textLines ~= "    DDTokenSpec[] ddTokenSpecs = [";
         foreach (token; spec.symbolTable.get_tokens_ordered()) {
@@ -874,7 +874,7 @@ class Grammar {
             textLines ~= format("        %s,", quote_raw(rule));
         }
         textLines ~= "    ];\n";
-        textLines ~= "    ddLexicalAnalyserSpecification = new ddlexan.LexicalAnalyserSpecification!DDToken(ddTokenSpecs, ddSkipRules);";
+        textLines ~= "    ddLexicalAnalyserSpecification = new DDLexicalAnalyserSpecification(ddTokenSpecs, ddSkipRules);";
         textLines ~= "}\n";
         return textLines;
     }

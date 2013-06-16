@@ -16,6 +16,8 @@ mixin template DDParserSupport() {
     import ddlexan = ddlib.lexan;
 
     alias ddlexan.TokenSpec!DDToken DDTokenSpec;
+    alias ddlexan.LexicalAnalyserSpecification!DDToken DDLexicalAnalyserSpecification;
+    alias ddlexan.LexicalAnalyser!DDToken DDLexicalAnalyser;
     alias ddlexan.CharLocation DDCharLocation;
 
 
@@ -132,7 +134,7 @@ mixin template DDImplementParser() {
         size_t stackLength;
         DDAttributes currentTokenAttributes;
         DDToken currentToken;
-        ddlexan.LexicalAnalyser!DDToken lexicalAnalyser;
+        DDLexicalAnalyser lexicalAnalyser;
         // Error handling data
         bool shifted;
         DDParserState lastErrorState;
