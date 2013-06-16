@@ -3,3 +3,6 @@ calc: calc.d parser.d
 
 parser.d: parser.ddgs ../../ddpg
 	../../ddpg -f parser.ddgs
+
+test: calc test_data
+	./calc test_data

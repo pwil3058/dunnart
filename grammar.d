@@ -862,14 +862,14 @@ class Grammar {
 
     string[] generate_lexan_token_code_text()
     {
-        string[] textLines = ["ddlexan.LexicalAnalyserSpecification ddLexicalAnalyserSpecification;"];
+        string[] textLines = ["static ddlexan.LexicalAnalyserSpecification ddLexicalAnalyserSpecification;"];
         textLines ~= "static this() {";
         textLines ~= "    DDTokenSpec[] ddTokenSpecs = [";
         foreach (token; spec.symbolTable.get_tokens_ordered()) {
             textLines ~= format("        new DDTokenSpec(%s, %s),", quote_raw(token.name), quote_raw(token.pattern));
         }
         textLines ~= "    ];\n";
-        textLines ~= "    string[] ddSkipRules = [";
+        textLines ~= "    static string[] ddSkipRules = [";
         foreach (rule; spec.symbolTable.get_skip_rules()) {
             textLines ~= format("        %s,", quote_raw(rule));
         }
@@ -1085,7 +1085,7 @@ class Grammar {
             outputFile.writeln(line);
         }
         outputFile.writeln("\nmixin DDImplementParser;");
-        outputFile.writeln(spec.codaCodeText);
+        outputFile.writeln(spec.codaCodeText.stripRight);
         outputFile.close();
     }
 

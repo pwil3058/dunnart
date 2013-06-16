@@ -26,7 +26,6 @@ int main(string[] args)
     if (!process_command_line(args)) {
         return 1;
     }
-
     // Read the text to be parsed
     string inputText;
     try {
@@ -40,10 +39,8 @@ int main(string[] args)
         return 3;
     }
     // Parse the text and generate the grammar specification
-    auto parser = new DDParser;
-    if (!parser.parse_text(inputText, inputFilePath)) {
-        return 4;
-    }
+    auto grammarSpecification = parse_specification_text(inputText, inputFilePath);
+    if (grammarSpecification is null) return 4;
     if (verbose) {
         writeln("Grammar Specification\n");
         foreach (textLine; grammarSpecification.get_description()) {
@@ -66,9 +63,7 @@ int main(string[] args)
     }
     // Generate the grammar from the specification
     auto grammar = new Grammar(grammarSpecification);
-    if (grammar is null) {
-        return 6;
-    }
+    if (grammar is null)  return 6;
     if (verbose) {
         writeln("\nGrammar");
         writeln(grammar.get_parser_states_description());

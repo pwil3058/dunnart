@@ -488,34 +488,30 @@ alias ProductionTail[] ProductionTailList;
 alias Symbol[] SymbolList;
 alias string[] StringList;
 
-static this() {
-    grammarSpecification = new GrammarSpecification();
-}
-
 uint errorCount;
 uint warningCount;
 
-void
-message(T...)(const CharLocation locn, const string tag, const string format, T args)
+void message(T...)(const CharLocation locn, const string tag, const string format, T args)
 {
     stderr.writef("%s:%s:", locn, tag);
     stderr.writefln(format, args);
     stderr.flush();
 }
 
-void
-warning(T...)(const CharLocation locn, const string format, T args)
+void warning(T...)(const CharLocation locn, const string format, T args)
 {
     message(locn, "Warning", format, args);
     warningCount++;
 }
 
-void
-error(T...)(const CharLocation locn, const string format, T args)
+void error(T...)(const CharLocation locn, const string format, T args)
 {
     message(locn, "Error", format, args);
     errorCount++;
 }
+
+GrammarSpecification parse_specification_text(string text, string label="") {
+    auto grammarSpecification = new GrammarSpecification();
 
 void
 dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttributes[] ddArgs)
@@ -1456,3 +1452,8 @@ DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddNextTok
 
 
 mixin DDImplementParser;
+
+    auto parser = new DDParser;
+    if (!parser.parse_text(text, label)) return null;
+    return grammarSpecification;
+}
