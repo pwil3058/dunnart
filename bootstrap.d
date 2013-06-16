@@ -92,29 +92,29 @@ enum DDNonTerminal : DDSymbol {
     symbol = 52,
 }
 
-static ddlexan.LexicalAnalyserSpecification!string ddLexicalAnalyserSpecification;
+static ddlexan.LexicalAnalyserSpecification!DDToken ddLexicalAnalyserSpecification;
 static this() {
-    auto ddTokenSpecs = [
-        new DDTokenSpec(`REGEX`, `(\(.+\)(?=\s))`),
-        new DDTokenSpec(`LITERAL`, `("\S+")`),
-        new DDTokenSpec(`TOKEN`, `"%token"`),
-        new DDTokenSpec(`FIELD`, `"%field"`),
-        new DDTokenSpec(`LEFT`, `"%left"`),
-        new DDTokenSpec(`RIGHT`, `"%right"`),
-        new DDTokenSpec(`NONASSOC`, `"%nonassoc"`),
-        new DDTokenSpec(`PRECEDENCE`, `"%prec"`),
-        new DDTokenSpec(`SKIP`, `"%skip"`),
-        new DDTokenSpec(`ERROR`, `"%error"`),
-        new DDTokenSpec(`LEXERROR`, `"%lexerror"`),
-        new DDTokenSpec(`NEWSECTION`, `"%%"`),
-        new DDTokenSpec(`COLON`, `":"`),
-        new DDTokenSpec(`VBAR`, `"|"`),
-        new DDTokenSpec(`DOT`, `"."`),
-        new DDTokenSpec(`IDENT`, `([a-zA-Z]+[a-zA-Z0-9_]*)`),
-        new DDTokenSpec(`FIELDNAME`, `(<[a-zA-Z]+[a-zA-Z0-9_]*>)`),
-        new DDTokenSpec(`PREDICATE`, `(\?\((.|[\n\r])*?\?\))`),
-        new DDTokenSpec(`ACTION`, `(!\{(.|[\n\r])*?!\})`),
-        new DDTokenSpec(`DCODE`, `(%\{(.|[\n\r])*?%\})`),
+    DDTokenSpec[] ddTokenSpecs = [
+        new DDTokenSpec(DDToken.REGEX, `(\(.+\)(?=\s))`),
+        new DDTokenSpec(DDToken.LITERAL, `("\S+")`),
+        new DDTokenSpec(DDToken.TOKEN, `"%token"`),
+        new DDTokenSpec(DDToken.FIELD, `"%field"`),
+        new DDTokenSpec(DDToken.LEFT, `"%left"`),
+        new DDTokenSpec(DDToken.RIGHT, `"%right"`),
+        new DDTokenSpec(DDToken.NONASSOC, `"%nonassoc"`),
+        new DDTokenSpec(DDToken.PRECEDENCE, `"%prec"`),
+        new DDTokenSpec(DDToken.SKIP, `"%skip"`),
+        new DDTokenSpec(DDToken.ERROR, `"%error"`),
+        new DDTokenSpec(DDToken.LEXERROR, `"%lexerror"`),
+        new DDTokenSpec(DDToken.NEWSECTION, `"%%"`),
+        new DDTokenSpec(DDToken.COLON, `":"`),
+        new DDTokenSpec(DDToken.VBAR, `"|"`),
+        new DDTokenSpec(DDToken.DOT, `"."`),
+        new DDTokenSpec(DDToken.IDENT, `([a-zA-Z]+[a-zA-Z0-9_]*)`),
+        new DDTokenSpec(DDToken.FIELDNAME, `(<[a-zA-Z]+[a-zA-Z0-9_]*>)`),
+        new DDTokenSpec(DDToken.PREDICATE, `(\?\((.|[\n\r])*?\?\))`),
+        new DDTokenSpec(DDToken.ACTION, `(!\{(.|[\n\r])*?!\})`),
+        new DDTokenSpec(DDToken.DCODE, `(%\{(.|[\n\r])*?%\})`),
     ];
 
     static string[] ddSkipRules = [
@@ -123,7 +123,7 @@ static this() {
         `(\s+)`,
     ];
 
-    ddLexicalAnalyserSpecification = new ddlexan.LexicalAnalyserSpecification!string(ddTokenSpecs, ddSkipRules);
+    ddLexicalAnalyserSpecification = new ddlexan.LexicalAnalyserSpecification!DDToken(ddTokenSpecs, ddSkipRules);
 }
 
 alias uint DDProduction;

@@ -15,7 +15,7 @@ mixin template DDParserSupport() {
 
     import ddlexan = ddlib.lexan;
 
-    alias ddlexan.TokenSpec!string DDTokenSpec;
+    alias ddlexan.TokenSpec!DDToken DDTokenSpec;
     alias ddlexan.CharLocation DDCharLocation;
 
 
@@ -132,7 +132,7 @@ mixin template DDImplementParser() {
         size_t stackLength;
         DDAttributes currentTokenAttributes;
         DDToken currentToken;
-        ddlexan.LexicalAnalyser!string lexicalAnalyser;
+        ddlexan.LexicalAnalyser!DDToken lexicalAnalyser;
         // Error handling data
         bool shifted;
         DDParserState lastErrorState;
@@ -261,7 +261,7 @@ mixin template DDImplementParser() {
             currentTokenAttributes.ddLocation = mr.location;
             currentTokenAttributes.ddMatchedText = mr.matchedText;
             if (mr.is_valid_token) {
-                currentToken = to!(DDToken)(mr.tokenSpec.handle);
+                currentToken = mr.tokenSpec.handle;
                 dd_set_attribute_value(currentTokenAttributes, currentToken, mr.matchedText);
             } else {
                 currentToken = DDToken.ddLEXERROR;
