@@ -121,18 +121,6 @@ mixin template DDParserSupport() {
 }
 
 mixin template DDImplementParser() {
-    string symbol_name(DDSymbol symbol) {
-        string str;
-        switch (symbol) {
-        case 1: case 2: case 4: .. case DDToken.max:
-            str = to!string(to!DDToken(symbol));
-            break;
-        default:
-            str = to!string(to!DDNonTerminal(symbol));
-        }
-        return str;
-    }
-
     class DDParser {
         struct StackElement {
             DDSymbol symbolId;
