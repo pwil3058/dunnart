@@ -168,11 +168,38 @@ mixin template DDImplementParser() {
         }
 
         private
+        void push(DDSymbol symbolId, DDParserState state, DDAttributes attrs)
+        {
+            push(symbolId, state);
+            attrStack[stackIndex] = attrs;
+        }
+
+        private
+        void push(DDSymbol symbolId, DDParserState state, DDSyntaxErrorData errorData)
+        {
+            push(symbolId, state);
+            attrStack[stackIndex].ddSyntaxErrorData = errorData;
+        }
+
+        private
         DDAttributes[] pop(size_t count)
         {
             if (count == 0) return [];
             stackLength -= count;
             return attrStack[stackLength .. stackLength + count].dup;
+        }
+
+        private
+        int find_viable_recovery_state(DDParserState lastErrorState, DDToken currentToken)
+        {
+            int distanceToViableState = 0;
+            while (distanceToViableState < stackLength) {
+                auto candidateState = stateStack[stackIndex - distanceToViableState].state;
+                if (candidateState != lastErrorState && dd_error_recovery_ok(candidateState, currentToken))
+                    return distanceToViableState;
+                distanceToViableState++;
+            }
+            return -1; /// Failure
         }
     }
 
@@ -196,8 +223,7 @@ mixin template DDImplementParser() {
                 auto next_action = dd_get_next_action(currentState, currentToken, attrStack[0 .. stackLength]);
                 final switch (next_action.action) with (DDParseActionType) {
                 case shift:
-                    push(currentToken, next_action.next_state);
-                    attrStack[stackIndex] = currentTokenAttributes;
+                    push(currentToken, next_action.next_state, currentTokenAttributes);
                     get_next_token();
                     shifted = true;
                     break;
@@ -223,33 +249,26 @@ mixin template DDImplementParser() {
 
         bool recover_from_error(DDSyntaxErrorData errorData)
         {
-            auto found = false;
-            auto distanceToViableState = 0;
+            int distanceToViableState = 0;
             if (shifted) {
                 lastErrorState = 0;
                 skipCount = 0;
             }
             while (true) with (ddParseStack) {
-                distanceToViableState = 0;
-                while (distanceToViableState < stackLength) {
-                    auto candidateState = stateStack[stackIndex - distanceToViableState].state;
-                    found = candidateState != lastErrorState && dd_error_recovery_ok(candidateState, currentToken);
-                    if (found) break;
-                    distanceToViableState++;
-                }
-                if (found || currentToken == DDToken.ddEND) break;
+                distanceToViableState = find_viable_recovery_state(lastErrorState, currentToken);
+                if (distanceToViableState >= 0 || currentToken == DDToken.ddEND) break;
                 get_next_token();
                 skipCount++;
             }
             errorData.skipCount = skipCount;
-            if (found) with (ddParseStack) {
+            if (distanceToViableState >= 0) with (ddParseStack) {
                 pop(distanceToViableState);
                 lastErrorState = currentState;
                 auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
-                push(DDNonTerminal.ddERROR, nextState);
-                attrStack[stackIndex].ddSyntaxErrorData = errorData;
+                push(DDNonTerminal.ddERROR, nextState, errorData);
+                return true;
             }
-            return found;
+            return false;
         }
 
         void get_next_token()
