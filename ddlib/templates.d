@@ -123,7 +123,7 @@ mixin template DDParserSupport() {
 }
 
 mixin template DDImplementParser() {
-    class DDParser {
+    struct DDParseStack {
         struct StackElement {
             DDSymbol symbolId;
             DDParserState state;
@@ -132,13 +132,11 @@ mixin template DDImplementParser() {
         StackElement[] stateStack;
         DDAttributes[] attrStack;
         size_t stackLength;
-        DDAttributes currentTokenAttributes;
-        DDToken currentToken;
-        DDLexicalAnalyser lexicalAnalyser;
-        // Error handling data
-        bool shifted;
-        DDParserState lastErrorState;
-        uint skipCount;
+
+        invariant() {
+            assert(stateStack.length == attrStack.length);
+            assert(stackLength <= stateStack.length);
+        }
 
         private @property
         size_t stackIndex()
@@ -176,14 +174,25 @@ mixin template DDImplementParser() {
             stackLength -= count;
             return attrStack[stackLength .. stackLength + count].dup;
         }
+    }
+
+    class DDParser {
+        DDParseStack ddParseStack;
+        DDAttributes currentTokenAttributes;
+        DDToken currentToken;
+        DDLexicalAnalyser lexicalAnalyser;
+        // Error handling data
+        bool shifted;
+        DDParserState lastErrorState;
+        uint skipCount;
 
         bool parse_text(string text, string label="")
         {
-            stackLength = 0;
+            ddParseStack = DDParseStack();
             lexicalAnalyser = ddLexicalAnalyserSpecification.new_analyser(text, label);
             get_next_token();
-            push(DDNonTerminal.ddSTART, 0);
-            while (true) {
+            ddParseStack.push(DDNonTerminal.ddSTART, 0);
+            while (true) with (ddParseStack) {
                 auto next_action = dd_get_next_action(currentState, currentToken, attrStack[0 .. stackLength]);
                 final switch (next_action.action) with (DDParseActionType) {
                 case shift:
@@ -220,7 +229,7 @@ mixin template DDImplementParser() {
                 lastErrorState = 0;
                 skipCount = 0;
             }
-            while (true) {
+            while (true) with (ddParseStack) {
                 distanceToViableState = 0;
                 while (distanceToViableState < stackLength) {
                     auto candidateState = stateStack[stackIndex - distanceToViableState].state;
@@ -233,7 +242,7 @@ mixin template DDImplementParser() {
                 skipCount++;
             }
             errorData.skipCount = skipCount;
-            if (found) {
+            if (found) with (ddParseStack) {
                 pop(distanceToViableState);
                 lastErrorState = currentState;
                 auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
