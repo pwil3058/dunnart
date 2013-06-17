@@ -177,23 +177,6 @@ mixin template DDImplementParser() {
             return attrStack[stackLength .. stackLength + count].dup;
         }
 
-        void do_shift(DDParserState to_state)
-        {
-            push(currentToken, to_state);
-            shifted = true;
-            attrStack[stackIndex] = currentTokenAttributes;
-            get_next_token();
-        }
-
-        void do_reduce(DDProduction productionId)
-        {
-            auto productionData = dd_get_production_data(productionId);
-            auto attrs = pop(productionData.length);
-            auto nextState = dd_get_goto_state(productionData.leftHandSide, currentState);
-            push(productionData.leftHandSide, nextState);
-            dd_do_semantic_action(attrStack[stackIndex], productionId, attrs);
-        }
-
         bool parse_text(string text, string label="")
         {
             stackLength = 0;
@@ -204,10 +187,17 @@ mixin template DDImplementParser() {
                 auto next_action = dd_get_next_action(currentState, currentToken, attrStack[0 .. stackLength]);
                 final switch (next_action.action) with (DDParseActionType) {
                 case shift:
-                    do_shift(next_action.next_state);
+                    push(currentToken, next_action.next_state);
+                    attrStack[stackIndex] = currentTokenAttributes;
+                    get_next_token();
+                    shifted = true;
                     break;
                 case reduce:
-                    do_reduce(next_action.productionId);
+                    auto productionData = dd_get_production_data(next_action.productionId);
+                    auto attrs = pop(productionData.length);
+                    auto nextState = dd_get_goto_state(productionData.leftHandSide, currentState);
+                    push(productionData.leftHandSide, nextState);
+                    dd_do_semantic_action(attrStack[stackIndex], next_action.productionId, attrs);
                     break;
                 case accept:
                     return true;
