@@ -132,6 +132,7 @@ mixin template DDImplementParser() {
         StackElement[] stateStack;
         DDAttributes[] attrStack;
         size_t stackLength;
+        DDParserState lastErrorState;
 
         invariant() {
             assert(stateStack.length == attrStack.length);
@@ -168,10 +169,11 @@ mixin template DDImplementParser() {
         }
 
         private
-        void push(DDSymbol symbolId, DDParserState state, DDAttributes attrs)
+        void push(DDToken tokenId, DDParserState state, DDAttributes attrs)
         {
-            push(symbolId, state);
+            push(tokenId, state);
             attrStack[stackIndex] = attrs;
+            lastErrorState = 0; // Reset the last error state on shift
         }
 
         private
@@ -190,13 +192,15 @@ mixin template DDImplementParser() {
         }
 
         private
-        int find_viable_recovery_state(DDParserState lastErrorState, DDToken currentToken)
+        int find_viable_recovery_state(DDToken currentToken)
         {
             int distanceToViableState = 0;
             while (distanceToViableState < stackLength) {
                 auto candidateState = stateStack[stackIndex - distanceToViableState].state;
-                if (candidateState != lastErrorState && dd_error_recovery_ok(candidateState, currentToken))
+                if (candidateState != lastErrorState && dd_error_recovery_ok(candidateState, currentToken)) {
+                    lastErrorState = candidateState;
                     return distanceToViableState;
+                }
                 distanceToViableState++;
             }
             return -1; /// Failure
@@ -209,8 +213,6 @@ mixin template DDImplementParser() {
         DDToken currentToken;
         DDLexicalAnalyser lexicalAnalyser;
         // Error handling data
-        bool shifted;
-        DDParserState lastErrorState;
         uint skipCount;
 
         bool parse_text(string text, string label="")
@@ -225,7 +227,7 @@ mixin template DDImplementParser() {
                 case shift:
                     push(currentToken, next_action.next_state, currentTokenAttributes);
                     get_next_token();
-                    shifted = true;
+                    skipCount = 0; // Reset the count of tokens skipped during error recovery
                     break;
                 case reduce:
                     auto productionData = dd_get_production_data(next_action.productionId);
@@ -250,12 +252,8 @@ mixin template DDImplementParser() {
         bool recover_from_error(DDSyntaxErrorData errorData)
         {
             int distanceToViableState = 0;
-            if (shifted) {
-                lastErrorState = 0;
-                skipCount = 0;
-            }
             while (true) with (ddParseStack) {
-                distanceToViableState = find_viable_recovery_state(lastErrorState, currentToken);
+                distanceToViableState = find_viable_recovery_state(currentToken);
                 if (distanceToViableState >= 0 || currentToken == DDToken.ddEND) break;
                 get_next_token();
                 skipCount++;
@@ -263,7 +261,6 @@ mixin template DDImplementParser() {
             errorData.skipCount = skipCount;
             if (distanceToViableState >= 0) with (ddParseStack) {
                 pop(distanceToViableState);
-                lastErrorState = currentState;
                 auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
                 push(DDNonTerminal.ddERROR, nextState, errorData);
                 return true;
