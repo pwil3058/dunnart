@@ -157,6 +157,18 @@ mixin template DDImplementParser() {
             return stateStack[stackIndex].symbolId;
         }
 
+        private @property
+        ref DDAttributes topOfAttributesStack()
+        {
+            return attrStack[stackIndex];
+        }
+
+        private @property
+        DDAttributes[] attributesStack()
+        {
+            return attrStack[0 .. stackLength];
+        }
+
         private
         void push(DDSymbol symbolId, DDParserState state)
         {
@@ -222,7 +234,7 @@ mixin template DDImplementParser() {
             get_next_token();
             ddParseStack.push(DDNonTerminal.ddSTART, 0);
             while (true) with (ddParseStack) {
-                auto next_action = dd_get_next_action(currentState, currentToken, attrStack[0 .. stackLength]);
+                auto next_action = dd_get_next_action(currentState, currentToken, attributesStack);
                 final switch (next_action.action) with (DDParseActionType) {
                 case shift:
                     push(currentToken, next_action.next_state, currentTokenAttributes);
@@ -234,7 +246,7 @@ mixin template DDImplementParser() {
                     auto attrs = pop(productionData.length);
                     auto nextState = dd_get_goto_state(productionData.leftHandSide, currentState);
                     push(productionData.leftHandSide, nextState);
-                    dd_do_semantic_action(attrStack[stackIndex], next_action.productionId, attrs);
+                    dd_do_semantic_action(topOfAttributesStack, next_action.productionId, attrs);
                     break;
                 case accept:
                     return true;
