@@ -120,9 +120,7 @@ mixin template DDParserSupport() {
             return str;
         }
     }
-}
 
-mixin template DDImplementParser() {
     struct DDParseStack {
         struct StackElement {
             DDSymbol symbolId;
@@ -219,21 +217,50 @@ mixin template DDImplementParser() {
         }
     }
 
-    class DDParser {
-        DDParseStack ddParseStack;
+    struct DDTokenStream {
         DDAttributes currentTokenAttributes;
         DDToken currentToken;
         DDLexicalAnalyser lexicalAnalyser;
+
+        this(string text, string label="")
+        {
+            lexicalAnalyser = ddLexicalAnalyserSpecification.new_analyser(text, label);
+            get_next_token();
+        }
+
+        void get_next_token()
+        {
+            if (lexicalAnalyser.empty) {
+                currentToken = DDToken.ddEND;
+                return;
+            }
+            auto mr = lexicalAnalyser.front;
+            currentTokenAttributes.ddLocation = mr.location;
+            currentTokenAttributes.ddMatchedText = mr.matchedText;
+            if (mr.is_valid_token) {
+                currentToken = mr.tokenSpec.handle;
+                dd_set_attribute_value(currentTokenAttributes, currentToken, mr.matchedText);
+            } else {
+                currentToken = DDToken.ddLEXERROR;
+            }
+            lexicalAnalyser.popFront();
+        }
+    }
+}
+
+mixin template DDImplementParser() {
+    class DDParser {
+        DDParseStack parseStack;
+        DDTokenStream tokenStream;
         // Error handling data
         uint skipCount;
 
         bool parse_text(string text, string label="")
         {
-            ddParseStack = DDParseStack();
-            lexicalAnalyser = ddLexicalAnalyserSpecification.new_analyser(text, label);
-            get_next_token();
-            ddParseStack.push(DDNonTerminal.ddSTART, 0);
-            while (true) with (ddParseStack) {
+            tokenStream = DDTokenStream(text, label);
+            parseStack = DDParseStack();
+            parseStack.push(DDNonTerminal.ddSTART, 0);
+            while (true) with (parseStack) with (tokenStream) {
                 auto next_action = dd_get_next_action(currentState, currentToken, attributesStack);
                 final switch (next_action.action) with (DDParseActionType) {
                 case shift:
@@ -269,24 +296,6 @@ mixin template DDImplementParser() {
                     }
                 }
             }
-        }
-
-        void get_next_token()
-        {
-            if (lexicalAnalyser.empty) {
-                currentToken = DDToken.ddEND;
-                return;
-            }
-            auto mr = lexicalAnalyser.front;
-            currentTokenAttributes.ddLocation = mr.location;
-            currentTokenAttributes.ddMatchedText = mr.matchedText;
-            if (mr.is_valid_token) {
-                currentToken = mr.tokenSpec.handle;
-                dd_set_attribute_value(currentTokenAttributes, currentToken, mr.matchedText);
-            } else {
-                currentToken = DDToken.ddLEXERROR;
-            }
-            lexicalAnalyser.popFront();
         }
     }
 }
