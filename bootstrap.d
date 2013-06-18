@@ -1453,7 +1453,6 @@ DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddNextTok
 
 mixin DDImplementParser;
 
-    auto parser = new DDParser;
-    if (!parser.parse_text(text, label)) return null;
+    if (!dd_parse_text(text, label)) return null;
     return grammarSpecification;
 }

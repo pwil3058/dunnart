@@ -18,7 +18,7 @@
 %{
 double evaluate(string text)
 {
-    double result; // leave initislised as NaN
+    double result; // leave initialised as NaN
 %}
 
 %field  double value
@@ -50,8 +50,7 @@ expr: expr "+" expr !{$$.value = $1.value + $3.value;!}
     .
 
 %{
-    auto calcp = new DDParser;
-    calcp.parse_text(text);
+    dd_parse_text(text);
     return result;
 }
 %}

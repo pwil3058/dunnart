@@ -16,9 +16,7 @@ int main(string[] args)
 {
     auto text = readText(args[1]);
     writeln(text);
-    auto calcp = new DDParser;
-
-    calcp.parse_text(text);
+    dd_parse_text(text);
 
     return 0;
 }

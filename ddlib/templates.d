@@ -249,51 +249,46 @@ mixin template DDParserSupport() {
 }
 
 mixin template DDImplementParser() {
-    class DDParser {
-        DDParseStack parseStack;
-        DDTokenStream tokenStream;
+    bool dd_parse_text(string text, string label="")
+    {
+        auto tokenStream = DDTokenStream(text, label);
+        auto parseStack = DDParseStack();
+        parseStack.push(DDNonTerminal.ddSTART, 0);
         // Error handling data
-        uint skipCount;
-
-        bool parse_text(string text, string label="")
-        {
-            tokenStream = DDTokenStream(text, label);
-            parseStack = DDParseStack();
-            parseStack.push(DDNonTerminal.ddSTART, 0);
-            while (true) with (parseStack) with (tokenStream) {
-                auto next_action = dd_get_next_action(currentState, currentToken, attributesStack);
-                final switch (next_action.action) with (DDParseActionType) {
-                case shift:
-                    push(currentToken, next_action.next_state, currentTokenAttributes);
+        auto skipCount = 0;
+        while (true) with (parseStack) with (tokenStream) {
+            auto next_action = dd_get_next_action(currentState, currentToken, attributesStack);
+            final switch (next_action.action) with (DDParseActionType) {
+            case shift:
+                push(currentToken, next_action.next_state, currentTokenAttributes);
+                get_next_token();
+                skipCount = 0; // Reset the count of tokens skipped during error recovery
+                break;
+            case reduce:
+                auto productionData = dd_get_production_data(next_action.productionId);
+                auto attrs = pop(productionData.length);
+                auto nextState = dd_get_goto_state(productionData.leftHandSide, currentState);
+                push(productionData.leftHandSide, nextState);
+                dd_do_semantic_action(topOfAttributesStack, next_action.productionId, attrs);
+                break;
+            case accept:
+                return true;
+            case error:
+                auto errorData = new DDSyntaxErrorData(currentToken, currentTokenAttributes, next_action.expectedTokens);
+                auto distanceToViableState = find_viable_recovery_state(currentToken);
+                while (distanceToViableState < 0 && currentToken != DDToken.ddEND) {
                     get_next_token();
-                    skipCount = 0; // Reset the count of tokens skipped during error recovery
-                    break;
-                case reduce:
-                    auto productionData = dd_get_production_data(next_action.productionId);
-                    auto attrs = pop(productionData.length);
-                    auto nextState = dd_get_goto_state(productionData.leftHandSide, currentState);
-                    push(productionData.leftHandSide, nextState);
-                    dd_do_semantic_action(topOfAttributesStack, next_action.productionId, attrs);
-                    break;
-                case accept:
-                    return true;
-                case error:
-                    auto errorData = new DDSyntaxErrorData(currentToken, currentTokenAttributes, next_action.expectedTokens);
-                    auto distanceToViableState = find_viable_recovery_state(currentToken);
-                    while (distanceToViableState < 0 && currentToken != DDToken.ddEND) {
-                        get_next_token();
-                        skipCount++;
-                        distanceToViableState = find_viable_recovery_state(currentToken);
-                    }
-                    errorData.skipCount = skipCount;
-                    if (distanceToViableState >= 0) {
-                        pop(distanceToViableState);
-                        auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
-                        push(DDNonTerminal.ddERROR, nextState, errorData);
-                    } else {
-                        stderr.writeln(errorData);
-                        return false;
-                    }
+                    skipCount++;
+                    distanceToViableState = find_viable_recovery_state(currentToken);
+                }
+                errorData.skipCount = skipCount;
+                if (distanceToViableState >= 0) {
+                    pop(distanceToViableState);
+                    auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
+                    push(DDNonTerminal.ddERROR, nextState, errorData);
+                } else {
+                    stderr.writeln(errorData);
+                    return false;
                 }
             }
         }
