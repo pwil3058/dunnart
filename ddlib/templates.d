@@ -240,32 +240,23 @@ mixin template DDImplementParser() {
                     return true;
                 case error:
                     auto errorData = new DDSyntaxErrorData(currentToken, currentTokenAttributes, next_action.expectedTokens);
-                    auto successful = recover_from_error(errorData);
-                    if (!successful) {
+                    auto distanceToViableState = find_viable_recovery_state(currentToken);
+                    while (distanceToViableState < 0 && currentToken != DDToken.ddEND) {
+                        get_next_token();
+                        skipCount++;
+                        distanceToViableState = find_viable_recovery_state(currentToken);
+                    }
+                    errorData.skipCount = skipCount;
+                    if (distanceToViableState >= 0) {
+                        pop(distanceToViableState);
+                        auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
+                        push(DDNonTerminal.ddERROR, nextState, errorData);
+                    } else {
                         stderr.writeln(errorData);
                         return false;
                     }
                 }
             }
-        }
-
-        bool recover_from_error(DDSyntaxErrorData errorData)
-        {
-            int distanceToViableState = 0;
-            while (true) with (ddParseStack) {
-                distanceToViableState = find_viable_recovery_state(currentToken);
-                if (distanceToViableState >= 0 || currentToken == DDToken.ddEND) break;
-                get_next_token();
-                skipCount++;
-            }
-            errorData.skipCount = skipCount;
-            if (distanceToViableState >= 0) with (ddParseStack) {
-                pop(distanceToViableState);
-                auto nextState = dd_get_goto_state(DDNonTerminal.ddERROR, currentState);
-                push(DDNonTerminal.ddERROR, nextState, errorData);
-                return true;
-            }
-            return false;
         }
 
         void get_next_token()
