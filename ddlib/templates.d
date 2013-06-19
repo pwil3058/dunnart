@@ -100,6 +100,8 @@ mixin template DDParserSupport() {
             auto str = dd_literal_token_string(expectedTokens[0]);
             if (str is null) {
                 str = to!(string)(expectedTokens[0]);
+            } else {
+                str = format("\"%s\"", str);
             }
             for (auto i = 1; i < expectedTokens.length - 1; i++) {
                 auto literal = dd_literal_token_string(expectedTokens[i]);
