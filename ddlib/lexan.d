@@ -304,9 +304,20 @@ class LexicalAnalyser(H) {
                 index += lrem.length;
                 return new MatchResult!(H)(lremts, lrem, location);
             } else {
-                // Failure: send back the offending character and its location
-                index += 1;
-                return new MatchResult!(H)(inputText[index - 1 .. index], location);
+                // Failure: send back the offending character(s) and location
+                auto start = index;
+                main_loop: while (index < inputText.length) {
+                    // Gobble characters until something makes sense
+                    index += 1;
+                    if (specification.literalMatcher.get_longest_match(inputText[index .. $]).length > 0) break;
+                    foreach (tspec; specification.regexTokenSpecs) {
+                        if (match(inputText[index .. $], tspec.re)) break main_loop;
+                    }
+                    foreach (skipRe; specification.skipReList) {
+                        if (match(inputText[index .. $], skipRe)) break main_loop;
+                    }
+                }
+                return new MatchResult!(H)(inputText[start .. index], location);
             }
         }
 
@@ -419,11 +430,15 @@ and some included code %{
         new TokenSpec!int(7, r"(%\{(.|[\n\r])*?%\})"),
     ];
     auto ilaspec = new LexicalAnalyserSpecification!int(tilist, skiplist);
-    auto ila = ilaspec.new_analyser("if iffy\n \"quoted\" \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
+    auto ila = ilaspec.new_analyser("if iffy\n \"quoted\" $! %%name \"if\" \n9 $ \tname &{ one \n two &} and so ?{on?}");
     auto im = ila.front(); ila.popFront();
     assert(im.tokenSpec.handle == 0 && im.matchedText == "if" && im.location.lineNumber == 1);
     im = ila.front(); ila.popFront();
     assert(im.tokenSpec.handle == 1 && im.matchedText == "iffy" && im.location.lineNumber == 1);
     im = ila.front(); ila.popFront();
     assert(im.tokenSpec.handle == 4 && im.matchedText == "\"quoted\"" && im.location.lineNumber == 2);
+    im = ila.front(); ila.popFront();
+    assert(im.tokenSpec is null && im.matchedText == "$!" && im.location.lineNumber == 2);
+    im = ila.front(); ila.popFront();
+    assert(im.tokenSpec is null && im.matchedText == "%%" && im.location.lineNumber == 2);
 }
