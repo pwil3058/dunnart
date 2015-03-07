@@ -1,3 +1,8 @@
+THIS PROJECT IS DEPRICATED AND WILL BE REMOVED IN THE NEAR FUTURE
+
+A new improved version of thehis project has been subsumed into the
+grallina project (available at github).
+
 Dunnart D Parser Generator (ddpg)
 =================================
 
