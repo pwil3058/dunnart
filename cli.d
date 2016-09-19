@@ -16,43 +16,45 @@ import std.path;
 
 bool verbose;
 bool force;
-string moduleName;
-string inputFilePath;
-string outputFilePath;
-string prefixPath;
-uint expectedNumberOfConflicts;
+string module_name;
+string input_file_path;
+string output_file_path;
+string state_file_path;
+string prefix_path;
+uint expected_number_of_conflicts;
 
 bool process_command_line(string[] args)
 {
     getopt(args,
         "f|force", &force,
-        "m|module", &moduleName,
+        "m|module", &module_name,
         "v|verbose", &verbose,
-        "o|output", &outputFilePath,
-        "p|prefix", &prefixPath,
-        "e|expect", &expectedNumberOfConflicts,
+        "o|output", &output_file_path,
+        "p|prefix", &prefix_path,
+        "e|expect", &expected_number_of_conflicts,
+        "s|states", &state_file_path,
     );
     if (args.length != 2) {
         print_usage(args[0]);
         return false;
     }
-    inputFilePath = args[1];
+    input_file_path = args[1];
 
     // if the output file path isn't specified then generate it
-    if (outputFilePath.length == 0) {
-        if (moduleName.length > 0) {
-            outputFilePath = module_file_path(moduleName, prefixPath);
-            if (!isValidPath(outputFilePath)) {
-                stderr.writefln("%s: is not a valid file path", outputFilePath);
+    if (output_file_path.length == 0) {
+        if (module_name.length > 0) {
+            output_file_path = module_file_path(module_name, prefix_path);
+            if (!isValidPath(output_file_path)) {
+                stderr.writefln("%s: is not a valid file path", output_file_path);
                 return false;
             }
         } else {
-            outputFilePath = stripExtension(inputFilePath) ~ ".d";
+            output_file_path = stripExtension(input_file_path) ~ ".d";
         }
     }
     // Don't overwrite existing files without specific authorization
-    if (!force && exists(outputFilePath)) {
-        stderr.writefln("%s: already exists: use --force (or -f) to overwrite", outputFilePath);
+    if (!force && exists(output_file_path)) {
+        stderr.writefln("%s: already exists: use --force (or -f) to overwrite", output_file_path);
         return false;
     }
     return true;
@@ -63,13 +65,13 @@ void print_usage(string command)
     writefln("Usage: %s [--force|-f] [--verbose|-v] [(--module|-m)=<module name>] [(--expect|-e)=<number>] [(--output|-0)=<output file name>] <input file>", command);
 }
 
-string module_file_path(string moduleName, string prefixPath)
+string module_file_path(string module_name, string prefix_path)
 {
     static auto split_re = regex(r"\.");
     string[] parts;
-    if (prefixPath.length == 0) {
-        return buildPath(split(moduleName, split_re)) ~ ".d";
+    if (prefix_path.length == 0) {
+        return buildPath(split(module_name, split_re)) ~ ".d";
     } else {
-        return buildNormalizedPath([prefixPath] ~ split(moduleName, split_re)) ~ ".d";
+        return buildNormalizedPath([prefix_path] ~ split(module_name, split_re)) ~ ".d";
     }
 }

@@ -27,64 +27,71 @@ int main(string[] args)
         return 1;
     }
     // Read the text to be parsed
-    string inputText;
+    string input_text;
     try {
-        inputText = readText(inputFilePath);
+        input_text = readText(input_file_path);
     } catch (FileException e) {
         auto msg = extract_file_exception_msg(e);
         writeln(msg);
         return 2;
     } catch (UTFException e) {
-        writefln("%s: not a valid text file: %s", inputFilePath, e);
+        writefln("%s: not a valid text file: %s", input_file_path, e);
         return 3;
     }
     // Parse the text and generate the grammar specification
-    auto grammarSpecification = parse_specification_text(inputText, inputFilePath);
-    if (grammarSpecification is null) return 4;
+    auto grammar_specification = parse_specification_text(input_text, input_file_path);
+    if (grammar_specification is null) return 4;
     if (verbose) {
         writeln("Grammar Specification\n");
-        foreach (textLine; grammarSpecification.get_description()) {
-            writeln(textLine);
+        foreach (text_line; grammar_specification.get_description()) {
+            writeln(text_line);
         }
     }
     // warn about unused symbols
-    foreach (unusedSymbol; grammarSpecification.symbolTable.get_unused_symbols()) {
-        warning(unusedSymbol.definedAt, "Symbol \"%s\" is not used", unusedSymbol);
+    foreach (unused_symbol; grammar_specification.symbol_table.get_unused_symbols()) {
+        warning(unused_symbol.defined_at, "Symbol \"%s\" is not used", unused_symbol);
     }
     // undefined symbols are fatal errors
-    foreach (undefinedSymbol; grammarSpecification.symbolTable.get_undefined_symbols()) {
-        foreach (locn; undefinedSymbol.usedAt) {
-            error(locn, "Symbol \"%s\" is not defined", undefinedSymbol);
+    foreach (undefined_symbol; grammar_specification.symbol_table.get_undefined_symbols()) {
+        foreach (locn; undefined_symbol.used_at) {
+            error(locn, "Symbol \"%s\" is not defined", undefined_symbol);
         }
     }
-    if (errorCount > 0) {
-        stderr.writefln("Too many (%s) errors aborting", errorCount);
+    if (error_count > 0) {
+        stderr.writefln("Too many (%s) errors aborting", error_count);
         return 5;
     }
     // Generate the grammar from the specification
-    auto grammar = new Grammar(grammarSpecification);
+    auto grammar = new Grammar(grammar_specification);
     if (grammar is null)  return 6;
-    if (verbose) {
+    if (state_file_path) {
+        try {
+            auto state_file = File(state_file_path, "w");
+            state_file.write(grammar.get_parser_states_description());
+        } catch (Exception e) {
+            writeln(e);
+        }
+    } else if (verbose) {
         writeln("\nGrammar");
         writeln(grammar.get_parser_states_description());
     }
     if (grammar.total_unresolved_conflicts > 0) {
-        foreach (parserState; grammar.parserStates) {
-            foreach (src; parserState.shiftReduceConflicts) {
-                writefln("State<%s>: shift/reduce conflict on token: %s", parserState.id, src.shiftSymbol);
+        foreach (parser_state; grammar.parser_states) {
+            foreach (src; parser_state.shift_reduce_conflicts) {
+                writefln("State<%s>: shift/reduce conflict on token: %s", parser_state.id, src.shift_symbol);
             }
-            foreach (rrc; parserState.reduceReduceConflicts) {
-                writefln("State<%s>: reduce/reduce conflict on token(s): %s", parserState.id, rrc.lookAheadSetIntersection);
+            foreach (rrc; parser_state.reduce_reduce_conflicts) {
+                writefln("State<%s>: reduce/reduce conflict on token(s): %s", parser_state.id, rrc.look_ahead_set_intersection);
             }
         }
-        if (grammar.total_unresolved_conflicts != expectedNumberOfConflicts) {
+        if (grammar.total_unresolved_conflicts != expected_number_of_conflicts) {
             stderr.writefln("Unexpected conflicts (%s) aborting", grammar.total_unresolved_conflicts);
             return 7;
         }
     }
     try {
-        auto outputFile = File(outputFilePath, "w");
-        grammar.write_parser_code(outputFile, moduleName);
+        auto output_file = File(output_file_path, "w");
+        grammar.write_parser_code(output_file, module_name);
     } catch (Exception e) {
         writeln(e);
         return 8;

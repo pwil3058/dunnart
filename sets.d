@@ -107,7 +107,7 @@ struct Set(T) {
         if (!result.found) {
             _elements ~= WA_ASSIGN_ECAST(newElement);
             if (_elements.length > 1 && result.index < _elements.length - 1) {
-                copy(retro(_elements[result.index .. $ - 1]), retro(_elements[result.index + 1 .. $]));
+                copy(retro(_elements[result.index..$ - 1]), retro(_elements[result.index + 1..$]));
                 _elements[result.index] = WA_ASSIGN_ECAST(newElement);
             }
         }
@@ -162,9 +162,9 @@ struct Set(T) {
         }
         // Add the (one or less) tail if any
         if (this_i < _elements.length) {
-            set_union._elements ~= WA_ASSIGN_ACAST(_elements[this_i .. $]);
+            set_union._elements ~= WA_ASSIGN_ACAST(_elements[this_i..$]);
         } else if (os_i < otherSet._elements.length) {
-            set_union._elements ~= WA_ASSIGN_ACAST(otherSet._elements[os_i .. $]);
+            set_union._elements ~= WA_ASSIGN_ACAST(otherSet._elements[os_i..$]);
         }
         return set_union;
     }
@@ -196,7 +196,7 @@ struct Set(T) {
             }
         }
         if (this_i < _elements.length) {
-            set_difference._elements ~= WA_ASSIGN_ACAST(_elements[this_i .. $]);
+            set_difference._elements ~= WA_ASSIGN_ACAST(_elements[this_i..$]);
         }
         return set_difference;
     }
@@ -235,9 +235,9 @@ struct Set(T) {
         }
         // Add the (one or less) tail if any
         if (this_i < _elements.length) {
-            symetric_set_difference._elements ~= WA_ASSIGN_ACAST(_elements[this_i .. $]);
+            symetric_set_difference._elements ~= WA_ASSIGN_ACAST(_elements[this_i..$]);
         } else if (os_i < otherSet._elements.length) {
-            symetric_set_difference._elements ~= WA_ASSIGN_ACAST(otherSet._elements[os_i .. $]);
+            symetric_set_difference._elements ~= WA_ASSIGN_ACAST(otherSet._elements[os_i..$]);
         }
         return symetric_set_difference;
     }
@@ -384,7 +384,7 @@ struct Set(T) {
         mixin WorkAroundConstLimitations!T;
         if (_elements.length == 0) return "Set{}";
         auto str = format("Set{%s", WA_ASSIGN_ECAST(_elements[0]));
-        foreach (element; _elements[1 .. $]) {
+        foreach (element; _elements[1..$]) {
             str ~= format(", %s", WA_ASSIGN_ECAST(element));
         }
         str ~= "}";

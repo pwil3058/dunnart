@@ -22,27 +22,27 @@ alias string SemanticAction;
 
 class Production {
     mixin IdNumber!(ProductionId);
-    NonTerminalSymbol leftHandSide;
-    Symbol[] rightHandSide;
+    NonTerminalSymbol left_hand_side;
+    Symbol[] right_hand_side;
     Predicate predicate;
     SemanticAction action;
-    AssociativePrecedence associativePrecedence;
+    AssociativePrecedence associative_precedence;
 
     this(ProductionId id, NonTerminalSymbol lhs, Symbol[] rhs, Predicate pred, SemanticAction actn, AssociativePrecedence aprec)
     {
         this.id = id;
-        leftHandSide = lhs;
-        rightHandSide = rhs;
+        left_hand_side = lhs;
+        right_hand_side = rhs;
         predicate = pred;
         action = actn;
         if (aprec.is_explicitly_set) {
-            associativePrecedence = aprec;
+            associative_precedence = aprec;
         } else {
             for (int i = cast(int) rhs.length - 1; i >= 0; i--) {
                 auto symbol = rhs[i];
-                if (symbol.type == SymbolType.token && symbol.associativePrecedence.is_explicitly_set) {
+                if (symbol.type == SymbolType.token && symbol.associative_precedence.is_explicitly_set) {
                     // We only inherit precedence/associativity if it's been explicitly set for the token
-                    associativePrecedence = symbol.associativePrecedence;
+                    associative_precedence = symbol.associative_precedence;
                     break;
                 }
             }
@@ -52,64 +52,64 @@ class Production {
     @property
     Associativity associativity()
     {
-        return associativePrecedence.associativity;
+        return associative_precedence.associativity;
     }
 
     @property
     Precedence precedence()
     {
-        return associativePrecedence.precedence;
+        return associative_precedence.precedence;
     }
 
     @property
     const size_t length()
     {
-        return rightHandSide.length;
+        return right_hand_side.length;
     }
 
     @property
     string expanded_predicate()
     {
-        static auto stackAttr_re = regex(r"\$(\d+)", "g");
-        static auto nextToken_re = regex(r"\$#", "g");
-        auto replaceWith = format("ddAttributeStack[$$ - %s + $1]", rightHandSide.length + 1);
-        return replace(replace(predicate, stackAttr_re, replaceWith), nextToken_re, "ddNextToken");
+        static auto stack_attr_re = regex(r"\$(\d+)", "g");
+        static auto next_token_re = regex(r"\$#", "g");
+        auto replaceWith = format("dd_attribute_stack[$$ - %s + $1]", right_hand_side.length + 1);
+        return replace(replace(predicate, stack_attr_re, replaceWith), next_token_re, "dd_next_token");
     }
 
     @property
     string[] expanded_semantic_action()
     {
         static auto lhs_re = regex(r"\$\$", "g");
-        static auto stackAttr_re = regex(r"\$(\d+)", "g");
-        size_t lastNonBlankLineIndex = 0;
-        size_t firstNonBlankLineIndex = 0;
-        auto nonBlankLineSeen = false;
-        string[] firstPassLines;
-        foreach (index, line; replace(replace(action, lhs_re, "ddLhs"), stackAttr_re, "ddArgs[$1 - 1]").splitLines) {
-            auto strippedLine = line.stripRight.detab(4);
+        static auto stack_attr_re = regex(r"\$(\d+)", "g");
+        size_t last_non_blank_line_index = 0;
+        size_t first_non_blank_line_index = 0;
+        auto non_blank_line_seen = false;
+        string[] first_pass_lines;
+        foreach (index, line; replace(replace(action, lhs_re, "dd_lhs"), stack_attr_re, "dd_args[$1 - 1]").splitLines) {
+            string strippedLine = line.stripRight.detab(4);
             if (strippedLine.length > 0) {
-                lastNonBlankLineIndex = index;
-                if (!nonBlankLineSeen) firstNonBlankLineIndex = index;
-                nonBlankLineSeen = true;
+                last_non_blank_line_index = index;
+                if (!non_blank_line_seen) first_non_blank_line_index = index;
+                non_blank_line_seen = true;
             }
-            firstPassLines ~= strippedLine;
+            first_pass_lines ~= strippedLine;
         }
-        auto requiredIndent = "        ";
-        string[] secondPassLines;
-        foreach (line; firstPassLines[firstNonBlankLineIndex .. lastNonBlankLineIndex + 1].outdent) {
-            secondPassLines ~= requiredIndent ~ line;
+        auto required_indent = "        ";
+        string[] second_pass_lines;
+        foreach (line; first_pass_lines[first_non_blank_line_index..last_non_blank_line_index + 1].outdent) {
+            second_pass_lines ~= required_indent ~ line;
         }
-        return secondPassLines;
+        return second_pass_lines;
     }
 
     override string toString()
     {
         // This is just for use in generated code comments
-        if (rightHandSide.length == 0) {
-            return format("%s: <empty>", leftHandSide.name);
+        if (right_hand_side.length == 0) {
+            return format("%s: <empty>", left_hand_side.name);
         }
-        auto str = format("%s:", leftHandSide.name);
-        foreach (symbol; rightHandSide) {
+        auto str = format("%s:", left_hand_side.name);
+        foreach (symbol; right_hand_side) {
             str ~= format(" %s", symbol);
         }
         if (predicate.length > 0) {
@@ -121,9 +121,9 @@ class Production {
     @property
     bool has_error_recovery_tail()
     {
-        if (rightHandSide.length == 0) return false;
-        auto lastSymbolId = rightHandSide[$ - 1].id;
-        return lastSymbolId == SpecialSymbols.parseError || lastSymbolId == SpecialSymbols.lexError;
+        if (right_hand_side.length == 0) return false;
+        auto last_symbol_id = right_hand_side[$ - 1].id;
+        return last_symbol_id == SpecialSymbols.parse_error;
     }
 }
 
@@ -140,8 +140,7 @@ struct GrammarItemKey {
         this.dot = dot;
     }
 
-    GrammarItemKey
-    clone_shifted()
+    GrammarItemKey clone_shifted()
     in {
         assert(dot < production.length);
     }
@@ -162,22 +161,22 @@ struct GrammarItemKey {
     @property
     bool is_kernel_item()
     {
-        return dot > 0 || production.leftHandSide.id == SpecialSymbols.start;
+        return dot > 0 || production.left_hand_side.id == SpecialSymbols.start;
     }
 
     @property
     bool is_closable()
     {
-        return dot < production.length && production.rightHandSide[dot].type == SymbolType.nonTerminal;
+        return dot < production.length && production.right_hand_side[dot].type == SymbolType.non_terminal;
     }
 
     @property
-    Symbol nextSymbol()
+    Symbol next_symbol()
     in {
         assert(dot < production.length);
     }
     body {
-        return production.rightHandSide[dot];
+        return production.right_hand_side[dot];
     }
 
     @property
@@ -186,12 +185,12 @@ struct GrammarItemKey {
         assert(dot < production.length);
     }
     body {
-        return production.rightHandSide[dot + 1 .. $];
+        return production.right_hand_side[dot + 1..$];
     }
 
     bool next_symbol_is(Symbol symbol)
     {
-        return dot < production.length && production.rightHandSide[dot] == symbol;
+        return dot < production.length && production.right_hand_side[dot] == symbol;
     }
 
     hash_t toHash() const
@@ -216,17 +215,17 @@ struct GrammarItemKey {
     {
         with (production) {
             // This is just for use in debugging
-            if (rightHandSide.length == 0) {
-                return format("%s: . <empty>", leftHandSide.name);
+            if (right_hand_side.length == 0) {
+                return format("%s: . <empty>", left_hand_side.name);
             }
-            auto str = format("%s:", leftHandSide.name);
-            for (auto i = 0; i < rightHandSide.length; i++) {
+            auto str = format("%s:", left_hand_side.name);
+            for (auto i = 0; i < right_hand_side.length; i++) {
                 if (i == dot) {
                     str ~= " .";
                 }
-                str ~= format(" %s", rightHandSide[i]);
+                str ~= format(" %s", right_hand_side[i]);
             }
-            if (dot == rightHandSide.length) {
+            if (dot == right_hand_side.length) {
                 str ~= " .";
             }
             if (predicate.length > 0) {
@@ -241,49 +240,49 @@ alias Set!(TokenSymbol)[GrammarItemKey] GrammarItemSet;
 
 Set!GrammarItemKey get_kernel_keys(GrammarItemSet itemset)
 {
-    auto keySet = Set!GrammarItemKey();
-    foreach (grammarItemKey; itemset.byKey()) {
-        if (grammarItemKey.is_kernel_item) {
-            keySet += grammarItemKey;
+    auto key_set = Set!GrammarItemKey();
+    foreach (grammar_item_key; itemset.byKey()) {
+        if (grammar_item_key.is_kernel_item) {
+            key_set += grammar_item_key;
         }
     }
-    return keySet;
+    return key_set;
 }
 
 Set!GrammarItemKey get_reducible_keys(GrammarItemSet itemset)
 {
-    auto keySet = Set!GrammarItemKey();
-    foreach (grammarItemKey, lookAheadSet; itemset) {
-        if (grammarItemKey.is_reducible) {
-            keySet += grammarItemKey;
+    auto key_set = Set!GrammarItemKey();
+    foreach (grammar_item_key, look_ahead_set; itemset) {
+        if (grammar_item_key.is_reducible) {
+            key_set += grammar_item_key;
         }
     }
-    return keySet;
+    return key_set;
 }
 
 GrammarItemSet generate_goto_kernel(GrammarItemSet itemset, Symbol symbol)
 {
     GrammarItemSet goto_kernel;
-    foreach (grammarItemKey, lookAheadSet; itemset) {
-        if (grammarItemKey.next_symbol_is(symbol)) {
-            goto_kernel[grammarItemKey.clone_shifted()] = lookAheadSet.clone();
+    foreach (grammar_item_key, look_ahead_set; itemset) {
+        if (grammar_item_key.next_symbol_is(symbol)) {
+            goto_kernel[grammar_item_key.clone_shifted()] = look_ahead_set.clone();
         }
     }
     return goto_kernel;
 }
 
-enum ProcessedState { unProcessed, needsReprocessing, processed };
+enum ProcessedState { unprocessed, needs_reprocessing, processed };
 
 struct ShiftReduceConflict {
-    TokenSymbol shiftSymbol;
-    ParserState gotoState;
-    GrammarItemKey reducibleItem;
-    Set!(TokenSymbol) lookAheadSet;
+    TokenSymbol shift_symbol;
+    ParserState goto_state;
+    GrammarItemKey reducible_item;
+    Set!(TokenSymbol) look_ahead_set;
 }
 
 struct ReduceReduceConflict {
-    GrammarItemKey[2] reducibleItem;
-    Set!(TokenSymbol) lookAheadSetIntersection;
+    GrammarItemKey[2] reducible_item;
+    Set!(TokenSymbol) look_ahead_set_intersection;
 }
 
 bool trivially_true(Predicate predicate)
@@ -295,7 +294,7 @@ string token_list_string(TokenSymbol[] tokens)
 {
     if (tokens.length == 0) return "";
     string str = tokens[0].name;
-    foreach (token; tokens[1 .. $]) {
+    foreach (token; tokens[1..$]) {
         str ~= format(", %s", token.name);
     }
     return str;
@@ -305,243 +304,243 @@ alias uint ParserStateId;
 
 class ParserState {
     mixin IdNumber!(ParserStateId);
-    GrammarItemSet grammarItems;
-    ParserState[TokenSymbol] shiftList;
-    ParserState[NonTerminalSymbol] gotoTable;
-    ParserState errorRecoveryState;
+    GrammarItemSet grammar_items;
+    ParserState[TokenSymbol] shift_list;
+    ParserState[NonTerminalSymbol] goto_table;
+    ParserState error_recovery_state;
     ProcessedState state;
-    ShiftReduceConflict[] shiftReduceConflicts;
-    ReduceReduceConflict[] reduceReduceConflicts;
+    ShiftReduceConflict[] shift_reduce_conflicts;
+    ReduceReduceConflict[] reduce_reduce_conflicts;
 
     this(ParserStateId id, GrammarItemSet kernel)
     {
         this.id = id;
-        grammarItems = kernel;
+        grammar_items = kernel;
     }
 
     size_t resolve_shift_reduce_conflicts()
     {
-        // Do this in two stages to obviate problems modifying shiftList
+        // Do this in two stages to obviate problems modifying shift_list
         ShiftReduceConflict[] conflicts;
-        foreach(shiftSymbol, gotoState; shiftList) {
-            foreach (item, lookAheadSet; grammarItems) {
-                if (item.is_reducible && lookAheadSet.contains(shiftSymbol)) {
-                    conflicts ~= ShiftReduceConflict(shiftSymbol, gotoState, item, lookAheadSet);
+        foreach(shift_symbol, goto_state; shift_list) {
+            foreach (item, look_ahead_set; grammar_items) {
+                if (item.is_reducible && look_ahead_set.contains(shift_symbol)) {
+                    conflicts ~= ShiftReduceConflict(shift_symbol, goto_state, item, look_ahead_set);
                 }
             }
         }
-        shiftReduceConflicts = [];
+        shift_reduce_conflicts = [];
         foreach (conflict; conflicts) {
             with (conflict) {
-                if (shiftSymbol.precedence < reducibleItem.production.precedence) {
-                    shiftList.remove(shiftSymbol);
-                } else if (shiftSymbol.precedence > reducibleItem.production.precedence) {
-                    grammarItems[reducibleItem] -= shiftSymbol;
-                } else if (reducibleItem.production.associativity == Associativity.left) {
-                    shiftList.remove(shiftSymbol);
-                } else if (reducibleItem.production.has_error_recovery_tail) {
-                    grammarItems[reducibleItem] -= shiftSymbol;
+                if (shift_symbol.precedence < reducible_item.production.precedence) {
+                    shift_list.remove(shift_symbol);
+                } else if (shift_symbol.precedence > reducible_item.production.precedence) {
+                    grammar_items[reducible_item] -= shift_symbol;
+                } else if (reducible_item.production.associativity == Associativity.left) {
+                    shift_list.remove(shift_symbol);
+                } else if (reducible_item.production.has_error_recovery_tail) {
+                    grammar_items[reducible_item] -= shift_symbol;
                 } else {
                     // Default: resolve in favour of shift but mark as
                     // unresolved giving the user the option of accepting
                     // the resolution or not (down the track)
-                    grammarItems[reducibleItem] -= shiftSymbol;
-                    shiftReduceConflicts ~= conflict;
+                    grammar_items[reducible_item] -= shift_symbol;
+                    shift_reduce_conflicts ~= conflict;
                 }
             }
         }
-        return shiftReduceConflicts.length;
+        return shift_reduce_conflicts.length;
     }
 
     size_t resolve_reduce_reduce_conflicts()
     {
-        reduceReduceConflicts = [];
-        auto reducibleKeySet = grammarItems.get_reducible_keys();
-        if (reducibleKeySet.cardinality < 2) return 0;
+        reduce_reduce_conflicts = [];
+        auto reducible_key_set = grammar_items.get_reducible_keys();
+        if (reducible_key_set.cardinality < 2) return 0;
 
-        auto keys = reducibleKeySet.elements;
+        auto keys = reducible_key_set.elements;
         for (auto i = 0; i < keys.length - 1; i++) {
             auto key1 = keys[i];
-            foreach (key2; keys[i + 1 .. $]) {
+            foreach (key2; keys[i + 1..$]) {
                 assert(key1.production.id < key2.production.id);
-                auto intersection = (grammarItems[key1] & grammarItems[key2]);
+                auto intersection = (grammar_items[key1] & grammar_items[key2]);
                 if (intersection.cardinality > 0 && trivially_true(key1.production.predicate)) {
                     if (key1.production.has_error_recovery_tail) {
-                        grammarItems[key1] -= intersection;
+                        grammar_items[key1] -= intersection;
                     } else if (key2.production.has_error_recovery_tail) {
-                        grammarItems[key2] -= intersection;
+                        grammar_items[key2] -= intersection;
                     } else {
                         // Default: resolve in favour of first declared
                         // production but mark as unresolved giving the
                         // user the option of accepting the resolution
                         // or not (down the track)
-                        grammarItems[key2] -= intersection;
-                        reduceReduceConflicts ~= ReduceReduceConflict([key1, key2], intersection);
+                        grammar_items[key2] -= intersection;
+                        reduce_reduce_conflicts ~= ReduceReduceConflict([key1, key2], intersection);
                     }
                 }
             }
         }
-        return reduceReduceConflicts.length;
+        return reduce_reduce_conflicts.length;
     }
 
     Set!TokenSymbol get_look_ahead_set()
     {
-        auto lookAheadSet = extract_key_set(shiftList);
-        foreach (key; grammarItems.get_reducible_keys()) {
-            lookAheadSet |= grammarItems[key];
+        auto look_ahead_set = extract_key_set(shift_list);
+        foreach (key; grammar_items.get_reducible_keys()) {
+            look_ahead_set |= grammar_items[key];
         }
-        return lookAheadSet;
+        return look_ahead_set;
     }
 
     string[] generate_action_code_text()
     {
-        string[] codeTextLines = ["switch (ddNextToken) {"];
-        string expectedTokensList;
-        auto shiftTokenSet = extract_key_set(shiftList);
-        foreach (token; shiftTokenSet) {
-            codeTextLines ~= format("case %s: return ddShift(%s);", token.name, shiftList[token].id);
+        string[] code_text_lines = ["switch (dd_next_token) {"];
+        string expected_tokens_list;
+        auto shift_token_set = extract_key_set(shift_list);
+        foreach (token; shift_token_set) {
+            code_text_lines ~= format("case %s: return dd_shift!(%s);", token.name, shift_list[token].id);
         }
-        auto itemKeys = grammarItems.get_reducible_keys();
-        if (itemKeys.cardinality == 0) {
-            assert(shiftTokenSet.cardinality > 0);
-            expectedTokensList = token_list_string(shiftTokenSet.elements);
+        auto item_keys = grammar_items.get_reducible_keys();
+        if (item_keys.cardinality == 0) {
+            assert(shift_token_set.cardinality > 0);
+            expected_tokens_list = token_list_string(shift_token_set.elements);
         } else {
-            struct Pair { Set!TokenSymbol lookAheadSet; Set!GrammarItemKey productionSet; };
+            struct Pair { Set!TokenSymbol look_ahead_set; Set!GrammarItemKey production_set; };
             Pair[] pairs;
-            auto combinedLookAhead = Set!TokenSymbol();
-            foreach (itemKey; itemKeys) {
-                combinedLookAhead |= grammarItems[itemKey];
+            auto combined_look_ahead = Set!TokenSymbol();
+            foreach (item_key; item_keys) {
+                combined_look_ahead |= grammar_items[item_key];
             }
-            expectedTokensList = token_list_string((shiftTokenSet | combinedLookAhead).elements);
-            foreach (token; combinedLookAhead) {
-                auto productionSet = Set!GrammarItemKey();
-                foreach (itemKey; itemKeys) {
-                    if (grammarItems[itemKey].contains(token)) {
-                        productionSet += itemKey;
+            expected_tokens_list = token_list_string((shift_token_set | combined_look_ahead).elements);
+            foreach (token; combined_look_ahead) {
+                auto production_set = Set!GrammarItemKey();
+                foreach (item_key; item_keys) {
+                    if (grammar_items[item_key].contains(token)) {
+                        production_set += item_key;
                     }
                 }
                 auto i = 0;
                 for (i = 0; i < pairs.length; i++) {
-                    if (pairs[i].productionSet == productionSet) break;
+                    if (pairs[i].production_set == production_set) break;
                 }
                 if (i < pairs.length) {
-                    pairs[i].lookAheadSet += token;
+                    pairs[i].look_ahead_set += token;
                 } else {
-                    pairs ~= Pair(Set!TokenSymbol(token), productionSet);
+                    pairs ~= Pair(Set!TokenSymbol(token), production_set);
                 }
             }
             foreach (pair; pairs) {
-                codeTextLines ~= format("case %s:", token_list_string(pair.lookAheadSet.elements));
-                auto keys = pair.productionSet.elements;
+                code_text_lines ~= format("case %s:", token_list_string(pair.look_ahead_set.elements));
+                auto keys = pair.production_set.elements;
                 if (trivially_true(keys[0].production.predicate)) {
                     assert(keys.length == 1);
                     if (keys[0].production.id == 0) {
-                        codeTextLines ~= "    return ddAccept;";
+                        code_text_lines ~= "    return dd_accept!();";
                     } else {
-                        codeTextLines ~= format("    return ddReduce(%s); // %s", keys[0].production.id, keys[0].production);
+                        code_text_lines ~= format("    return dd_reduce!(%s); // %s", keys[0].production.id, keys[0].production);
                     }
                 } else {
-                    codeTextLines ~= format("    if (%s) {", keys[0].production.expanded_predicate);
-                    codeTextLines ~= format("        return ddReduce(%s); // %s", keys[0].production.id, keys[0].production);
+                    code_text_lines ~= format("    if (%s) {", keys[0].production.expanded_predicate);
+                    code_text_lines ~= format("        return dd_reduce!(%s); // %s", keys[0].production.id, keys[0].production);
                     if (keys.length == 1) {
-                        codeTextLines ~= "    } else {";
-                        codeTextLines ~= format("        return ddError([%s]);", expectedTokensList);
-                        codeTextLines ~= "    }";
+                        code_text_lines ~= "    } else {";
+                        code_text_lines ~= format("        throw new DDSyntaxError([%s]);", expected_tokens_list);
+                        code_text_lines ~= "    }";
                         continue;
                     }
                     for (auto i = 1; i < keys.length - 1; i++) {
                         assert(!trivially_true(keys[i].production.predicate));
-                        codeTextLines ~= format("    } else if (%s) {", keys[i].production.expanded_predicate);
-                        codeTextLines ~= format("        return ddReduce(%s); // %s", keys[i].production.id, keys[i].production);
+                        code_text_lines ~= format("    } else if (%s) {", keys[i].production.expanded_predicate);
+                        code_text_lines ~= format("        return dd_reduce!(%s); // %s", keys[i].production.id, keys[i].production);
                     }
                     if (trivially_true(keys[$ - 1].production.predicate)) {
-                        codeTextLines ~= "    } else {";
+                        code_text_lines ~= "    } else {";
                         if (keys[$ - 1].production.id == 0) {
-                            codeTextLines ~= "    return ddAccept;";
+                            code_text_lines ~= "    return dd_accept;";
                         } else {
-                            codeTextLines ~= format("        return ddReduce(%s); // %s", keys[$ - 1].production.id, keys[$ - 1].production);
+                            code_text_lines ~= format("        return dd_reduce!(%s); // %s", keys[$ - 1].production.id, keys[$ - 1].production);
                         }
-                        codeTextLines ~= "    }";
+                        code_text_lines ~= "    }";
                     } else {
-                        codeTextLines ~= format("    } else if (%s) {", keys[$ - 1].production.expanded_predicate);
-                        codeTextLines ~= format("        return ddReduce(%s); // %s", keys[$ - 1].production.id, keys[$ - 1].production);
-                        codeTextLines ~= "    } else {";
-                        codeTextLines ~= format("        return ddError([%s]);", expectedTokensList);
-                        codeTextLines ~= "    }";
+                        code_text_lines ~= format("    } else if (%s) {", keys[$ - 1].production.expanded_predicate);
+                        code_text_lines ~= format("        return dd_reduce!(%s); // %s", keys[$ - 1].production.id, keys[$ - 1].production);
+                        code_text_lines ~= "    } else {";
+                        code_text_lines ~= format("        throw new DDSyntaxError([%s]);", expected_tokens_list);
+                        code_text_lines ~= "    }";
                     }
                 }
             }
         }
-        codeTextLines ~= "default:";
-        codeTextLines ~= format("    return ddError([%s]);", expectedTokensList);
-        codeTextLines ~= "}";
-        return codeTextLines;
+        code_text_lines ~= "default:";
+        code_text_lines ~= format("    throw new DDSyntaxError([%s]);", expected_tokens_list);
+        code_text_lines ~= "}";
+        return code_text_lines;
     }
 
     string[] generate_goto_code_text()
     {
-        string[] codeTextLines = ["switch (ddNonTerminal) {"];
-        foreach (symbol; gotoTable.keys.sort) {
-            codeTextLines ~= format("case %s: return %s;", symbol.name, gotoTable[symbol].id);
+        string[] code_text_lines = ["switch (dd_non_terminal) {"];
+        foreach (symbol; goto_table.keys.sort) {
+            code_text_lines ~= format("case %s: return %s;", symbol.name, goto_table[symbol].id);
         }
-        codeTextLines ~= "default:";
-        codeTextLines ~= format("    throw new Exception(format(\"Malformed goto table: no entry for (%%s , %s)\", ddNonTerminal));", id);
-        codeTextLines ~= "}";
-        return codeTextLines;
+        code_text_lines ~= "default:";
+        code_text_lines ~= format("    throw new Exception(format(\"Malformed goto table: no entry for (%%s , %s)\", dd_non_terminal));", id);
+        code_text_lines ~= "}";
+        return code_text_lines;
     }
 
     string get_description()
     {
         auto str = format("State<%s>:\n  Grammar Items:\n", id);
-        foreach (itemKey; grammarItems.keys.sort) {
-            str ~= format("    %s: %s\n", itemKey, grammarItems[itemKey]);
+        foreach (item_key; grammar_items.keys.sort) {
+            str ~= format("    %s: %s\n", item_key, grammar_items[item_key]);
         }
-        auto lookAheadSet = get_look_ahead_set();
+        auto look_ahead_set = get_look_ahead_set();
         str ~= format("  Parser Action Table:\n");
-        if (lookAheadSet.cardinality== 0) {
+        if (look_ahead_set.cardinality== 0) {
             str ~= "    <empty>\n";
         } else {
-            auto reducableItemkeys = grammarItems.get_reducible_keys();
-            foreach (token; lookAheadSet) {
-                if (token in shiftList) {
-                    str ~= format("    %s: shift: -> State<%s>\n", token, shiftList[token].id);
+            auto reducable_item_keys = grammar_items.get_reducible_keys();
+            foreach (token; look_ahead_set) {
+                if (token in shift_list) {
+                    str ~= format("    %s: shift: -> State<%s>\n", token, shift_list[token].id);
                 } else {
-                    foreach (reducibleItemKey; reducableItemkeys) {
-                        if (grammarItems[reducibleItemKey].contains(token)) {
-                            str ~= format("    %s: reduce: %s\n", token, reducibleItemKey.production);
+                    foreach (reducible_item_key; reducable_item_keys) {
+                        if (grammar_items[reducible_item_key].contains(token)) {
+                            str ~= format("    %s: reduce: %s\n", token, reducible_item_key.production);
                         }
                     }
                 }
             }
         }
         str ~= "  Go To Table:\n";
-        if (gotoTable.length == 0) {
+        if (goto_table.length == 0) {
             str ~= "    <empty>\n";
         } else {
-            foreach (nonTerminal; gotoTable.keys.sort) {
-                str ~= format("    %s -> %s\n", nonTerminal, gotoTable[nonTerminal]);
+            foreach (non_terminal; goto_table.keys.sort) {
+                str ~= format("    %s -> %s\n", non_terminal, goto_table[non_terminal]);
             }
         }
-        if (errorRecoveryState is null) {
+        if (error_recovery_state is null) {
             str ~= "  Error Recovery State: <none>\n";
         } else {
-            str ~= format("  Error Recovery State: State<%s>\n", errorRecoveryState.id);
-            str ~= format("    Look Ahead: %s\n", errorRecoveryState.get_look_ahead_set());
+            str ~= format("  Error Recovery State: State<%s>\n", error_recovery_state.id);
+            str ~= format("    Look Ahead: %s\n", error_recovery_state.get_look_ahead_set());
         }
-        if (shiftReduceConflicts.length > 0) {
+        if (shift_reduce_conflicts.length > 0) {
             str ~= "  Shift/Reduce Conflicts:\n";
-            foreach (src; shiftReduceConflicts) {
-                str ~= format("    %s:\n", src.shiftSymbol);
-                str ~= format("      shift -> State<%s>\n", src.gotoState.id);
-                str ~= format("      reduce %s : %s\n", src.reducibleItem.production, src.lookAheadSet);
+            foreach (src; shift_reduce_conflicts) {
+                str ~= format("    %s:\n", src.shift_symbol);
+                str ~= format("      shift -> State<%s>\n", src.goto_state.id);
+                str ~= format("      reduce %s : %s\n", src.reducible_item.production, src.look_ahead_set);
             }
         }
-        if (reduceReduceConflicts.length > 0) {
+        if (reduce_reduce_conflicts.length > 0) {
             str ~= "  Reduce/Reduce Conflicts:\n";
-            foreach (rrc; reduceReduceConflicts) {
-                str ~= format("    %s:\n", rrc.lookAheadSetIntersection);
-                str ~= format("      reduce %s : %s\n", rrc.reducibleItem[0].production, grammarItems[rrc.reducibleItem[0]]);
-                str ~= format("      reduce %s : %s\n", rrc.reducibleItem[1].production, grammarItems[rrc.reducibleItem[1]]);
+            foreach (rrc; reduce_reduce_conflicts) {
+                str ~= format("    %s:\n", rrc.look_ahead_set_intersection);
+                str ~= format("      reduce %s : %s\n", rrc.reducible_item[0].production, grammar_items[rrc.reducible_item[0]]);
+                str ~= format("      reduce %s : %s\n", rrc.reducible_item[1].production, grammar_items[rrc.reducible_item[1]]);
             }
         }
         return str;
@@ -554,157 +553,157 @@ class ParserState {
 }
 
 class GrammarSpecification {
-    SymbolTable symbolTable;
-    Production[] productionList;
-    string headerCodeText;
-    string preambleCodeText;
-    string codaCodeText;
+    SymbolTable symbol_table;
+    Production[] production_list;
+    string header_code_text;
+    string preamble_code_text;
+    string coda_code_text;
 
     invariant () {
-        for (auto i = 0; i < productionList.length; i++) assert(productionList[i].id == i);
+        for (auto i = 0; i < production_list.length; i++) assert(production_list[i].id == i);
     }
 
     this()
     {
-        symbolTable = SymbolTable();
+        symbol_table = SymbolTable();
         // Set the right hand side when start symbol is known.
-        auto dummyProd = new_production(symbolTable.get_special_symbol(SpecialSymbols.start), [], null, null);
-        assert(dummyProd.id == 0);
+        auto dummy_prod = new_production(symbol_table.get_special_symbol(SpecialSymbols.start), [], null, null);
+        assert(dummy_prod.id == 0);
     }
 
     @property
-    ProductionId nextProductionId()
+    ProductionId next_production_id()
     {
-        return cast(ProductionId) productionList.length;
+        return cast(ProductionId) production_list.length;
     }
 
     Production new_production(NonTerminalSymbol lhs, Symbol[] rhs, Predicate pred, SemanticAction actn, AssociativePrecedence aprec=AssociativePrecedence())
     {
-        auto newProdn = new Production(nextProductionId, lhs, rhs, pred, actn, aprec);
-        productionList ~= newProdn;
-        if (newProdn.id == 1) {
-            productionList[0].rightHandSide = [newProdn.leftHandSide];
-            newProdn.leftHandSide.usedAt ~= newProdn.leftHandSide.definedAt;
+        auto new_prodn = new Production(next_production_id, lhs, rhs, pred, actn, aprec);
+        production_list ~= new_prodn;
+        if (new_prodn.id == 1) {
+            production_list[0].right_hand_side = [new_prodn.left_hand_side];
+            new_prodn.left_hand_side.used_at ~= new_prodn.left_hand_side.defined_at;
         }
-        return newProdn;
+        return new_prodn;
     }
 
     void set_header(string header)
     {
-        headerCodeText = header;
+        header_code_text = header;
     }
 
     void set_preamble(string preamble)
     {
-        preambleCodeText = preamble;
+        preamble_code_text = preamble;
     }
 
     void set_coda(string coda)
     {
-        codaCodeText = coda;
+        coda_code_text = coda;
     }
 
-    Set!TokenSymbol FIRST(Symbol[] symbolString, TokenSymbol token)
+    Set!TokenSymbol FIRST(Symbol[] symbol_string, TokenSymbol token)
     {
-        auto tokenSet = Set!TokenSymbol();
-        foreach (symbol; symbolString) {
-            auto firstsData = get_firsts_data(symbol);
-            tokenSet |= firstsData.tokenset;
-            if (!firstsData.transparent) {
-                return tokenSet;
+        auto token_set = Set!TokenSymbol();
+        foreach (symbol; symbol_string) {
+            auto firsts_data = get_firsts_data(symbol);
+            token_set |= firsts_data.tokenset;
+            if (!firsts_data.transparent) {
+                return token_set;
             }
         }
-        tokenSet += token;
-        return tokenSet;
+        token_set += token;
+        return token_set;
     }
 
     FirstsData get_firsts_data(ref Symbol symbol)
     {
-        if (symbol.firstsData is null ) {
-            auto tokenSet = Set!TokenSymbol();
+        if (symbol.firsts_data is null ) {
+            auto token_set = Set!TokenSymbol();
             auto transparent = false;
             if (symbol.type == SymbolType.token) {
-                tokenSet += symbol;
-            } else if (symbol.type == SymbolType.nonTerminal) {
+                token_set += symbol;
+            } else if (symbol.type == SymbolType.non_terminal) {
                 // We need to establish transparency first
-                Production[] relevantProductions;
-                foreach (production; productionList) {
-                    if (production.leftHandSide != symbol) continue;
+                Production[] relevant_productions;
+                foreach (production; production_list) {
+                    if (production.left_hand_side != symbol) continue;
                     transparent = transparent || (production.length == 0);
-                    relevantProductions ~= production;
+                    relevant_productions ~= production;
                 }
-                bool transparencyChanged;
+                bool transparency_changed;
                 do {
                     // TODO: modify this to only redo those before the change in transparency
-                    transparencyChanged = false;
-                    foreach (production; relevantProductions) {
-                        auto transparentProduction = true;
-                        foreach (rhsSymbol; production.rightHandSide) {
-                            if (rhsSymbol == symbol) {
+                    transparency_changed = false;
+                    foreach (production; relevant_productions) {
+                        auto transparent_production = true;
+                        foreach (rhs_symbol; production.right_hand_side) {
+                            if (rhs_symbol == symbol) {
                                 if (transparent) {
                                     continue;
                                 } else {
-                                    transparentProduction = false;
+                                    transparent_production = false;
                                     break;
                                 }
                             }
-                            auto firstsData = get_firsts_data(rhsSymbol);
-                            tokenSet |= firstsData.tokenset;
-                            if (!firstsData.transparent) {
-                                transparentProduction = false;
+                            auto firsts_data = get_firsts_data(rhs_symbol);
+                            token_set |= firsts_data.tokenset;
+                            if (!firsts_data.transparent) {
+                                transparent_production = false;
                                 break;
                             }
                         }
-                        if (transparentProduction) {
-                            transparencyChanged = !transparent;
+                        if (transparent_production) {
+                            transparency_changed = !transparent;
                             transparent = true;
                         }
                     }
-                } while (transparencyChanged);
+                } while (transparency_changed);
             }
-            symbol.firstsData = new FirstsData(tokenSet, transparent);
+            symbol.firsts_data = new FirstsData(token_set, transparent);
         }
-        return symbol.firstsData;
+        return symbol.firsts_data;
     }
 
-    GrammarItemSet closure(GrammarItemSet closureSet)
+    GrammarItemSet closure(GrammarItemSet closure_set)
     {
         // NB: if called with an lValue arg that lValue will also be modified
         bool additions_made;
         do {
             additions_made = false;
-            foreach (itemKey, lookAheadSet; closureSet) {
-                if (!itemKey.is_closable) continue;
-                auto prospectiveLhs = itemKey.nextSymbol;
-                foreach (lookAheadSymbol; lookAheadSet) {
-                    auto firsts = FIRST(itemKey.tail, lookAheadSymbol);
-                    foreach (production; productionList) {
-                        if (prospectiveLhs != production.leftHandSide) continue;
-                        auto prospectiveKey = GrammarItemKey(production);
-                        if (prospectiveKey in closureSet) {
-                            auto cardinality = closureSet[prospectiveKey].cardinality;
-                            closureSet[prospectiveKey] |= firsts;
-                            additions_made = additions_made || closureSet[prospectiveKey].cardinality > cardinality;
+            foreach (item_key, look_ahead_set; closure_set) {
+                if (!item_key.is_closable) continue;
+                auto prospective_lhs = item_key.next_symbol;
+                foreach (look_ahead_symbol; look_ahead_set) {
+                    auto firsts = FIRST(item_key.tail, look_ahead_symbol);
+                    foreach (production; production_list) {
+                        if (prospective_lhs != production.left_hand_side) continue;
+                        auto prospective_key = GrammarItemKey(production);
+                        if (prospective_key in closure_set) {
+                            auto cardinality = closure_set[prospective_key].cardinality;
+                            closure_set[prospective_key] |= firsts;
+                            additions_made = additions_made || closure_set[prospective_key].cardinality > cardinality;
                         } else {
                             // NB: need clone to ensure each GrammarItems don't share look ahead sets
-                            closureSet[prospectiveKey] = firsts.clone();
+                            closure_set[prospective_key] = firsts.clone();
                             additions_made = true;
                         }
                     }
                 }
             }
         } while (additions_made);
-        return closureSet;
+        return closure_set;
     }
 
     string[] get_description()
     {
-        auto textLines = symbolTable.get_description();
-        textLines ~= "Productions:";
-        foreach (pdn; productionList) {
-            textLines ~= format("  %s: %s: %s: %s", pdn.id, pdn, pdn.associativity, pdn.precedence);
+        auto text_lines = symbol_table.get_description();
+        text_lines ~= "Productions:";
+        foreach (pdn; production_list) {
+            text_lines ~= format("  %s: %s: %s: %s", pdn.id, pdn, pdn.associativity, pdn.precedence);
         }
-        return textLines;
+        return text_lines;
     }
 }
 
@@ -716,109 +715,109 @@ string quote_raw(string str)
 
 class Grammar {
     GrammarSpecification spec;
-    ParserState[] parserStates;
-    Set!(ParserState)[ParserState][NonTerminalSymbol] gotoTable;
-    ParserStateId[] emptyLookAheadSets;
-    size_t unresolvedSRConflicts;
-    size_t unresolvedRRConflicts;
+    ParserState[] parser_states;
+    Set!(ParserState)[ParserState][NonTerminalSymbol] goto_table;
+    ParserStateId[] empty_look_ahead_sets;
+    size_t unresolved_sr_conflicts;
+    size_t unresolved_rr_conflicts;
 
     invariant () {
-        for (auto i = 0; i < parserStates.length; i++) assert(parserStates[i].id == i);
+        for (auto i = 0; i < parser_states.length; i++) assert(parser_states[i].id == i);
     }
 
     @property
     size_t total_unresolved_conflicts()
     {
-        return unresolvedRRConflicts + unresolvedSRConflicts;
+        return unresolved_rr_conflicts + unresolved_sr_conflicts;
     }
 
     @property
     ParserStateId next_parser_state_id()
     {
-        return cast(ParserStateId) parserStates.length;
+        return cast(ParserStateId) parser_states.length;
     }
 
     ParserState new_parser_state(GrammarItemSet kernel)
     {
         auto nps = new ParserState(next_parser_state_id, kernel);
-        parserStates ~= nps;
+        parser_states ~= nps;
         return nps;
     }
 
     this(GrammarSpecification specification)
     {
         spec = specification;
-        auto startItemKey = GrammarItemKey(spec.productionList[0]);
-        auto startLookAheadSet = Set!(TokenSymbol)(spec.symbolTable.get_special_symbol(SpecialSymbols.end));
-        GrammarItemSet startKernel = spec.closure([ startItemKey : startLookAheadSet]);
-        auto startState = new_parser_state(startKernel);
+        auto start_item_key = GrammarItemKey(spec.production_list[0]);
+        auto start_look_ahead_set = Set!(TokenSymbol)(spec.symbol_table.get_special_symbol(SpecialSymbols.end));
+        GrammarItemSet start_kernel = spec.closure([ start_item_key : start_look_ahead_set]);
+        auto start_state = new_parser_state(start_kernel);
         while (true) {
             // Find a state that needs processing or quit
-            ParserState unprocessedState = null;
+            ParserState unprocessed_state = null;
             // Go through states in id order
-            foreach (parserState; parserStates) {
-                if (parserState.state != ProcessedState.processed) {
-                    unprocessedState = parserState;
+            foreach (parser_state; parser_states) {
+                if (parser_state.state != ProcessedState.processed) {
+                    unprocessed_state = parser_state;
                     break;
                 }
             }
-            if (unprocessedState is null) break;
+            if (unprocessed_state is null) break;
 
-            auto firstTime = unprocessedState.state == ProcessedState.unProcessed;
-            unprocessedState.state = ProcessedState.processed;
-            auto alreadyDone = Set!Symbol();
+            auto first_time = unprocessed_state.state == ProcessedState.unprocessed;
+            unprocessed_state.state = ProcessedState.processed;
+            auto already_done = Set!Symbol();
             // do items in order
-            foreach (itemKey; unprocessedState.grammarItems.keys.sort){
-                if (itemKey.is_reducible) continue;
-                ParserState gotoState;
-                auto symbolX = itemKey.nextSymbol;
-                if (alreadyDone.contains(symbolX)) continue;
-                alreadyDone += symbolX;
-                auto itemSetX = spec.closure(unprocessedState.grammarItems.generate_goto_kernel(symbolX));
-                auto equivalentState = find_equivalent_state(itemSetX);
-                if (equivalentState is null) {
-                    gotoState = new_parser_state(itemSetX);
+            foreach (item_key; unprocessed_state.grammar_items.keys.sort){
+                if (item_key.is_reducible) continue;
+                ParserState goto_state;
+                auto symbol_x = item_key.next_symbol;
+                if (already_done.contains(symbol_x)) continue;
+                already_done += symbol_x;
+                auto item_set_x = spec.closure(unprocessed_state.grammar_items.generate_goto_kernel(symbol_x));
+                auto equivalent_state = find_equivalent_state(item_set_x);
+                if (equivalent_state is null) {
+                    goto_state = new_parser_state(item_set_x);
                 } else {
-                    foreach (itemKey, lookAheadSet; itemSetX) {
-                        if (!equivalentState.grammarItems[itemKey].is_superset_of(lookAheadSet)) {
-                            equivalentState.grammarItems[itemKey] |= lookAheadSet;
-                            if (equivalentState.state == ProcessedState.processed) {
-                                equivalentState.state = ProcessedState.needsReprocessing;
+                    foreach (item_key, look_ahead_set; item_set_x) {
+                        if (!equivalent_state.grammar_items[item_key].is_superset_of(look_ahead_set)) {
+                            equivalent_state.grammar_items[item_key] |= look_ahead_set;
+                            if (equivalent_state.state == ProcessedState.processed) {
+                                equivalent_state.state = ProcessedState.needs_reprocessing;
                             }
                         }
                     }
-                    gotoState = equivalentState;
+                    goto_state = equivalent_state;
                 }
-                if (firstTime) {
-                    if (symbolX.type == SymbolType.token) {
-                        unprocessedState.shiftList[symbolX] = gotoState;
+                if (first_time) {
+                    if (symbol_x.type == SymbolType.token) {
+                        unprocessed_state.shift_list[symbol_x] = goto_state;
                     } else {
-                        assert(symbolX !in unprocessedState.gotoTable);
-                        unprocessedState.gotoTable[symbolX] = gotoState;
+                        assert(symbol_x !in unprocessed_state.goto_table);
+                        unprocessed_state.goto_table[symbol_x] = goto_state;
                     }
-                    if (symbolX.id == SpecialSymbols.parseError) {
-                        unprocessedState.errorRecoveryState = gotoState;
+                    if (symbol_x.id == SpecialSymbols.parse_error) {
+                        unprocessed_state.error_recovery_state = goto_state;
                     }
                 }
             }
 
         }
-        foreach (parserState; parserStates) {
-            if (parserState.get_look_ahead_set().cardinality == 0) {
-                emptyLookAheadSets ~= parserState.id;
+        foreach (parser_state; parser_states) {
+            if (parser_state.get_look_ahead_set().cardinality == 0) {
+                empty_look_ahead_sets ~= parser_state.id;
             }
-            unresolvedSRConflicts += parserState.resolve_shift_reduce_conflicts();
-            unresolvedRRConflicts += parserState.resolve_reduce_reduce_conflicts();
+            unresolved_sr_conflicts += parser_state.resolve_shift_reduce_conflicts();
+            unresolved_rr_conflicts += parser_state.resolve_reduce_reduce_conflicts();
         }
     }
 
-    ParserState find_equivalent_state(GrammarItemSet grammarItemSet)
+    ParserState find_equivalent_state(GrammarItemSet grammar_item_set)
     {
         // TODO: check if this needs to use only kernel keys
-        auto targetKeySet = grammarItemSet.get_kernel_keys();
-        foreach (parserState; parserStates) {
-            if (targetKeySet == parserState.grammarItems.get_kernel_keys()) {
-                return parserState;
+        auto target_key_set = grammar_item_set.get_kernel_keys();
+        foreach (parser_state; parser_states) {
+            if (target_key_set == parser_state.grammar_items.get_kernel_keys()) {
+                return parser_state;
             }
         }
         return null;
@@ -827,273 +826,288 @@ class Grammar {
     string[] generate_symbol_enum_code_text()
     {
         // TODO: determine type for DDSymbol from maximum symbol id
-        string[] textLines = ["alias ushort DDSymbol;\n"];
-        textLines ~= "enum DDToken : DDSymbol {";
-        foreach (token; spec.symbolTable.get_special_tokens_ordered()) {
-            textLines ~= format("    %s = %s,", token.name, token.id);
+        string[] text_lines = ["alias ushort DDSymbol;\n"];
+        text_lines ~= "enum DDHandle : DDSymbol {";
+        foreach (token; spec.symbol_table.get_special_tokens_ordered()) {
+            text_lines ~= format("    %s = %s,", token.name, token.id);
         }
-        auto ordered_tokens = spec.symbolTable.get_tokens_ordered();
+        auto ordered_tokens = spec.symbol_table.get_tokens_ordered();
         foreach (token; ordered_tokens) {
-            textLines ~= format("    %s = %s,", token.name, token.id);
+            text_lines ~= format("    %s = %s,", token.name, token.id);
         }
-        textLines ~= "}\n";
-        textLines ~= "string dd_literal_token_string(DDToken ddToken)";
-        textLines ~= "{";
-        textLines ~= "    with (DDToken) switch (ddToken) {";
+        text_lines ~= "}\n";
+        text_lines ~= "string dd_literal_token_string(DDHandle dd_token)";
+        text_lines ~= "{";
+        text_lines ~= "    with (DDHandle) switch (dd_token) {";
         foreach (token; ordered_tokens) {
             if (token.pattern[0] == '"') {
-                textLines ~= format("    case %s: return %s; break;", token.name, token.pattern);
+                text_lines ~= format("    case %s: return %s; break;", token.name, token.pattern);
             }
         }
-        textLines ~= "    default:";
-        textLines ~= "    }";
-        textLines ~= "    return null;";
-        textLines ~= "}\n";
-        textLines ~= "enum DDNonTerminal : DDSymbol {";
-        foreach (non_terminal; spec.symbolTable.get_special_non_terminals_ordered()) {
-            textLines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
+        text_lines ~= "    default:";
+        text_lines ~= "    }";
+        text_lines ~= "    return null;";
+        text_lines ~= "}\n";
+        text_lines ~= "enum DDNonTerminal : DDSymbol {";
+        foreach (non_terminal; spec.symbol_table.get_special_non_terminals_ordered()) {
+            text_lines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
         }
-        foreach (non_terminal; spec.symbolTable.get_non_terminals_ordered()) {
-            textLines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
+        foreach (non_terminal; spec.symbol_table.get_non_terminals_ordered()) {
+            text_lines ~= format("    %s = %s,", non_terminal.name, non_terminal.id);
         }
-        textLines ~= "}\n";
-        return textLines;
+        text_lines ~= "}\n";
+        return text_lines;
     }
 
     string[] generate_lexan_token_code_text()
     {
-        string[] textLines = ["static DDLexicalAnalyserSpecification ddLexicalAnalyserSpecification;"];
-        textLines ~= "static this() {";
-        textLines ~= "    DDTokenSpec[] ddTokenSpecs = [";
-        foreach (token; spec.symbolTable.get_tokens_ordered()) {
-            textLines ~= format("        new DDTokenSpec(DDToken.%s, %s),", token.name, quote_raw(token.pattern));
+        string[] text_lines = ["static DDLexicalAnalyser dd_lexical_analyser;"];
+        text_lines ~= "static this() {";
+        text_lines ~= "    static auto dd_lit_lexemes = [";
+        foreach (token; spec.symbol_table.get_tokens_ordered()) {
+            if (!(token.pattern[0] == '"' && token.pattern[$-1] == '"')) continue;
+            text_lines ~= format("        DDLiteralLexeme(DDHandle.%s, %s),", token.name, token.pattern);
         }
-        textLines ~= "    ];\n";
-        textLines ~= "    static string[] ddSkipRules = [";
-        foreach (rule; spec.symbolTable.get_skip_rules()) {
-            textLines ~= format("        %s,", quote_raw(rule));
+        text_lines ~= "    ];\n";
+        text_lines ~= "    static auto dd_regex_lexemes = [";
+        foreach (token; spec.symbol_table.get_tokens_ordered()) {
+            if ((token.pattern[0] == '"' && token.pattern[$-1] == '"')) continue;
+            text_lines ~= format("        DDRegexLexeme!(DDHandle.%s, %s),", token.name, quote_raw(token.pattern));
         }
-        textLines ~= "    ];\n";
-        textLines ~= "    ddLexicalAnalyserSpecification = new DDLexicalAnalyserSpecification(ddTokenSpecs, ddSkipRules);";
-        textLines ~= "}\n";
-        return textLines;
+        text_lines ~= "    ];\n";
+        text_lines ~= "    static auto dd_skip_rules = [";
+        foreach (rule; spec.symbol_table.get_skip_rules()) {
+            text_lines ~= format("        regex(%s),", quote_raw("^" ~ rule));
+        }
+        text_lines ~= "    ];\n";
+        text_lines ~= "    dd_lexical_analyser = new DDLexicalAnalyser(dd_lit_lexemes, dd_regex_lexemes, dd_skip_rules);";
+        text_lines ~= "}\n";
+        return text_lines;
     }
 
     string[] generate_attributes_code_text()
     {
-        string[] textLines = ["struct DDAttributes {"];
-        textLines ~= "    DDCharLocation ddLocation;";
-        textLines ~= "    string ddMatchedText;";
-        auto fields = spec.symbolTable.get_field_definitions();
+        string[] text_lines = ["struct DDAttributes {"];
+        text_lines ~= "    DDCharLocation dd_location;";
+        text_lines ~= "    string dd_matched_text;";
+        auto fields = spec.symbol_table.get_field_definitions();
         if (fields.length > 0) {
-            textLines ~= "    union {";
-            textLines ~= "        DDSyntaxErrorData ddSyntaxErrorData;";
+            text_lines ~= "    union {";
+            text_lines ~= "        DDSyntaxErrorData dd_syntax_error_data;";
             foreach (field; fields) {
-                textLines ~= format("        %s %s;", field.fieldType, field.fieldName);
+                text_lines ~= format("        %s %s;", field.field_type, field.field_name);
             }
-            textLines ~= "    }";
+            text_lines ~= "    }\n";
         } else {
-            textLines ~= "    DDSyntaxErrorData ddSyntaxErrorData;";
+            text_lines ~= "    DDSyntaxErrorData dd_syntax_error_data;\n";
         }
-        textLines ~= "}\n\n";
-        textLines ~= "void dd_set_attribute_value(ref DDAttributes attrs, DDToken ddToken, string text)";
-        textLines ~= "{";
-        Set!TokenSymbol[string] tokenSets;
-        foreach(token; spec.symbolTable.get_tokens_ordered()) {
-            if (token.fieldName.length > 0) {
-                if (token.fieldName !in tokenSets) {
-                    tokenSets[token.fieldName] = Set!TokenSymbol(token);
+        text_lines ~= "    this (DDToken token)";
+        text_lines ~= "    {";
+        text_lines ~= "        dd_location = token.location;";
+        text_lines ~= "        dd_matched_text = token.matched_text;";
+        text_lines ~= "        if (token.is_valid_match) {";
+        text_lines ~= "            dd_set_attribute_value(this, token.handle, token.matched_text);";
+        text_lines ~= "        }";
+        text_lines ~= "    }";
+        text_lines ~= "}\n\n";
+        text_lines ~= "void dd_set_attribute_value(ref DDAttributes attrs, DDHandle dd_token, string text)";
+        text_lines ~= "{";
+        Set!TokenSymbol[string] token_sets;
+        foreach(token; spec.symbol_table.get_tokens_ordered()) {
+            if (token.field_name.length > 0) {
+                if (token.field_name !in token_sets) {
+                    token_sets[token.field_name] = Set!TokenSymbol(token);
                 } else {
-                    tokenSets[token.fieldName] += token;
+                    token_sets[token.field_name] += token;
                 }
             }
         }
-        if (tokenSets.length > 0) {
-            textLines ~= "    with (DDToken) switch (ddToken) {";
+        if (token_sets.length > 0) {
+            text_lines ~= "    with (DDHandle) switch (dd_token) {";
             foreach (field; fields) {
-                if (field.fieldName in tokenSets) {
-                    textLines ~= format("    case %s:", token_list_string(tokenSets[field.fieldName].elements));
-                    if (field.conversionFunctionName.length > 0) {
-                        textLines ~= format("        attrs.%s  = %s(text);", field.fieldName, field.conversionFunctionName);
+                if (field.field_name in token_sets) {
+                    text_lines ~= format("    case %s:", token_list_string(token_sets[field.field_name].elements));
+                    if (field.conversion_function_name.length > 0) {
+                        text_lines ~= format("        attrs.%s  = %s(text);", field.field_name, field.conversion_function_name);
                     } else {
-                        textLines ~= format("        attrs.%s  = to!(%s)(text);", field.fieldName, field.fieldType);
+                        text_lines ~= format("        attrs.%s  = to!(%s)(text);", field.field_name, field.field_type);
                     }
-                    textLines ~= "        break;";
+                    text_lines ~= "        break;";
                 }
             }
-            textLines ~= "    default:";
-            textLines ~= "        // Do nothing";
-            textLines ~= "    }";
+            text_lines ~= "    default:";
+            text_lines ~= "        // Do nothing";
+            text_lines ~= "    }";
         }
-        textLines ~= "}\n";
-        return textLines;
+        text_lines ~= "}\n";
+        return text_lines;
     }
 
     string[] generate_production_data_code_text()
     {
-        string[] textLines = ["alias uint DDProduction;"];
-        textLines ~= "DDProductionData dd_get_production_data(DDProduction ddProduction)";
-        textLines ~= "{";
-        textLines ~= "    with (DDNonTerminal) switch(ddProduction) {";
-        foreach (production; spec.productionList) {
-            textLines ~= format("    case %s: return DDProductionData(%s, %s);", production.id, production.leftHandSide.name, production.rightHandSide.length);
+        string[] text_lines = ["alias uint DDProduction;"];
+        text_lines ~= "DDProductionData dd_get_production_data(DDProduction dd_production)";
+        text_lines ~= "{";
+        text_lines ~= "    with (DDNonTerminal) switch(dd_production) {";
+        foreach (production; spec.production_list) {
+            text_lines ~= format("    case %s: return DDProductionData(%s, %s);", production.id, production.left_hand_side.name, production.right_hand_side.length);
         }
-        textLines ~= "    default:";
-        textLines ~= "        throw new Exception(\"Malformed production data table\");";
-        textLines ~= "    }";
-        textLines ~= "    assert(false);";
-        textLines ~= "}\n";
-        return textLines;
+        text_lines ~= "    default:";
+        text_lines ~= "        throw new Exception(\"Malformed production data table\");";
+        text_lines ~= "    }";
+        text_lines ~= "    assert(false);";
+        text_lines ~= "}\n";
+        return text_lines;
     }
 
     string[] generate_semantic_code_text()
     {
-        string[] textLines = ["void"];
-        textLines ~= "dd_do_semantic_action(ref DDAttributes ddLhs, DDProduction ddProduction, DDAttributes[] ddArgs)";
-        textLines ~= "{";
-        textLines ~= "    switch(ddProduction) {";
-        foreach (production; spec.productionList) {
+        string[] text_lines = ["void"];
+        text_lines ~= "dd_do_semantic_action(ref DDAttributes dd_lhs, DDProduction dd_production, DDAttributes[] dd_args, void delegate(string, string) dd_inject)";
+        text_lines ~= "{";
+        text_lines ~= "    switch(dd_production) {";
+        foreach (production; spec.production_list) {
             if (production.action.length > 0) {
-                textLines ~= format("    case %s: // %s", production.id, production);
-                textLines ~= production.expanded_semantic_action;
-                textLines ~= "        break;";
+                text_lines ~= format("    case %s: // %s", production.id, production);
+                text_lines ~= production.expanded_semantic_action;
+                text_lines ~= "        break;";
             }
         }
-        textLines ~= "    default:";
-        textLines ~= "        // Do nothing";
-        textLines ~= "    }";
-        textLines ~= "}\n";
-        return textLines;
+        text_lines ~= "    default:";
+        text_lines ~= "        // Do nothing";
+        text_lines ~= "    }";
+        text_lines ~= "}\n";
+        return text_lines;
     }
 
     string[] generate_action_table_code_text()
     {
-        string[] codeTextLines = [];
-        codeTextLines ~= "DDParseAction dd_get_next_action(DDParserState ddCurrentState, DDToken ddNextToken, in DDAttributes[] ddAttributeStack)";
-        codeTextLines ~= "{";
-        codeTextLines ~= "    with (DDToken) switch(ddCurrentState) {";
+        string[] code_text_lines = [];
+        code_text_lines ~= "DDParseAction dd_get_next_action(DDParserState dd_current_state, DDHandle dd_next_token, in DDAttributes[] dd_attribute_stack)";
+        code_text_lines ~= "{";
+        code_text_lines ~= "    with (DDHandle) switch(dd_current_state) {";
         // Do this in state id order
         auto indent = "        ";
-        foreach (parserState; parserStates) {
-            codeTextLines ~= format("    case %s:", parserState.id);
-            foreach (line; parserState.generate_action_code_text()) {
+        foreach (parser_state; parser_states) {
+            code_text_lines ~= format("    case %s:", parser_state.id);
+            foreach (line; parser_state.generate_action_code_text()) {
                 auto indented_line = indent ~ line;
-                codeTextLines ~= indented_line;
+                code_text_lines ~= indented_line;
             }
-            codeTextLines ~= "        break;";
+            code_text_lines ~= "        break;";
         }
-        codeTextLines ~= "    default:";
-        codeTextLines ~= "        throw new Exception(format(\"Invalid parser state: %s\", ddCurrentState));";
-        codeTextLines ~= "    }";
-        codeTextLines ~= "    assert(false);";
-        codeTextLines ~= "}\n";
-        return codeTextLines;
+        code_text_lines ~= "    default:";
+        code_text_lines ~= "        throw new Exception(format(\"Invalid parser state: %s\", dd_current_state));";
+        code_text_lines ~= "    }";
+        code_text_lines ~= "    assert(false);";
+        code_text_lines ~= "}\n";
+        return code_text_lines;
     }
 
     string[] generate_goto_table_code_text()
     {
-        string[] codeTextLines = ["alias uint DDParserState;"];
-        codeTextLines ~= "DDParserState dd_get_goto_state(DDNonTerminal ddNonTerminal, DDParserState ddCurrentState)";
-        codeTextLines ~= "{";
-        codeTextLines ~= "    with (DDNonTerminal) switch(ddCurrentState) {";
+        string[] code_text_lines = ["alias uint DDParserState;"];
+        code_text_lines ~= "DDParserState dd_get_goto_state(DDNonTerminal dd_non_terminal, DDParserState dd_current_state)";
+        code_text_lines ~= "{";
+        code_text_lines ~= "    with (DDNonTerminal) switch(dd_current_state) {";
         // Do this in state id order
         auto indent = "        ";
-        foreach (parserState; parserStates) {
-            if (parserState.gotoTable.length == 0) continue;
-            codeTextLines ~= format("    case %s:", parserState.id);
-            foreach (line; parserState.generate_goto_code_text()) {
+        foreach (parser_state; parser_states) {
+            if (parser_state.goto_table.length == 0) continue;
+            code_text_lines ~= format("    case %s:", parser_state.id);
+            foreach (line; parser_state.generate_goto_code_text()) {
                 auto indented_line = indent ~ line;
-                codeTextLines ~= indented_line;
+                code_text_lines ~= indented_line;
             }
-            codeTextLines ~= "        break;";
+            code_text_lines ~= "        break;";
         }
-        codeTextLines ~= "    default:";
-        codeTextLines ~= "        throw new Exception(format(\"Malformed goto table: no entry for (%s, %s).\", ddNonTerminal, ddCurrentState));";
-        codeTextLines ~= "    }";
-        codeTextLines ~= "    throw new Exception(format(\"Malformed goto table: no entry for (%s, %s).\", ddNonTerminal, ddCurrentState));";
-        codeTextLines ~= "}\n";
-        return codeTextLines;
+        code_text_lines ~= "    default:";
+        code_text_lines ~= "        throw new Exception(format(\"Malformed goto table: no entry for (%s, %s).\", dd_non_terminal, dd_current_state));";
+        code_text_lines ~= "    }";
+        code_text_lines ~= "    throw new Exception(format(\"Malformed goto table: no entry for (%s, %s).\", dd_non_terminal, dd_current_state));";
+        code_text_lines ~= "}\n";
+        return code_text_lines;
     }
 
     string[] generate_error_recovery_code_text()
     {
-        string[] codeTextLines = ["bool dd_error_recovery_ok(DDParserState ddParserState, DDToken ddToken)"];
-        codeTextLines ~= "{";
-        codeTextLines ~= "    with (DDToken) switch(ddParserState) {";
+        string[] code_text_lines = ["bool dd_error_recovery_ok(DDParserState dd_parser_state, DDHandle dd_token)"];
+        code_text_lines ~= "{";
+        code_text_lines ~= "    with (DDHandle) switch(dd_parser_state) {";
         // Do this in state id order
-        foreach (parserState; parserStates) {
-            if (parserState.errorRecoveryState is null) continue;
-            auto errorRecoverySet = Set!TokenSymbol();
-            foreach (itemKey, lookAheadSet; parserState.errorRecoveryState.grammarItems) {
-                if (itemKey.dot > 0 && itemKey.production.rightHandSide[itemKey.dot - 1].id == SpecialSymbols.parseError) {
-                    errorRecoverySet |= lookAheadSet;
+        foreach (parser_state; parser_states) {
+            if (parser_state.error_recovery_state is null) continue;
+            auto error_recovery_set = Set!TokenSymbol();
+            foreach (item_key, look_ahead_set; parser_state.error_recovery_state.grammar_items) {
+                if (item_key.dot > 0 && item_key.production.right_hand_side[item_key.dot - 1].id == SpecialSymbols.parse_error) {
+                    error_recovery_set |= look_ahead_set;
                 }
             }
-            if (errorRecoverySet.cardinality > 0) {
-                codeTextLines ~= format("    case %s:", parserState.id);
-                codeTextLines ~= "        switch (ddToken) {";
-                codeTextLines ~= format("        case %s:", token_list_string(errorRecoverySet.elements));
-                codeTextLines ~= "            return true;";
-                codeTextLines ~= "        default:";
-                codeTextLines ~= "            return false;";
-                codeTextLines ~= "        }";
-                codeTextLines ~= "        break;";
+            if (error_recovery_set.cardinality > 0) {
+                code_text_lines ~= format("    case %s:", parser_state.id);
+                code_text_lines ~= "        switch (dd_token) {";
+                code_text_lines ~= format("        case %s:", token_list_string(error_recovery_set.elements));
+                code_text_lines ~= "            return true;";
+                code_text_lines ~= "        default:";
+                code_text_lines ~= "            return false;";
+                code_text_lines ~= "        }";
+                code_text_lines ~= "        break;";
             }
         }
-        codeTextLines ~= "    default:";
-        codeTextLines ~= "    }";
-        codeTextLines ~= "    return false;";
-        codeTextLines ~= "}\n";
-        return codeTextLines;
+        code_text_lines ~= "    default:";
+        code_text_lines ~= "    }";
+        code_text_lines ~= "    return false;";
+        code_text_lines ~= "}\n";
+        return code_text_lines;
     }
 
-    void write_parser_code(File outputFile, string moduleName="")
+    void write_parser_code(File output_file, string module_name="")
     in {
-        assert(outputFile.isOpen);
-        assert(outputFile.size == 0);
+        assert(output_file.isOpen);
+        assert(output_file.size == 0);
     }
     body {
-        if (moduleName.length > 0) {
-            outputFile.writefln("module %s;\n", moduleName);
+        if (module_name.length > 0) {
+            output_file.writefln("module %s;\n", module_name);
         }
-        outputFile.writeln(stripLeft(spec.headerCodeText));
-        outputFile.writeln("import ddlib.templates;\n");
-        outputFile.writeln("mixin DDParserSupport;\n");
+        output_file.writeln(stripLeft(spec.header_code_text));
+        output_file.writeln("import ddlib.templates;\n");
+        output_file.writeln("mixin DDParserSupport;\n");
         foreach (line; generate_symbol_enum_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
         foreach (line; generate_lexan_token_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
         foreach (line; generate_production_data_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
         foreach (line; generate_attributes_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
         foreach (line; generate_goto_table_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
         foreach (line; generate_error_recovery_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
-        outputFile.writeln(spec.preambleCodeText);
+        output_file.writeln(spec.preamble_code_text);
         foreach (line; generate_semantic_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
         foreach (line; generate_action_table_code_text()) {
-            outputFile.writeln(line);
+            output_file.writeln(line);
         }
-        outputFile.writeln("\nmixin DDImplementParser;");
-        outputFile.writeln(spec.codaCodeText.stripRight);
-        outputFile.close();
+        output_file.writeln("\nmixin DDImplementParser;");
+        output_file.writeln(spec.coda_code_text.stripRight);
+        output_file.close();
     }
 
     string get_parser_states_description()
     {
         string str;
-        foreach (parserState; parserStates) {
-            str ~= parserState.get_description();
+        foreach (parser_state; parser_states) {
+            str ~= parser_state.get_description();
         }
         return str;
     }
