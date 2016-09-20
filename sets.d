@@ -307,7 +307,7 @@ struct Set(T) {
                 os_i++;
             }
         }
-        return true;
+        return os_i == otherSet._elements.length;
     }
 
     bool is_superset_of(in Set otherSet) const
@@ -415,6 +415,11 @@ unittest {
     assert(iset.is_superset_of(uset));
     assert(iset.is_proper_superset_of(uset));
     assert(!uset.is_superset_of(iset));
+    // test superset bug
+    auto iiset = Set!int(1, 2, 3, 4);
+    auto jjset = Set!int(1, 2, 3, 5);
+    assert(!iiset.is_superset_of(jjset));
+    // previous line caused post condition failure when bug present
     assert(xset != iset);
     assert(uset.cardinality == 3);
     uset.add(9);
