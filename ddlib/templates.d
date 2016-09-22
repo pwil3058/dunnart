@@ -146,6 +146,8 @@ mixin template DDParserSupport() {
 }
 
 mixin template DDImplementParser() {
+    import std.stdio;
+
     struct DDParseStack {
         struct StackElement {
             DDSymbol symbol_id;
