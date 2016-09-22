@@ -325,7 +325,7 @@ class ParserState {
         foreach(shift_symbol, goto_state; shift_list) {
             foreach (item, look_ahead_set; grammar_items) {
                 if (item.is_reducible && look_ahead_set.contains(shift_symbol)) {
-                    conflicts ~= ShiftReduceConflict(shift_symbol, goto_state, item, look_ahead_set);
+                    conflicts ~= ShiftReduceConflict(shift_symbol, goto_state, item, look_ahead_set.clone());
                 }
             }
         }
@@ -497,7 +497,7 @@ class ParserState {
         }
         auto look_ahead_set = get_look_ahead_set();
         str ~= format("  Parser Action Table:\n");
-        if (look_ahead_set.cardinality== 0) {
+        if (look_ahead_set.cardinality == 0) {
             str ~= "    <empty>\n";
         } else {
             auto reducable_item_keys = grammar_items.get_reducible_keys();
