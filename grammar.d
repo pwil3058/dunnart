@@ -1071,6 +1071,7 @@ class Grammar {
             output_file.writefln("module %s;\n", module_name);
         }
         output_file.writeln(stripLeft(spec.header_code_text));
+        output_file.writeln("import std.regex;\nimport std.string;\nimport std.conv;\n");
         output_file.writeln("import ddlib.templates;\n");
         output_file.writeln("mixin DDParserSupport;\n");
         foreach (line; generate_symbol_enum_code_text()) {
