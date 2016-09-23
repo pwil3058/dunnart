@@ -19,9 +19,8 @@
 %}
 
 %{
-import std.string;
 import std.stdio;
-import std.regex;
+import std.file;
 
 import ddlib.lexan;
 import symbols;
@@ -77,7 +76,7 @@ GrammarSpecification parse_specification_text(string text, string label="") {
 %field  StringList string_list
 
 %token  REGEX           (\(.+\)(?=\s))
-%token  LITERAL         ("\S+")
+%token  LITERAL         ("(\\"|[^"\t\r\n\v\f])*")
 %token  TOKEN           "%token"
 %token  FIELD           "%field"
 %token  LEFT            "%left"
@@ -86,6 +85,7 @@ GrammarSpecification parse_specification_text(string text, string label="") {
 %token  PRECEDENCE      "%prec"
 %token  SKIP            "%skip"
 %token  ERROR           "%error"
+%token  INJECT          "%inject"
 %token  NEWSECTION      "%%"
 %token  COLON           ":"
 %token  VBAR            "|"
@@ -100,22 +100,46 @@ GrammarSpecification parse_specification_text(string text, string label="") {
 %skip (//[^\n\r]*)
 %skip (\s+)
 
+%right INJECT
+
 %%
 specification: preamble definitions "%%" production_rules coda.
+
+oinjection: !{ // no injection so nothing to do !} | injection .
+
+injection_head: "%inject" LITERAL
+        !{
+            auto file_path = $2.dd_matched_text[1..$ - 1];
+            try {
+                auto text = readText(file_path);
+                if (text.length > 0) {
+                    dd_inject(text, file_path);
+                } else {
+                    warning($2.dd_location, "Injected file \"%s\" is empty.", file_path);
+                }
+            } catch (FileException e) {
+                error($2.dd_location, " Injecting: %s.", e.msg);
+            }
+        !}
+    .
+
+// NB This (including the split) is needed to allow for "look ahead" mechanism.
+// It ensures injection occurs before any meaningful tokens are read
+injection: injection_head "." .
 
 // Preamble
 preamble:
         !{
             // no preamble defined so there's nothing to do
         !}
-    | DCODE
+    | oinjection DCODE oinjection
         !{
-            grammar_specification.set_preamble($1.dd_matched_text[2..$ - 2]);
-        !}
-    | DCODE DCODE
-        !{
-            grammar_specification.set_header($1.dd_matched_text[2..$ - 2]);
             grammar_specification.set_preamble($2.dd_matched_text[2..$ - 2]);
+        !}
+    | oinjection DCODE oinjection DCODE oinjection
+        !{
+            grammar_specification.set_header($2.dd_matched_text[2..$ - 2]);
+            grammar_specification.set_preamble($4.dd_matched_text[2..$ - 2]);
         !}
     .
 
@@ -124,9 +148,9 @@ coda:
         !{
             // no coda defined so there's nothing to do
         !}
-    | DCODE
+    | oinjection DCODE
         !{
-            grammar_specification.set_coda($1.dd_matched_text[2..$ - 2]);
+            grammar_specification.set_coda($2.dd_matched_text[2..$ - 2]);
         !}
     .
 
@@ -137,7 +161,7 @@ field_definitions : // empty production
         !{
             // do nothing
         !}
-    | field_definitions field_definition
+    | field_definitions oinjection field_definition oinjection
     .
 
 field_definition: "%field" field_type field_name
@@ -182,8 +206,8 @@ field_conversion_function: IDENT ?( !is_allowable_name($1.dd_matched_text) ?)
     .
 
 // Token definitions
-token_definitions : token_definition
-    | token_definitions token_definition
+token_definitions : oinjection token_definition
+    | token_definitions oinjection token_definition oinjection
     .
 
 token_definition: "%token" new_token_name pattern
@@ -226,7 +250,7 @@ skip_definitions : // empty production
         !{
             // do nothing
         !}
-    | skip_definitions skip_definition
+    | skip_definitions oinjection skip_definition oinjection
     .
 
 skip_definition: "%skip" REGEX
@@ -240,7 +264,7 @@ precedence_definitions : // empty production
         !{
             // do nothing
         !}
-    | precedence_definitions precedence_definition
+    | precedence_definitions oinjection precedence_definition oinjection
     .
 
 precedence_definition: "%left" tag_list
@@ -298,8 +322,8 @@ tag: LITERAL
     .
 
 // Production rules
-production_rules: production_group
-    | production_rules production_group
+production_rules: oinjection production_group oinjection
+    | production_rules production_group oinjection
     .
 
 production_group: production_group_head production_tail_list "."

@@ -1,0 +1,11 @@
+
+%token          EOL     (\n)
+%token          PLUS    "+"
+%token          MINUS   "-"
+%token          TIMES   "*"
+%token          DIVIDE  "/"
+%token          ASSIGN  "="
+%token  <value> NUMBER  ([0-9]+(\.[0-9]+){0,1})
+%token  <id>    ID      ([a-zA-Z]+)
+%token          LPR     "("
+%token          RPR     ")"

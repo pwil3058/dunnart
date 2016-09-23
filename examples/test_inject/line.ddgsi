@@ -1,0 +1,6 @@
+line: setup expr !{writeln($2.value);!}
+    | setup ID "=" expr !{variables[$2.id] = $4.value;!}
+    | line EOL line
+    | line EOL
+    | %error !{writeln("EL: ", $1.dd_syntax_error_data);!}
+    .

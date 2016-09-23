@@ -1,0 +1,22 @@
+
+expr: expr "+" expr ?($1.value == 0?) !{$$.value = $3.value;!}
+    | expr "+" expr ?($3.value == 0?) !{$$.value = $1.value;!}
+    | expr "+" expr !{$$.value = $1.value + $3.value;!}
+    | expr "-" expr ?($1.value == 0?) !{$$.value = -$3.value;!}
+    | expr "-" expr ?($3.value == 0?) !{$$.value = $1.value;!}
+    | expr "-" expr !{$$.value = $1.value - $3.value;!}
+    | expr "*" expr ?($1.value == 0 || $3.value == 0?) !{$$.value = -$3.value;!}
+    | expr "*" expr ?($1.value == 1?) !{$$.value = $3.value;!}
+    | expr "*" expr ?($3.value == 1?) !{$$.value = $1.value;!}
+    | expr "*" expr !{$$.value = $1.value * $3.value;!}
+    | expr "/" expr ?($3.value == 1?) !{$$.value = $1.value;!}
+    | expr "/" expr ?($3.value == 0?) !{$$.value = 0; writeln("Divide by zero!!");!}
+    | expr "/" expr ?($1.value == 0?) !{$$.value = 0;!}
+    | expr "/" expr !{$$.value = $1.value / $3.value;!}
+    | "(" expr ")" !{$$.value = $2.value;!}
+    | "-" expr %prec UMINUS !{$$.value = -$2.value;!}
+    | NUMBER !{$$.value = $1.value;!}
+    | ID ?($1.id in variables?) !{$$.value = variables[$1.id];!}
+    | ID !{writefln("%s: undefined variable", $1.id); $$.value = 0;!}
+    | %error !{writeln("EE: ", $1.dd_syntax_error_data);!}
+    .

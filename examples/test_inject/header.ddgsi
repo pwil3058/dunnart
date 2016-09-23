@@ -1,0 +1,24 @@
+%{
+import std.stdio;
+double[string] variables;
+enum Errors { undefinedVariables = 1, divideByZero = 2, syntaxError = 4, lexError = 8 };
+uint errors;
+
+void report_errors()
+{
+    auto report = "Errors:";
+    if (errors & Errors.undefinedVariables) {
+        report ~= " \"Undefined Variables\"";
+    }
+    if (errors & Errors.divideByZero) {
+        report ~= " \"Divide by Zero\"";
+    }
+    if (errors & Errors.syntaxError) {
+        report ~= " \"Syntax Errors\"";
+    }
+    if (errors & Errors.lexError) {
+        report ~= " \"Lexical Errors\"";
+    }
+    stderr.writeln(report);
+}
+%}

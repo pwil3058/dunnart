@@ -1,0 +1,16 @@
+%inject "header.ddgsi".
+
+%inject "fields.ddgsi".
+
+%inject "tokens.ddgsi".
+
+%inject "skips.ddgsi".
+
+%inject "precs.ddgsi".
+
+%%
+%inject "line.ddgsi".
+
+setup: !{errors = 0;!}.
+
+%inject "expr.ddgsi".
