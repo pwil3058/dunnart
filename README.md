@@ -33,15 +33,15 @@ Options:
         overwrite existing output file
     -m <name> | --module=<name>:
         insert a "module" statement in the output file using name
-    -v|--verbose:
+    -v | --verbose:
         produce a full description of the grammar generated
-    -o <name>|output=<name:
+    -o <name> | --output=<name:
         write the generated parser code to the named file
-    -p <path>|--prefix=<path>:
+    -p <path> | --prefix=<path>:
         if using a path name based on the module name prefix it with path
-    -e  <number>|expect=<number>:
+    -e  <number> | --expect=<number>:
         expect exactly "number" total conflicts
-    -s  <number>|states=<path>:
+    -s  <number> | --states=<path>:
         write a textual description of the parser's states to "path"
         to assist in resolution of any conflicts
 
