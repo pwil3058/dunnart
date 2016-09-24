@@ -620,8 +620,6 @@ import ddlib.lexan;
 import symbols;
 import grammar;
 
-GrammarSpecification grammar_specification;
-
 struct ProductionTail {
     Symbol[] right_hand_side;
     AssociativePrecedence associative_precedence;
