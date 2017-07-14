@@ -14,6 +14,7 @@ import std.regex;
 import sets;
 import idnumber;
 import workarounds;
+import workarounds: wa_sort;
 
 import ddlib.lexan;
 
@@ -405,7 +406,7 @@ struct SymbolTable {
         assert(result.length == tokens.length);
     }
     body {
-        return tokens.values.sort;
+        return tokens.values.wa_sort;
     }
 
     TokenSymbol[] get_special_tokens_ordered()
@@ -439,7 +440,7 @@ struct SymbolTable {
         assert(result.length == non_terminals.length);
     }
     body {
-        return non_terminals.values.sort;
+        return non_terminals.values.wa_sort;
     }
 
     NonTerminalSymbol[] get_special_non_terminals_ordered()
@@ -483,7 +484,7 @@ struct SymbolTable {
         if (field_definitions.length == 0) {
             text_lines ~= "  <none>";
         } else {
-            foreach (key; field_definitions.keys.sort) {
+            foreach (key; field_definitions.keys.wa_sort) {
                 with (field_definitions[key]) {
                     if (conversion_function_name.length == 0) {
                         text_lines ~= format("  %s: %s: %s to!(%s)(string str)", field_name, field_type, field_type, field_type);
@@ -509,7 +510,7 @@ struct SymbolTable {
         if (tags.length == 0) {
             text_lines ~= "  <none>";
         } else {
-            foreach (tagKey; tags.keys.sort) {
+            foreach (tagKey; tags.keys.wa_sort) {
                 with (tags[tagKey]) {
                     text_lines ~= format("  %s: %s: %s: %s", id, name, associativity, precedence);
                     text_lines ~= format("    Defined At: %s", defined_at);

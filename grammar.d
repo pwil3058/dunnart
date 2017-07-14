@@ -16,6 +16,8 @@ import symbols;
 import sets;
 import idnumber;
 
+import workarounds: wa_sort;
+
 alias uint ProductionId;
 alias string Predicate;
 alias string SemanticAction;
@@ -480,7 +482,7 @@ class ParserState {
     string[] generate_goto_code_text()
     {
         string[] code_text_lines = ["switch (dd_non_terminal) {"];
-        foreach (symbol; goto_table.keys.sort) {
+        foreach (symbol; goto_table.keys.wa_sort) {
             code_text_lines ~= format("case %s: return %s;", symbol.name, goto_table[symbol].id);
         }
         code_text_lines ~= "default:";
@@ -492,7 +494,7 @@ class ParserState {
     string get_description()
     {
         auto str = format("State<%s>:\n  Grammar Items:\n", id);
-        foreach (item_key; grammar_items.keys.sort) {
+        foreach (item_key; grammar_items.keys.wa_sort) {
             str ~= format("    %s: %s\n", item_key, grammar_items[item_key]);
         }
         auto look_ahead_set = get_look_ahead_set();
@@ -517,7 +519,7 @@ class ParserState {
         if (goto_table.length == 0) {
             str ~= "    <empty>\n";
         } else {
-            foreach (non_terminal; goto_table.keys.sort) {
+            foreach (non_terminal; goto_table.keys.wa_sort) {
                 str ~= format("    %s -> %s\n", non_terminal, goto_table[non_terminal]);
             }
         }
@@ -767,7 +769,7 @@ class Grammar {
             unprocessed_state.state = ProcessedState.processed;
             auto already_done = Set!Symbol();
             // do items in order
-            foreach (item_key; unprocessed_state.grammar_items.keys.sort){
+            foreach (item_key; unprocessed_state.grammar_items.keys.wa_sort){
                 if (item_key.is_reducible) continue;
                 ParserState goto_state;
                 auto symbol_x = item_key.next_symbol;

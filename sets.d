@@ -13,6 +13,8 @@ import std.algorithm: copy, find;
 import std.traits: isAssignable;
 import std.range: retro;
 
+import workarounds: wa_sort;
+
 // for use in unit tests
 mixin template DummyClass() {
     class Dummy {
@@ -229,7 +231,7 @@ body {
     } else {
         auto list_dup = list.dup;
     }
-    return list_dup.sort.remove_adj_dups();;
+    return list_dup.wa_sort.remove_adj_dups();;
 }
 unittest {
     int[] empty;
@@ -651,9 +653,9 @@ struct Set(T) {
     }
     body {
         static if (!isAssignable!(T, const(T))) {
-            _elements = (cast(T[]) initial_items).dup.sort.remove_adj_dups();
+            _elements = (cast(T[]) initial_items).dup.wa_sort.remove_adj_dups();
         } else {
-            _elements = initial_items.dup.sort.remove_adj_dups();
+            _elements = initial_items.dup.wa_sort.remove_adj_dups();
         }
     }
 
